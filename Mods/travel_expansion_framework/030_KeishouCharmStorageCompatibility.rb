@@ -345,7 +345,15 @@ if defined?(TravelExpansionFramework)
     def keishou_apply_item_metadata!(raw)
       raw_symbol = keishou_raw_item_symbol(raw)
       return false if raw_symbol.nil?
-      item_data_list = (keishou_runtime_item_symbols(raw_symbol) + [raw_symbol]).map { |candidate| keishou_item_data(candidate) }.compact.uniq
+      host_collision = respond_to?(:base_item_try_get) && !!base_item_try_get(raw_symbol)
+      symbols = keishou_runtime_item_symbols(raw_symbol).find_all do |candidate|
+        next true if respond_to?(:imported_item_runtime_symbol?) &&
+                     imported_item_runtime_symbol?(candidate)
+        next true if !host_collision && keishou_raw_item_symbol(candidate) == raw_symbol
+        false
+      end
+      symbols << raw_symbol if !host_collision && !symbols.include?(raw_symbol)
+      item_data_list = symbols.map { |candidate| keishou_item_data(candidate) }.compact.uniq
       return false if item_data_list.empty?
       definition = keishou_item_metadata_definition(raw_symbol)
       return false if !definition.is_a?(Hash)
@@ -401,11 +409,25 @@ if defined?(TravelExpansionFramework)
       return nil if item.nil?
       metadata = item.instance_variable_get(:@travel_expansion_item_metadata) rescue nil
       raw = nil
+      owns_item = false
+      item_id = item.id if item.respond_to?(:id)
+      canonical = canonical_imported_item_reference(item_id) if item_id && respond_to?(:canonical_imported_item_reference)
+      runtime_owned = canonical && keishou_expansion_ids.include?(canonical[0].to_s)
+      runtime_owned ||= imported_item_runtime_symbol?(item_id) if item_id && respond_to?(:imported_item_runtime_symbol?)
+      current_keishou = keishou_active_now?
+      raw_candidate = nil
       if metadata.is_a?(Hash) && respond_to?(:imported_item_metadata_value) &&
          keishou_expansion_ids.include?(imported_item_metadata_value(metadata, :expansion_id).to_s)
         raw = imported_item_metadata_value(metadata, :raw_name)
+        owns_item = runtime_owned
       end
-      raw ||= item.id if item.respond_to?(:id)
+      raw_candidate = keishou_raw_item_symbol(raw || item_id)
+      host_collision = raw_candidate && respond_to?(:base_item_try_get) && !!base_item_try_get(raw_candidate)
+      owns_item ||= runtime_owned
+      owns_item ||= current_keishou && !host_collision &&
+                    KEISHOU_PORTABLE_ITEM_IDS.include?(raw_candidate)
+      return nil if !owns_item
+      raw ||= raw_candidate || item_id
       raw = keishou_raw_item_symbol(raw)
       return nil if raw.nil?
       definition = keishou_item_metadata_definition(raw)
