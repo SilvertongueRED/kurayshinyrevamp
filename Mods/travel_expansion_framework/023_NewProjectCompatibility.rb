@@ -910,6 +910,56 @@ module TravelExpansionFramework
     return false
   end
 
+  def new_project_message_showing?
+    return true if defined?($game_temp) && $game_temp &&
+                   $game_temp.respond_to?(:message_window_showing) &&
+                   $game_temp.message_window_showing
+    return true if defined?($game_message) && $game_message &&
+                   $game_message.respond_to?(:busy?) &&
+                   $game_message.busy?
+    return false
+  rescue
+    return false
+  end
+
+  def new_project_transition_locked?
+    return false if !defined?($game_temp) || !$game_temp
+    return true if $game_temp.respond_to?(:transition_processing) && $game_temp.transition_processing
+    return true if $game_temp.respond_to?(:player_transferring) && $game_temp.player_transferring
+    return false
+  rescue
+    return false
+  end
+
+  def new_project_visuals_dark?(scene = nil)
+    screen = defined?($game_screen) ? $game_screen : nil
+    return true if respond_to?(:screen_visuals_stuck_dark?) && screen_visuals_stuck_dark?(screen)
+    if defined?(Graphics) && Graphics.respond_to?(:brightness)
+      return true if visual_number(Graphics.brightness, 255) <= 5
+    end
+    renderer = scene && scene.respond_to?(:map_renderer) ? scene.map_renderer : nil
+    if renderer
+      tone = renderer.respond_to?(:tone) ? renderer.tone : nil
+      color = renderer.respond_to?(:color) ? renderer.color : nil
+      return true if dark_screen_tone?(tone) || opaque_black_color?(color)
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def gadir_deluxe_intro_identity_progress?(metadata)
+    return false if !metadata.is_a?(Hash)
+    return true if metadata.has_key?("intro_skin_selection")
+    return true if metadata.has_key?("intro_gender_selection")
+    return true if metadata.has_key?("intro_gender")
+    return true if metadata.has_key?("intro_name")
+    return true if metadata.has_key?("intro_requested_name")
+    return false
+  rescue
+    return false
+  end
+
   def reset_gadir_deluxe_intro_recovery_counter!(metadata = nil)
     metadata["gadir_intro_idle_frames"] = 0 if metadata
     @gadir_deluxe_intro_idle_frames = 0
@@ -937,6 +987,13 @@ module TravelExpansionFramework
     $game_temp.transition_processing = false if defined?($game_temp) && $game_temp && $game_temp.respond_to?(:transition_processing=)
     $game_temp.transition_name = "" if defined?($game_temp) && $game_temp && $game_temp.respond_to?(:transition_name=)
     clear_stuck_screen_effects!("gadir_deluxe intro recovery", true) if respond_to?(:clear_stuck_screen_effects!)
+    if defined?($game_system) && $game_system &&
+       $game_system.respond_to?(:map_interpreter) &&
+       $game_system.map_interpreter &&
+       $game_system.map_interpreter.respond_to?(:clear)
+      $game_system.map_interpreter.clear
+    end
+    release_player_movement_lock if respond_to?(:release_player_movement_lock)
     apply_host_player_visuals!(expansion) if respond_to?(:apply_host_player_visuals!)
     target_map = translate_expansion_map_id(expansion, GADIR_DELUXE_HOME_LOCAL_MAP_ID)
     log("[gadir_deluxe] recovered stalled character intro; transferring to bedroom start") if respond_to?(:log)
@@ -957,7 +1014,7 @@ module TravelExpansionFramework
     return false
   end
 
-  def gadir_deluxe_intro_recovery_update!
+  def gadir_deluxe_intro_recovery_update!(scene = nil)
     return false if !defined?($game_map) || !$game_map
     map_id = integer($game_map.map_id, 0)
     expansion = active_project_expansion_id(gadir_deluxe_expansion_ids, map_id)
@@ -974,13 +1031,27 @@ module TravelExpansionFramework
     rescue
       false
     end
-    if !started || finished
+    if finished
       reset_gadir_deluxe_intro_recovery_counter!(metadata)
       return false
     end
-    if new_project_map_interpreter_running? || new_project_message_or_transfer_busy?
+    progressed = started || gadir_deluxe_intro_identity_progress?(metadata)
+    if !progressed
       reset_gadir_deluxe_intro_recovery_counter!(metadata)
       return false
+    end
+    if new_project_message_showing?
+      reset_gadir_deluxe_intro_recovery_counter!(metadata)
+      return false
+    end
+    interpreter_running = new_project_map_interpreter_running?
+    transition_locked = new_project_transition_locked?
+    visuals_dark = new_project_visuals_dark?(scene)
+    if interpreter_running || new_project_message_or_transfer_busy?
+      if !transition_locked && !visuals_dark
+        reset_gadir_deluxe_intro_recovery_counter!(metadata)
+        return false
+      end
     end
     frames = metadata ? integer(metadata["gadir_intro_idle_frames"], 0) : integer(@gadir_deluxe_intro_idle_frames, 0)
     frames += 1
@@ -2354,6 +2425,20 @@ module TravelExpansionFramework
     return 0
   end
 
+  def new_project_apply_skin_selection!(selection = 0, map_id = nil)
+    value = integer(selection, 0)
+    value = 0 if value < 0
+    expansion = current_new_project_expansion_id(map_id)
+    meta = new_project_metadata(expansion) || new_project_metadata || empyrean_metadata
+    meta["intro_skin_selection"] = value if meta
+    meta["intro_skin_source"] = expansion.to_s if meta && !expansion.to_s.empty?
+    $game_variables[1] = value if defined?($game_variables) && $game_variables
+    reset_gadir_deluxe_intro_recovery_counter!(meta) if expansion_id_in_list?(expansion, gadir_deluxe_expansion_ids)
+    return value
+  rescue
+    return 0
+  end
+
   def empyrean_intro_sprites_ready!
     empyrean_log_once(:intro_sprites, "[empyrean] calcIntroSprites shimmed; using host-safe intro selection sprites")
     return true
@@ -2714,8 +2799,8 @@ if defined?(Scene_Map)
          @eye_of_truth_time.to_i > 0
         @eye_of_truth_time = @eye_of_truth_time.to_i - 1
       end
-      TravelExpansionFramework.gadir_deluxe_intro_recovery_update! if defined?(TravelExpansionFramework) &&
-                                                                      TravelExpansionFramework.respond_to?(:gadir_deluxe_intro_recovery_update!)
+      TravelExpansionFramework.gadir_deluxe_intro_recovery_update!(self) if defined?(TravelExpansionFramework) &&
+                                                                            TravelExpansionFramework.respond_to?(:gadir_deluxe_intro_recovery_update!)
       return result
     end
   end
@@ -2824,7 +2909,7 @@ def isDifficultyExtreme?
 end unless defined?(isDifficultyExtreme?)
 
 def setSkintone(value)
-  return TravelExpansionFramework.empyrean_apply_skin_selection!(value) if TravelExpansionFramework.new_project_identity_active_now?
+  return TravelExpansionFramework.new_project_apply_skin_selection!(value) if TravelExpansionFramework.new_project_identity_active_now?
   return value
 end unless defined?(setSkintone)
 
@@ -3713,12 +3798,12 @@ end
 unless defined?(SkintoneSelection)
   class SkintoneSelection
     def initialize(_text = nil)
-      TravelExpansionFramework.empyrean_apply_skin_selection!(0) if TravelExpansionFramework.new_project_identity_active_now?
+      TravelExpansionFramework.new_project_apply_skin_selection!(0) if TravelExpansionFramework.new_project_identity_active_now?
       $skinSelection = self if defined?($skinSelection)
     end
 
     def restart
-      TravelExpansionFramework.empyrean_apply_skin_selection!(0) if TravelExpansionFramework.new_project_identity_active_now?
+      TravelExpansionFramework.new_project_apply_skin_selection!(0) if TravelExpansionFramework.new_project_identity_active_now?
       return true
     end
 
@@ -3995,7 +4080,7 @@ class Interpreter
   end
 
   def setSkintone(value)
-    return TravelExpansionFramework.empyrean_apply_skin_selection!(value)
+    return TravelExpansionFramework.new_project_apply_skin_selection!(value, (@map_id rescue nil))
   end
 
   def skintone
