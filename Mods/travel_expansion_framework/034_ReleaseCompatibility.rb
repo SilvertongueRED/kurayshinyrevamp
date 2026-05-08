@@ -108,6 +108,7 @@ module TravelExpansionFramework
     "TrainerBattle.start"       => { "category" => "trainer_battle",   "default" => "true",  "note" => "Last-resort trainer wrapper prevents crashes." },
     "LevelCapsEX.enabled?"      => { "category" => "menu_settings",    "default" => "false", "note" => "Unsupported level-cap plugin is treated as disabled." },
     "FollowingPkmn.active?"     => { "category" => "follower_system",  "default" => "false", "note" => "Follower system reports inactive unless a world bridge owns it." },
+    "Player#expall"             => { "category" => "menu_settings",    "default" => "host_exp_all", "note" => "Imported Exp All player flag maps to the host Exp All item state." },
     "NilClass#quantity"         => { "category" => "item_handlers",    "default" => "zero",  "note" => "Missing item storage queries fail closed." }
   }.freeze unless const_defined?(:RELEASE_GENERIC_SHIM_CATALOG)
 
@@ -418,6 +419,8 @@ module TravelExpansionFramework
     when "host_mart"
       release_open_host_mart!
       return true
+    when "host_exp_all"
+      return release_host_exp_all_enabled?
     else
       return true
     end
@@ -532,6 +535,52 @@ module TravelExpansionFramework
   rescue => e
     log("[release] host mart fallback failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
     return true
+  end
+
+  def release_truthy?(value)
+    return true if value == true
+    return false if value == false || value.nil?
+    return value != 0 if value.is_a?(Numeric)
+    text = value.to_s.strip.downcase
+    return true if ["1", "true", "on", "yes", "enabled"].include?(text)
+    return false if ["0", "false", "off", "no", "disabled"].include?(text)
+    return !text.empty?
+  rescue
+    return false
+  end
+
+  def release_host_exp_all_enabled?
+    return false if !defined?($PokemonBag) || !$PokemonBag
+    if release_item_exists?(:EXPALL) && $PokemonBag.pbHasItem?(:EXPALL)
+      return true
+    end
+    if release_item_exists?(:EXPALLOFF) && $PokemonBag.pbHasItem?(:EXPALLOFF)
+      return false
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def release_set_host_exp_all!(enabled)
+    enabled = release_truthy?(enabled)
+    record_release_shim_hit("Player#expall", "menu_settings", enabled ? "true" : "false")
+    return enabled if !defined?($PokemonBag) || !$PokemonBag
+    exp_all_exists = release_item_exists?(:EXPALL)
+    exp_all_off_exists = release_item_exists?(:EXPALLOFF)
+    if enabled
+      if exp_all_exists && exp_all_off_exists && $PokemonBag.pbHasItem?(:EXPALLOFF)
+        $PokemonBag.pbChangeItem(:EXPALLOFF, :EXPALL)
+      elsif exp_all_exists && !$PokemonBag.pbHasItem?(:EXPALL)
+        $PokemonBag.pbStoreItem(:EXPALL, 1)
+      end
+    elsif exp_all_exists && exp_all_off_exists && $PokemonBag.pbHasItem?(:EXPALL)
+      $PokemonBag.pbChangeItem(:EXPALL, :EXPALLOFF)
+    end
+    return enabled
+  rescue => e
+    log("[release] host Exp All bridge failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return enabled
   end
 
   def release_quest_store(key)
@@ -788,6 +837,25 @@ if defined?(Player)
     def mystery_gift_unlocked=(value)
       @mystery_gift_unlocked = value == true
     end unless method_defined?(:mystery_gift_unlocked=)
+
+    def expall
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:release_host_exp_all_enabled?)
+        return TravelExpansionFramework.release_host_exp_all_enabled?
+      end
+      return @tef_release_expall == true
+    end unless method_defined?(:expall)
+
+    def expall=(value)
+      enabled = if defined?(TravelExpansionFramework) &&
+                   TravelExpansionFramework.respond_to?(:release_set_host_exp_all!)
+                  TravelExpansionFramework.release_set_host_exp_all!(value)
+                else
+                  value == true
+                end
+      @tef_release_expall = enabled == true
+      return @tef_release_expall
+    end unless method_defined?(:expall=)
   end
 end
 

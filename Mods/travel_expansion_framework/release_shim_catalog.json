@@ -87,6 +87,11 @@
       "default": "false",
       "note": "Follower system reports inactive unless a world bridge owns it."
     },
+    "Player#expall": {
+      "category": "menu_settings",
+      "default": "host_exp_all",
+      "note": "Imported Exp All player flag maps to the host Exp All item state."
+    },
     "NilClass#quantity": {
       "category": "item_handlers",
       "default": "zero",
