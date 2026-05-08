@@ -60,6 +60,7 @@ module TravelExpansionFramework
   GADIR_DELUXE_SWITCH_ENCIENDE = 596 unless const_defined?(:GADIR_DELUXE_SWITCH_ENCIENDE)
   GADIR_DELUXE_SWITCH_ULTIMO_PARCHE = 702 unless const_defined?(:GADIR_DELUXE_SWITCH_ULTIMO_PARCHE)
   GADIR_DELUXE_INTRO_IDLE_RECOVERY_FRAMES = 150 unless const_defined?(:GADIR_DELUXE_INTRO_IDLE_RECOVERY_FRAMES)
+  GADIR_DELUXE_INTRO_RECOVERY_EVENT_IDS = [3, 5, 9].freeze unless const_defined?(:GADIR_DELUXE_INTRO_RECOVERY_EVENT_IDS)
   HOLLOW_WOODS_EXPANSION_ID = "hollow_woods" unless const_defined?(:HOLLOW_WOODS_EXPANSION_ID)
   HOLLOW_WOODS_LEGACY_EXPANSION_IDS = ["hollowwoods", "pokemon_hollow_woods", "pokemon_hollowwoods"].freeze unless const_defined?(:HOLLOW_WOODS_LEGACY_EXPANSION_IDS)
   KEISHOU_EXPANSION_ID = "keishou" unless const_defined?(:KEISHOU_EXPANSION_ID)
@@ -960,6 +961,53 @@ module TravelExpansionFramework
     return false
   end
 
+  def gadir_deluxe_intro_context(map_id = nil)
+    target_map_id = integer(map_id || ($game_map.map_id rescue 0), 0)
+    expansion = active_project_expansion_id(gadir_deluxe_expansion_ids, target_map_id)
+    return nil if expansion.to_s.empty?
+    local_map = local_map_id_for(expansion, target_map_id) rescue target_map_id
+    return nil if integer(local_map, 0) != GADIR_DELUXE_INTRO_LOCAL_MAP_ID
+    return expansion
+  rescue
+    return nil
+  end
+
+  def gadir_deluxe_intro_dark_tone_command?(tone, event_id = nil, map_id = nil)
+    expansion = gadir_deluxe_intro_context(map_id)
+    return false if expansion.to_s.empty?
+    return false if !GADIR_DELUXE_INTRO_RECOVERY_EVENT_IDS.include?(integer(event_id, 0))
+    return false if !respond_to?(:dark_screen_tone?) || !dark_screen_tone?(tone)
+    metadata = new_project_metadata(expansion)
+    return true if gadir_deluxe_intro_identity_progress?(metadata)
+    return true if gadir_deluxe_switch_active?(expansion, GADIR_DELUXE_SWITCH_CHAPI_INTRO)
+    return false
+  rescue
+    return false
+  end
+
+  def new_project_clear_message_state!
+    if defined?($game_temp) && $game_temp &&
+       $game_temp.respond_to?(:message_window_showing=)
+      $game_temp.message_window_showing = false
+    end
+    if defined?($game_message) && $game_message && $game_message.respond_to?(:clear)
+      $game_message.clear
+    end
+    return true
+  rescue
+    return false
+  end
+
+  def gadir_deluxe_recover_intro_dark_tone!(event_id = nil, map_id = nil)
+    expansion = gadir_deluxe_intro_context(map_id)
+    return false if expansion.to_s.empty?
+    log("[gadir_deluxe] intercepted stalled intro dark tone from event #{event_id}; completing intro safely") if respond_to?(:log)
+    return gadir_deluxe_complete_intro_recovery!(expansion)
+  rescue => e
+    log("[gadir_deluxe] dark tone recovery failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
   def reset_gadir_deluxe_intro_recovery_counter!(metadata = nil)
     metadata["gadir_intro_idle_frames"] = 0 if metadata
     @gadir_deluxe_intro_idle_frames = 0
@@ -986,6 +1034,7 @@ module TravelExpansionFramework
     $game_temp.player_transferring = false if defined?($game_temp) && $game_temp && $game_temp.respond_to?(:player_transferring=)
     $game_temp.transition_processing = false if defined?($game_temp) && $game_temp && $game_temp.respond_to?(:transition_processing=)
     $game_temp.transition_name = "" if defined?($game_temp) && $game_temp && $game_temp.respond_to?(:transition_name=)
+    new_project_clear_message_state! if respond_to?(:new_project_clear_message_state!)
     clear_stuck_screen_effects!("gadir_deluxe intro recovery", true) if respond_to?(:clear_stuck_screen_effects!)
     if defined?($game_system) && $game_system &&
        $game_system.respond_to?(:map_interpreter) &&
@@ -1040,13 +1089,13 @@ module TravelExpansionFramework
       reset_gadir_deluxe_intro_recovery_counter!(metadata)
       return false
     end
-    if new_project_message_showing?
-      reset_gadir_deluxe_intro_recovery_counter!(metadata)
-      return false
-    end
     interpreter_running = new_project_map_interpreter_running?
     transition_locked = new_project_transition_locked?
     visuals_dark = new_project_visuals_dark?(scene)
+    if new_project_message_showing? && !transition_locked && !visuals_dark
+      reset_gadir_deluxe_intro_recovery_counter!(metadata)
+      return false
+    end
     if interpreter_running || new_project_message_or_transfer_busy?
       if !transition_locked && !visuals_dark
         reset_gadir_deluxe_intro_recovery_counter!(metadata)
@@ -3844,6 +3893,8 @@ class Interpreter
   GameModeScreen = ::GameModeScreen if defined?(::GameModeScreen) && !const_defined?(:GameModeScreen)
 
   alias tef_new_projects_original_command_102 command_102 unless method_defined?(:tef_new_projects_original_command_102)
+  alias tef_new_projects_original_command_223 command_223 if method_defined?(:command_223) &&
+                                                             !method_defined?(:tef_new_projects_original_command_223)
   alias tef_new_projects_original_execute_script execute_script unless method_defined?(:tef_new_projects_original_execute_script)
 
   def tef_new_projects_previous_message
@@ -3880,6 +3931,27 @@ class Interpreter
       end
     end
     return tef_new_projects_original_command_102
+  end
+
+  def command_223
+    params = @parameters rescue nil
+    params = @list[@index].parameters rescue params
+    tone = Array(params)[0]
+    if defined?(TravelExpansionFramework) &&
+       TravelExpansionFramework.respond_to?(:gadir_deluxe_intro_dark_tone_command?) &&
+       TravelExpansionFramework.gadir_deluxe_intro_dark_tone_command?(
+         tone,
+         (@event_id rescue nil),
+         (@map_id rescue ($game_map.map_id rescue nil))
+       )
+      TravelExpansionFramework.gadir_deluxe_recover_intro_dark_tone!(
+        (@event_id rescue nil),
+        (@map_id rescue ($game_map.map_id rescue nil))
+      )
+      return true
+    end
+    return tef_new_projects_original_command_223 if respond_to?(:tef_new_projects_original_command_223, true)
+    return true
   end
 
   def execute_script(script)
