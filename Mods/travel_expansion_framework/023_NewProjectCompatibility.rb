@@ -57,6 +57,7 @@ module TravelExpansionFramework
   GADIR_DELUXE_HOME_LOCAL_MAP_ID = 78 unless const_defined?(:GADIR_DELUXE_HOME_LOCAL_MAP_ID)
   GADIR_DELUXE_SWITCH_CHAPI_INTRO = 62 unless const_defined?(:GADIR_DELUXE_SWITCH_CHAPI_INTRO)
   GADIR_DELUXE_SWITCH_FININTRO = 63 unless const_defined?(:GADIR_DELUXE_SWITCH_FININTRO)
+  GADIR_DELUXE_WAKEUP_SWITCH = 78 unless const_defined?(:GADIR_DELUXE_WAKEUP_SWITCH)
   GADIR_DELUXE_SWITCH_ENCIENDE = 596 unless const_defined?(:GADIR_DELUXE_SWITCH_ENCIENDE)
   GADIR_DELUXE_SWITCH_ULTIMO_PARCHE = 702 unless const_defined?(:GADIR_DELUXE_SWITCH_ULTIMO_PARCHE)
   GADIR_DELUXE_INTRO_IDLE_RECOVERY_FRAMES = 150 unless const_defined?(:GADIR_DELUXE_INTRO_IDLE_RECOVERY_FRAMES)
@@ -998,6 +999,36 @@ module TravelExpansionFramework
     return false
   end
 
+  def new_project_clear_screen_pictures!(reason = "new project recovery")
+    return false if !defined?($game_screen) || !$game_screen ||
+                    !$game_screen.respond_to?(:pictures)
+    changed = false
+    pictures = $game_screen.pictures rescue nil
+    return false if !pictures
+    pictures.each do |picture|
+      next if !picture
+      if picture.respond_to?(:name)
+        changed = true if !picture.name.to_s.empty?
+      elsif picture.instance_variable_defined?(:@name)
+        changed = true if !picture.instance_variable_get(:@name).to_s.empty?
+      else
+        changed = true
+      end
+      if picture.respond_to?(:erase)
+        picture.erase
+      else
+        picture.instance_variable_set(:@name, "") if picture.instance_variable_defined?(:@name)
+        picture.instance_variable_set(:@opacity, 0) if picture.instance_variable_defined?(:@opacity)
+        picture.instance_variable_set(:@duration, 0) if picture.instance_variable_defined?(:@duration)
+      end
+    end
+    log("[visual] cleared imported screen pictures after #{reason}") if changed && respond_to?(:log)
+    return changed
+  rescue => e
+    log("[visual] imported picture cleanup failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
   def gadir_deluxe_recover_intro_dark_tone!(event_id = nil, map_id = nil)
     expansion = gadir_deluxe_intro_context(map_id)
     return false if expansion.to_s.empty?
@@ -1035,6 +1066,7 @@ module TravelExpansionFramework
     $game_temp.transition_processing = false if defined?($game_temp) && $game_temp && $game_temp.respond_to?(:transition_processing=)
     $game_temp.transition_name = "" if defined?($game_temp) && $game_temp && $game_temp.respond_to?(:transition_name=)
     new_project_clear_message_state! if respond_to?(:new_project_clear_message_state!)
+    new_project_clear_screen_pictures!("gadir_deluxe intro recovery") if respond_to?(:new_project_clear_screen_pictures!)
     clear_stuck_screen_effects!("gadir_deluxe intro recovery", true) if respond_to?(:clear_stuck_screen_effects!)
     if defined?($game_system) && $game_system &&
        $game_system.respond_to?(:map_interpreter) &&
@@ -1046,7 +1078,7 @@ module TravelExpansionFramework
     apply_host_player_visuals!(expansion) if respond_to?(:apply_host_player_visuals!)
     target_map = translate_expansion_map_id(expansion, GADIR_DELUXE_HOME_LOCAL_MAP_ID)
     log("[gadir_deluxe] recovered stalled character intro; transferring to bedroom start") if respond_to?(:log)
-    safe_transfer_to_anchor({
+    result = safe_transfer_to_anchor({
       :map_id    => target_map,
       :x         => 9,
       :y         => 8,
@@ -1058,8 +1090,38 @@ module TravelExpansionFramework
       :immediate         => true,
       :auto_rescue       => false
     })
+    new_project_clear_screen_pictures!("gadir_deluxe post intro transfer") if respond_to?(:new_project_clear_screen_pictures!)
+    return result
   rescue => e
     log("[gadir_deluxe] intro recovery failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def gadir_deluxe_home_recovery_update!(scene = nil)
+    return false if !defined?($game_map) || !$game_map
+    map_id = integer($game_map.map_id, 0)
+    expansion = active_project_expansion_id(gadir_deluxe_expansion_ids, map_id)
+    return false if expansion.to_s.empty?
+    local_map = local_map_id_for(expansion, map_id) rescue map_id
+    return false if integer(local_map, 0) != GADIR_DELUXE_HOME_LOCAL_MAP_ID
+    metadata = new_project_metadata(expansion)
+    wakeup_done = gadir_deluxe_switch_active?(expansion, GADIR_DELUXE_WAKEUP_SWITCH)
+    intro_done = gadir_deluxe_switch_active?(expansion, GADIR_DELUXE_SWITCH_FININTRO)
+    return false if !wakeup_done && !intro_done
+    recovery_key = wakeup_done ? "gadir_home_visuals_recovered" : "gadir_home_pre_wakeup_visuals_recovered"
+    if metadata && metadata[recovery_key] &&
+       !new_project_visuals_dark?(scene)
+      return false
+    end
+    new_project_clear_screen_pictures!("gadir_deluxe bedroom wakeup") if respond_to?(:new_project_clear_screen_pictures!)
+    clear_stuck_screen_effects!("gadir_deluxe bedroom wakeup", true) if respond_to?(:clear_stuck_screen_effects!)
+    release_player_movement_lock if respond_to?(:release_player_movement_lock)
+    apply_host_player_visuals!(expansion) if respond_to?(:apply_host_player_visuals!)
+    metadata[recovery_key] = true if metadata
+    log("[gadir_deluxe] cleared bedroom wakeup overlays on map #{map_id}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[gadir_deluxe] bedroom wakeup recovery failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
     return false
   end
 
@@ -1794,6 +1856,10 @@ module TravelExpansionFramework
       "#{speaker}: "
     end
     body.gsub!(/\\(?:tg|xn|dxn|dxor)\[([^\]]+)\]\s*/i) { "#{$1}: " }
+    body.gsub!(/\\js\[([^\]]*)\]\s*/i) do
+      speaker = $1.to_s.strip
+      speaker.empty? || speaker[/\A\?+\z/] ? "" : "#{speaker}: "
+    end
     body.gsub!(/\\(?:pg|pog|sh)/i, "")
     body.gsub!(/\\(?:wtnp|wt|w|l|c|ts|se|me|ch)\[[^\]]*\]/i, "")
     body.gsub!(/\\(?:\.\.\.|\.\.|\.|\||\^)/, "")
@@ -2850,6 +2916,8 @@ if defined?(Scene_Map)
       end
       TravelExpansionFramework.gadir_deluxe_intro_recovery_update!(self) if defined?(TravelExpansionFramework) &&
                                                                             TravelExpansionFramework.respond_to?(:gadir_deluxe_intro_recovery_update!)
+      TravelExpansionFramework.gadir_deluxe_home_recovery_update!(self) if defined?(TravelExpansionFramework) &&
+                                                                           TravelExpansionFramework.respond_to?(:gadir_deluxe_home_recovery_update!)
       return result
     end
   end
