@@ -91,6 +91,27 @@ module TravelExpansionFramework
     return expansion.to_s == URANIUM_EXPANSION_ID
   end
 
+  def pb_show_commands_argument_error?(error)
+    return error.is_a?(ArgumentError) && error.message.to_s[/wrong number of arguments/]
+  end
+
+  def pb_show_commands_compatible(receiver, method_name, msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil, &block)
+    args = [msgwindow, commands, cmdIfCancel, defaultCmd]
+    if !x_offset.nil? || !y_offset.nil?
+      begin
+        return receiver.send(method_name, *(args + [x_offset, y_offset]), &block)
+      rescue ArgumentError => e
+        raise if !pb_show_commands_argument_error?(e)
+      end
+    end
+    begin
+      return receiver.send(method_name, *args, &block)
+    rescue ArgumentError => e
+      raise if !pb_show_commands_argument_error?(e)
+      return receiver.send(method_name, msgwindow, commands, cmdIfCancel, &block)
+    end
+  end
+
   def uranium_local_map_id(map_id = nil)
     current_map_id = map_id
     current_map_id = $game_map.map_id if current_map_id.nil? && $game_map
@@ -582,11 +603,21 @@ class Object
   if private_method_defined?(:pbShowCommands) || method_defined?(:pbShowCommands)
     alias tef_uranium_object_pbShowCommands pbShowCommands
 
-    def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil)
+    def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil, &block)
       if TravelExpansionFramework.uranium_expansion_id?
         commands = TravelExpansionFramework.uranium_sanitize_commands(commands)
       end
-      return tef_uranium_object_pbShowCommands(msgwindow, commands, cmdIfCancel, defaultCmd, x_offset, y_offset)
+      return TravelExpansionFramework.pb_show_commands_compatible(
+        self,
+        :tef_uranium_object_pbShowCommands,
+        msgwindow,
+        commands,
+        cmdIfCancel,
+        defaultCmd,
+        x_offset,
+        y_offset,
+        &block
+      )
     end
 
     private :pbShowCommands
@@ -609,11 +640,21 @@ class << Kernel
   if method_defined?(:pbShowCommands) || private_method_defined?(:pbShowCommands)
     alias tef_uranium_singleton_pbShowCommands pbShowCommands
 
-    def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil)
+    def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil, &block)
       if TravelExpansionFramework.uranium_expansion_id?
         commands = TravelExpansionFramework.uranium_sanitize_commands(commands)
       end
-      return tef_uranium_singleton_pbShowCommands(msgwindow, commands, cmdIfCancel, defaultCmd, x_offset, y_offset)
+      return TravelExpansionFramework.pb_show_commands_compatible(
+        self,
+        :tef_uranium_singleton_pbShowCommands,
+        msgwindow,
+        commands,
+        cmdIfCancel,
+        defaultCmd,
+        x_offset,
+        y_offset,
+        &block
+      )
     end
   end
 end

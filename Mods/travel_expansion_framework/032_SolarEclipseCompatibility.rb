@@ -1689,7 +1689,7 @@ if defined?(pbShowCommands) && !defined?(tef_solar_eclipse_original_pbShowComman
   alias tef_solar_eclipse_original_pbShowCommands pbShowCommands
 end
 
-def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil)
+def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil, &block)
   if defined?(TravelExpansionFramework) &&
      TravelExpansionFramework.respond_to?(:solar_eclipse_active_now?) &&
      TravelExpansionFramework.solar_eclipse_active_now?
@@ -1705,7 +1705,17 @@ def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x
       cmdIfCancel, defaultCmd = TravelExpansionFramework.solar_eclipse_normalize_choice_cancel(commands, cmdIfCancel, defaultCmd)
     end
   end
-  return tef_solar_eclipse_original_pbShowCommands(msgwindow, commands, cmdIfCancel, defaultCmd, x_offset, y_offset)
+  return TravelExpansionFramework.pb_show_commands_compatible(
+    self,
+    :tef_solar_eclipse_original_pbShowCommands,
+    msgwindow,
+    commands,
+    cmdIfCancel,
+    defaultCmd,
+    x_offset,
+    y_offset,
+    &block
+  )
 end
 
 if defined?(Player)

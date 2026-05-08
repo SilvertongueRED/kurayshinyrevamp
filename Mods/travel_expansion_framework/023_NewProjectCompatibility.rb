@@ -3596,9 +3596,19 @@ if defined?(pbShowCommands) && !defined?(tef_new_projects_original_pbShowCommand
   alias tef_new_projects_original_pbShowCommands pbShowCommands
 end
 
-def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil)
+def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil, &block)
   commands = TravelExpansionFramework.prepare_new_project_commands(commands, ($game_map.map_id rescue nil)) if TravelExpansionFramework.new_project_active_now? && commands
-  return tef_new_projects_original_pbShowCommands(msgwindow, commands, cmdIfCancel, defaultCmd, x_offset, y_offset)
+  return TravelExpansionFramework.pb_show_commands_compatible(
+    self,
+    :tef_new_projects_original_pbShowCommands,
+    msgwindow,
+    commands,
+    cmdIfCancel,
+    defaultCmd,
+    x_offset,
+    y_offset,
+    &block
+  )
 end
 
 if defined?(pbShowCommandsWithHelp) && !defined?(tef_new_projects_original_pbShowCommandsWithHelp)
