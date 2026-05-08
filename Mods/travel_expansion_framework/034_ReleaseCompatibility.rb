@@ -613,6 +613,63 @@ module TravelExpansionFramework
     return nil
   end
 
+  def release_capture_bookkeeping_depth
+    @release_capture_bookkeeping_depth ||= 0
+  end
+
+  def release_fast_capture_bookkeeping?
+    return release_capture_bookkeeping_depth > 0
+  rescue
+    return false
+  end
+
+  def with_release_fast_capture_bookkeeping
+    @release_capture_bookkeeping_depth = release_capture_bookkeeping_depth + 1
+    return yield if block_given?
+  ensure
+    @release_capture_bookkeeping_depth = [release_capture_bookkeeping_depth - 1, 0].max
+  end
+
+  def release_autosave_enabled?
+    return false if !defined?($Trainer) || !$Trainer || !$Trainer.respond_to?(:save_slot) || !$Trainer.save_slot
+    return false if !defined?($game_switches) || !$game_switches
+    autosave_switch = defined?(AUTOSAVE_ENABLED_SWITCH) ? AUTOSAVE_ENABLED_SWITCH : 48
+    return $game_switches[autosave_switch] == true
+  rescue
+    return false
+  end
+
+  def release_scene_busy_for_autosave?
+    return true if !defined?($scene) || !$scene.is_a?(Scene_Map)
+    if defined?($game_temp) && $game_temp
+      return true if $game_temp.in_battle rescue false
+      return true if $game_temp.in_menu rescue false
+      return true if $game_temp.message_window_showing rescue false
+      return true if $game_temp.player_transferring rescue false
+      return true if $game_temp.transition_processing rescue false
+    end
+    if defined?($game_system) && $game_system &&
+       $game_system.respond_to?(:map_interpreter) &&
+       $game_system.map_interpreter &&
+       $game_system.map_interpreter.respond_to?(:running?)
+      return true if $game_system.map_interpreter.running?
+    end
+    return false
+  rescue
+    return true
+  end
+
+  def release_request_deferred_autosave!(delay_frames = 18)
+    return false if !defined?(DeferredAutosave) || !DeferredAutosave.respond_to?(:request)
+    return false if !release_autosave_enabled?
+    DeferredAutosave.request(delay_frames)
+    record_release_shim_hit("DeferredAutosave.request", "save_load_recovery", "deferred")
+    return true
+  rescue => e
+    log("[release] deferred autosave request failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
   def write_release_index_report!
     refresh_release_compatibility! if registry(:release_compatibility).empty?
     report = {
@@ -856,6 +913,72 @@ if defined?(Player)
       @tef_release_expall = enabled == true
       return @tef_release_expall
     end unless method_defined?(:expall=)
+  end
+end
+
+if defined?(Player::Pokedex)
+  class Player::Pokedex
+    alias tef_release_original_set_seen_for_capture set_seen unless method_defined?(:tef_release_original_set_seen_for_capture)
+    alias tef_release_original_set_owned_for_capture set_owned unless method_defined?(:tef_release_original_set_owned_for_capture)
+
+    def set_seen(species, should_refresh_dexes = true)
+      should_refresh_dexes = false if defined?(TravelExpansionFramework) &&
+                                      TravelExpansionFramework.respond_to?(:release_fast_capture_bookkeeping?) &&
+                                      TravelExpansionFramework.release_fast_capture_bookkeeping?
+      return tef_release_original_set_seen_for_capture(species, should_refresh_dexes)
+    end
+
+    def set_owned(species, should_refresh_dexes = true)
+      should_refresh_dexes = false if defined?(TravelExpansionFramework) &&
+                                      TravelExpansionFramework.respond_to?(:release_fast_capture_bookkeeping?) &&
+                                      TravelExpansionFramework.release_fast_capture_bookkeeping?
+      return tef_release_original_set_owned_for_capture(species, should_refresh_dexes)
+    end
+  end
+end
+
+if defined?(PokeBattle_Battle) && PokeBattle_Battle.method_defined?(:pbRecordAndStoreCaughtPokemon)
+  class PokeBattle_Battle
+    alias tef_release_original_pbRecordAndStoreCaughtPokemon_for_capture pbRecordAndStoreCaughtPokemon unless method_defined?(:tef_release_original_pbRecordAndStoreCaughtPokemon_for_capture)
+
+    def pbRecordAndStoreCaughtPokemon(*args)
+      started_at = Time.now
+      result = nil
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:with_release_fast_capture_bookkeeping)
+        result = TravelExpansionFramework.with_release_fast_capture_bookkeeping do
+          tef_release_original_pbRecordAndStoreCaughtPokemon_for_capture(*args)
+        end
+      else
+        result = tef_release_original_pbRecordAndStoreCaughtPokemon_for_capture(*args)
+      end
+      elapsed = Time.now - started_at
+      if elapsed > 1.0 && defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:log)
+        count = @caughtPokemon.length rescue "n/a"
+        TravelExpansionFramework.log("[release] catch completion took #{format('%.3f', elapsed)}s after fast capture bookkeeping; remaining=#{count}")
+      end
+      return result
+    end
+  end
+end
+
+if defined?(Kernel) && Kernel.respond_to?(:tryAutosave)
+  module Kernel
+    class << self
+      alias tef_release_original_tryAutosave_for_scene_safety tryAutosave unless method_defined?(:tef_release_original_tryAutosave_for_scene_safety)
+
+      def tryAutosave(*args)
+        if defined?(TravelExpansionFramework) &&
+           TravelExpansionFramework.respond_to?(:release_scene_busy_for_autosave?) &&
+           TravelExpansionFramework.release_scene_busy_for_autosave?
+          if TravelExpansionFramework.respond_to?(:release_request_deferred_autosave!) &&
+             TravelExpansionFramework.release_request_deferred_autosave!(18)
+            return false
+          end
+        end
+        return tef_release_original_tryAutosave_for_scene_safety(*args)
+      end
+    end
   end
 end
 
