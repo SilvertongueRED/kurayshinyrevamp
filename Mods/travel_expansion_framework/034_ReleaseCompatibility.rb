@@ -105,6 +105,8 @@ module TravelExpansionFramework
     "getCompletedQuests"        => { "category" => "menu_settings",    "default" => "array", "note" => "Quest list is host-local until native quest bridge is certified." },
     "getActiveQuests"           => { "category" => "menu_settings",    "default" => "array", "note" => "Quest list is host-local until native quest bridge is certified." },
     "pbRandomItem"              => { "category" => "item_handlers",    "default" => "nil",   "note" => "Unsupported random pickup gives no item." },
+    "pbEncounter"               => { "category" => "encounters",       "default" => "false", "note" => "Imported scripted encounter requests are mapped to host encounter tables." },
+    "EncounterTypes"            => { "category" => "encounters",       "default" => "host_symbols", "note" => "Legacy encounter constants map to host EncounterType symbols." },
     "TrainerBattle.start"       => { "category" => "trainer_battle",   "default" => "true",  "note" => "Last-resort trainer wrapper prevents crashes." },
     "LevelCapsEX.enabled?"      => { "category" => "menu_settings",    "default" => "false", "note" => "Unsupported level-cap plugin is treated as disabled." },
     "FollowingPkmn.active?"     => { "category" => "follower_system",  "default" => "false", "note" => "Follower system reports inactive unless a world bridge owns it." },
@@ -607,10 +609,135 @@ module TravelExpansionFramework
     return ::GameModeScreen if text == "GameModeScreen" && defined?(::GameModeScreen)
     return ::DiegoWTsStarterSelection if text == "DiegoWTsStarterSelection" && defined?(::DiegoWTsStarterSelection)
     return ::LevelCapsEX if text == "LevelCapsEX" && defined?(::LevelCapsEX)
+    return ::EncounterTypes if text == "EncounterTypes" && defined?(::EncounterTypes)
     return :DrewQuest if text == "DrewQuest"
     return nil
   rescue
     return nil
+  end
+
+  def release_encounter_type_symbol(encounter_type)
+    return nil if encounter_type.nil?
+    return encounter_type if defined?(GameData::EncounterType) &&
+                             GameData::EncounterType.respond_to?(:exists?) &&
+                             GameData::EncounterType.exists?(encounter_type)
+    if encounter_type.is_a?(Integer)
+      legacy_map = {
+        0  => :Land,
+        1  => :Cave,
+        2  => :Water,
+        3  => :OldRod,
+        4  => :GoodRod,
+        5  => :SuperRod,
+        6  => :RockSmash,
+        7  => :HeadbuttLow,
+        8  => :HeadbuttHigh,
+        9  => :LandMorning,
+        10 => :LandDay,
+        11 => :LandNight,
+        12 => :BugContest,
+        13 => :Land
+      }
+      return legacy_map[encounter_type] || :Land
+    end
+    key = encounter_type.to_s.split("::").last.to_s.downcase.gsub(/[^a-z0-9]+/, "")
+    return nil if key.empty?
+    aliases = {
+      "land"          => :Land,
+      "grass"         => :Land,
+      "landmorning"   => :LandMorning,
+      "landday"       => :LandDay,
+      "landnight"     => :LandNight,
+      "landafternoon" => :LandAfternoon,
+      "landevening"   => :LandEvening,
+      "land1"         => :Land1,
+      "land2"         => :Land2,
+      "land3"         => :Land3,
+      "cave"          => :Cave,
+      "cavemorning"   => :CaveMorning,
+      "caveday"       => :CaveDay,
+      "cavenight"     => :CaveNight,
+      "caveafternoon" => :CaveAfternoon,
+      "caveevening"   => :CaveEvening,
+      "water"         => :Water,
+      "surf"          => :Water,
+      "watermorning"  => :WaterMorning,
+      "waterday"      => :WaterDay,
+      "waternight"    => :WaterNight,
+      "oldrod"        => :OldRod,
+      "goodrod"       => :GoodRod,
+      "superrod"      => :SuperRod,
+      "rocksmash"     => :RockSmash,
+      "headbuttlow"   => :HeadbuttLow,
+      "headbutthigh"  => :HeadbuttHigh,
+      "bugcontest"    => :BugContest
+    }
+    return aliases[key] if aliases[key]
+    return encounter_type.to_sym if encounter_type.respond_to?(:to_sym)
+    return nil
+  rescue
+    return nil
+  end
+
+  def release_encounter_type_candidates(encounter_type)
+    primary = release_encounter_type_symbol(encounter_type)
+    candidates = []
+    candidates << primary if primary
+    if respond_to?(:expansion_compatible_encounter_types)
+      Array(expansion_compatible_encounter_types(primary)).each { |type| candidates << type }
+    end
+    family = expansion_encounter_type_family(primary) if primary && respond_to?(:expansion_encounter_type_family)
+    family ||= begin
+      data = GameData::EncounterType.try_get(primary) rescue nil
+      data.respond_to?(:type) ? data.type : nil
+    end
+    case family
+    when :land, :contest
+      candidates += [:Land, :LandMorning, :LandDay, :LandNight, :LandAfternoon, :LandEvening, :Land1, :Land2, :Land3, :Cave]
+    when :cave
+      candidates += [:Cave, :CaveMorning, :CaveDay, :CaveNight, :CaveAfternoon, :CaveEvening, :Land]
+    when :water
+      candidates += [:Water, :WaterMorning, :WaterDay, :WaterNight, :WaterAfternoon, :WaterEvening]
+    when :fishing
+      candidates += [:OldRod, :GoodRod, :SuperRod]
+    else
+      candidates += [:Land, :Cave, :Water]
+    end
+    current_type = $PokemonEncounters.encounter_type rescue nil
+    candidates << current_type if current_type
+    candidates.compact.uniq.find_all do |type|
+      defined?(GameData::EncounterType) &&
+        GameData::EncounterType.respond_to?(:exists?) &&
+        GameData::EncounterType.exists?(type)
+    end
+  rescue
+    [:Land, :Cave, :Water]
+  end
+
+  def release_trigger_encounter!(encounter_type = nil, *_args)
+    return false if !defined?($PokemonEncounters) || !$PokemonEncounters
+    if $PokemonEncounters.respond_to?(:tef_expansion_ensure_current_map_table!)
+      $PokemonEncounters.tef_expansion_ensure_current_map_table! rescue nil
+    end
+    candidates = release_encounter_type_candidates(encounter_type)
+    candidates.each do |type|
+      encounter = $PokemonEncounters.choose_wild_pokemon(type) rescue nil
+      next if !encounter
+      encounter = EncounterModifier.trigger(encounter) if defined?(EncounterModifier)
+      next if !encounter
+      $PokemonTemp.encounterType = type if defined?($PokemonTemp) && $PokemonTemp && $PokemonTemp.respond_to?(:encounterType=)
+      record_release_shim_hit("pbEncounter", "encounters", type.to_s)
+      return pbConfiguredWildBattle(type, encounter) if defined?(pbConfiguredWildBattle)
+      return pbWildBattle(encounter[0], encounter[1]) if defined?(pbWildBattle)
+      return true
+    end
+    log("[release] scripted encounter failed closed for #{encounter_type.inspect} on map #{$game_map.map_id rescue 'n/a'}") if respond_to?(:log)
+    record_release_shim_hit("pbEncounter", "encounters", "false")
+    return false
+  rescue => e
+    log("[release] scripted encounter failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    record_release_shim_hit("pbEncounter", "encounters", "false")
+    return false
   end
 
   def release_capture_bookkeeping_depth
@@ -704,6 +831,58 @@ end unless defined?(pbWatchTV)
 def pbCheckRoaming(*args)
   return TravelExpansionFramework.release_safe_stub("pbCheckRoaming", "false", "encounters", *args)
 end unless defined?(pbCheckRoaming)
+
+module EncounterTypes
+  Land          = :Land unless const_defined?(:Land)
+  Land1         = :Land1 unless const_defined?(:Land1)
+  Land2         = :Land2 unless const_defined?(:Land2)
+  Land3         = :Land3 unless const_defined?(:Land3)
+  LandMorning   = :LandMorning unless const_defined?(:LandMorning)
+  LandDay       = :LandDay unless const_defined?(:LandDay)
+  LandNight     = :LandNight unless const_defined?(:LandNight)
+  LandAfternoon = :LandAfternoon unless const_defined?(:LandAfternoon)
+  LandEvening   = :LandEvening unless const_defined?(:LandEvening)
+  Cave          = :Cave unless const_defined?(:Cave)
+  CaveMorning   = :CaveMorning unless const_defined?(:CaveMorning)
+  CaveDay       = :CaveDay unless const_defined?(:CaveDay)
+  CaveNight     = :CaveNight unless const_defined?(:CaveNight)
+  CaveAfternoon = :CaveAfternoon unless const_defined?(:CaveAfternoon)
+  CaveEvening   = :CaveEvening unless const_defined?(:CaveEvening)
+  Water         = :Water unless const_defined?(:Water)
+  WaterMorning  = :WaterMorning unless const_defined?(:WaterMorning)
+  WaterDay      = :WaterDay unless const_defined?(:WaterDay)
+  WaterNight    = :WaterNight unless const_defined?(:WaterNight)
+  WaterAfternoon = :WaterAfternoon unless const_defined?(:WaterAfternoon)
+  WaterEvening  = :WaterEvening unless const_defined?(:WaterEvening)
+  OldRod        = :OldRod unless const_defined?(:OldRod)
+  GoodRod       = :GoodRod unless const_defined?(:GoodRod)
+  SuperRod      = :SuperRod unless const_defined?(:SuperRod)
+  RockSmash     = :RockSmash unless const_defined?(:RockSmash)
+  HeadbuttLow   = :HeadbuttLow unless const_defined?(:HeadbuttLow)
+  HeadbuttHigh  = :HeadbuttHigh unless const_defined?(:HeadbuttHigh)
+  BugContest    = :BugContest unless const_defined?(:BugContest)
+  Names = [
+    Land, Cave, Water, OldRod, GoodRod, SuperRod, RockSmash,
+    HeadbuttLow, HeadbuttHigh, LandMorning, LandDay, LandNight,
+    BugContest
+  ].freeze unless const_defined?(:Names)
+  EnctypeDensities = Array.new(13, 0).freeze unless const_defined?(:EnctypeDensities)
+  EnctypeChances = Array.new(13) { [] }.freeze unless const_defined?(:EnctypeChances)
+  EnctypeCompileDens = Array.new(13, 0).freeze unless const_defined?(:EnctypeCompileDens)
+end unless defined?(EncounterTypes)
+
+alias tef_release_original_pbEncounter pbEncounter if method_defined?(:pbEncounter) && !method_defined?(:tef_release_original_pbEncounter)
+def pbEncounter(encounter_type = nil, *args)
+  if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:release_trigger_encounter!)
+    return TravelExpansionFramework.release_trigger_encounter!(encounter_type, *args)
+  end
+  return tef_release_original_pbEncounter(encounter_type, *args) if respond_to?(:tef_release_original_pbEncounter, true)
+  return false
+rescue => e
+  TravelExpansionFramework.log("[release] pbEncounter failed safely: #{e.class}: #{e.message}") if defined?(TravelExpansionFramework) &&
+                                                                                                  TravelExpansionFramework.respond_to?(:log)
+  return false
+end
 
 def pbHasStarters?
   return TravelExpansionFramework.release_safe_stub("pbHasStarters?", "party_present", "startup")
@@ -1141,6 +1320,7 @@ if defined?(Interpreter)
     GameModeScreen = ::GameModeScreen if defined?(::GameModeScreen) && !const_defined?(:GameModeScreen, false)
     DiegoWTsStarterSelection = ::DiegoWTsStarterSelection if defined?(::DiegoWTsStarterSelection) && !const_defined?(:DiegoWTsStarterSelection, false)
     LevelCapsEX = ::LevelCapsEX if defined?(::LevelCapsEX) && !const_defined?(:LevelCapsEX, false)
+    EncounterTypes = ::EncounterTypes if defined?(::EncounterTypes) && !const_defined?(:EncounterTypes, false)
     DrewQuest = ::DrewQuest if defined?(::DrewQuest) && !const_defined?(:DrewQuest, false)
   end
 
