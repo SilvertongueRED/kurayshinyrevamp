@@ -813,6 +813,72 @@ module TravelExpansionFramework
     return {}
   end
 
+  def parse_legacy_pbs_csv_fields(line)
+    fields = []
+    field = +""
+    quoted = false
+    index = 0
+    text = line.to_s
+    while index < text.length
+      char = text[index]
+      if quoted
+        if char == "\""
+          if text[index + 1] == "\""
+            field << "\""
+            index += 1
+          else
+            quoted = false
+          end
+        else
+          field << char
+        end
+      elsif char == "\""
+        quoted = true
+      elsif char == ","
+        fields << field.strip
+        field = +""
+      else
+        field << char
+      end
+      index += 1
+    end
+    fields << field.strip
+    return fields
+  rescue
+    return line.to_s.split(",").map { |value| value.to_s.strip }
+  end
+
+  def parse_legacy_pbs_item_line(line)
+    fields = parse_legacy_pbs_csv_fields(line)
+    return nil if fields.length < 7
+    native_id = integer(fields[0], 0)
+    raw_name = fields[1].to_s.strip
+    return nil if raw_name.empty?
+    entry = {
+      :source_format     => :legacy_csv,
+      :id_number         => native_id,
+      :native_id_number  => native_id,
+      :raw_name          => raw_name,
+      :name              => normalize_imported_item_text(fields[2]),
+      :nameplural        => normalize_imported_item_text(fields[3]),
+      :pocket            => integer(fields[4], 1),
+      :price             => integer(fields[5], 0),
+      :description       => normalize_imported_item_text(fields[6]),
+      :fielduse          => integer(fields[7], 0),
+      :battleuse         => integer(fields[8], 0),
+      :type              => integer(fields[9], 0),
+      :move              => fields[10].to_s.strip,
+      :icon_logical_path => nil
+    }
+    entry[:icon_logical_path] = "Graphics/Icons/item#{native_id}" if native_id > 0
+    flags = fields[11..-1] || []
+    entry[:flags] = flags.map { |flag| flag.to_s.strip }.reject { |flag| flag.empty? }
+    return entry
+  rescue => e
+    log("Legacy PBS item line parse failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
   def parse_generic_pbs_item_catalog(source_path)
     catalog = {}
     return catalog if source_path.nil? || !File.file?(source_path)
@@ -821,6 +887,16 @@ module TravelExpansionFramework
     File.foreach(source_path) do |line|
       stripped = line.to_s.strip
       next if stripped.empty? || stripped.start_with?("#")
+      if stripped =~ /\A-?\d+\s*,/
+        entry = parse_legacy_pbs_item_line(stripped)
+        if entry
+          key = normalized_imported_item_name(entry[:raw_name])
+          catalog[key] = entry if !key.empty?
+        end
+        current_key = nil
+        current_data = nil
+        next
+      end
       if stripped =~ /\A\[(.+?)\]\z/
         current_key = normalized_imported_item_name(Regexp.last_match(1))
         current_data = { :raw_name => Regexp.last_match(1).to_s.strip }
@@ -852,6 +928,127 @@ module TravelExpansionFramework
     return normalize_imported_item_text(value)
   rescue
     return raw_value.to_s
+  end
+
+  def ensure_ordered_hash_loader_for_imported_messages
+    return if defined?(::OrderedHash)
+    klass = Class.new(Hash) do
+      def initialize
+        @keys = []
+        super
+      end
+
+      def []=(key, value)
+        @keys ||= []
+        @keys << key if !has_key?(key)
+        super(key, value)
+      end
+
+      def keys
+        return @keys || super
+      end
+
+      def self._load(string)
+        result = new
+        keysvalues = Marshal.load(string) rescue [[], []]
+        keys = keysvalues[0] || []
+        values = keysvalues[1] || []
+        keys.each_with_index { |key, index| result[key] = values[index] }
+        return result
+      end
+    end
+    Object.const_set(:OrderedHash, klass)
+  rescue
+  end
+
+  def generic_item_translation_source_path(expansion_id)
+    expansion = expansion_id.to_s
+    return nil if expansion.empty?
+    info = external_projects[expansion] if respond_to?(:external_projects)
+    roots = []
+    if info.is_a?(Hash)
+      roots << (info[:data_root] || info["data_root"])
+      roots << (info[:prepared_data_root] || info["prepared_data_root"])
+      roots << (info[:root] || info["root"])
+      roots << (info[:filesystem_bridge_root] || info["filesystem_bridge_root"])
+      roots << (info[:source_mount_root] || info["source_mount_root"])
+      roots << (info[:archive_mount_root] || info["archive_mount_root"])
+    end
+    roots << linked_project_bridge_root(expansion) if respond_to?(:linked_project_bridge_root)
+    roots.compact.map { |root| root.to_s }.reject { |root| root.empty? }.uniq.each do |root|
+      candidate = runtime_exact_file_path(File.join(root, "Data", "english.dat")) if respond_to?(:runtime_exact_file_path)
+      candidate ||= File.join(root, "Data", "english.dat")
+      return candidate if candidate && File.file?(candidate)
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def collect_generic_item_translation_strings(value, strings, depth = 0)
+    return if depth > 4 || value.nil?
+    if value.is_a?(Hash)
+      value.each do |source, translated|
+        strings[source.to_s] = translated.to_s if source.is_a?(String) && translated.is_a?(String) && source != translated
+        collect_generic_item_translation_strings(translated, strings, depth + 1) if !translated.is_a?(String)
+      end
+    elsif value.is_a?(Array)
+      value.each { |entry| collect_generic_item_translation_strings(entry, strings, depth + 1) }
+    end
+  rescue
+  end
+
+  def generic_item_translation_catalog(expansion_id)
+    @generic_item_translation_catalogs ||= {}
+    expansion = expansion_id.to_s
+    return {} if expansion.empty?
+    return @generic_item_translation_catalogs[expansion] if @generic_item_translation_catalogs.has_key?(expansion)
+    catalog = {
+      :strings           => {},
+      :item_names        => nil,
+      :item_name_plurals => nil,
+      :item_descriptions => nil
+    }
+    source_path = generic_item_translation_source_path(expansion)
+    if source_path && File.file?(source_path)
+      ensure_ordered_hash_loader_for_imported_messages
+      data = Marshal.load(File.binread(source_path))
+      if data.is_a?(Array)
+        catalog[:item_names] = data[7] if data[7].is_a?(Array)
+        catalog[:item_name_plurals] = data[8] if data[8].is_a?(Array)
+        catalog[:item_descriptions] = data[9] if data[9].is_a?(Array)
+      end
+      if catalog[:item_names].nil? && catalog[:item_name_plurals].nil? && catalog[:item_descriptions].nil?
+        collect_generic_item_translation_strings(data, catalog[:strings])
+      end
+    end
+    @generic_item_translation_catalogs[expansion] = catalog
+    return catalog
+  rescue => e
+    log("Generic item translation catalog failed for #{expansion_id}: #{e.class}: #{e.message}") if respond_to?(:log)
+    @generic_item_translation_catalogs[expansion] = {}
+    return {}
+  end
+
+  def generic_item_translation_value(expansion_id, native_id, kind, fallback)
+    catalog = generic_item_translation_catalog(expansion_id)
+    value = nil
+    index = integer(native_id, 0)
+    array_key = case kind
+                when :name then :item_names
+                when :plural then :item_name_plurals
+                when :description then :item_descriptions
+                else nil
+                end
+    values = catalog[array_key] if array_key
+    value = values[index] if index > 0 && values.is_a?(Array) && index < values.length
+    value = catalog[:strings][fallback.to_s] if (value.nil? || value.to_s.empty?) &&
+                                                catalog[:strings].is_a?(Hash) &&
+                                                catalog[:strings].has_key?(fallback.to_s)
+    value = fallback if value.nil? || value.to_s.empty?
+    return normalize_imported_item_text(value)
+  rescue
+    return normalize_imported_item_text(fallback)
   end
 
   def generic_pbs_item_flags(entry)
@@ -890,16 +1087,22 @@ module TravelExpansionFramework
     entry = catalog[normalized] || {}
     return nil if entry.empty?
     flags = generic_pbs_item_flags(entry).map { |flag| flag.to_s.downcase }
+    native_id = integer(entry[:native_id_number] || entry[:id_number], 0)
     display_name = normalize_imported_item_text(entry[:name] || humanize_external_item_name(raw_name))
     display_plural = normalize_imported_item_text(entry[:nameplural] || entry[:name_plural] || imported_item_plural(display_name))
     description = normalize_imported_item_text(entry[:description] || _INTL("{1} imported from {2}.", display_name, imported_item_display_name(expansion_id)))
+    display_name = generic_item_translation_value(expansion_id, native_id, :name, display_name)
+    display_plural = generic_item_translation_value(expansion_id, native_id, :plural, display_plural)
+    description = generic_item_translation_value(expansion_id, native_id, :description, description)
     if respond_to?(:anil_expansion_id?) && anil_expansion_id?(expansion_id) && respond_to?(:anil_translate_text)
       display_name = normalize_imported_item_text(anil_translate_text(display_name))
       display_plural = normalize_imported_item_text(anil_translate_text(display_plural))
       description = normalize_imported_item_text(anil_translate_text(description))
     end
     pocket = integer(entry[:pocket], 1)
-    item_type = 0
+    item_type = integer(entry[:type], 0)
+    field_use = generic_pbs_item_field_use(entry[:fielduse] || entry[:field_use])
+    battle_use = generic_pbs_item_battle_use(entry[:battleuse] || entry[:battle_use])
 
     is_ball = flags.include?("pokeball") || normalized.end_with?("BALL")
     is_berry = flags.include?("berry") || normalized.end_with?("BERRY")
@@ -924,6 +1127,16 @@ module TravelExpansionFramework
       item_type = 12
     end
 
+    handler_kind = nil
+    use_message = nil
+    if field_use == 2 && is_key_item
+      handler_kind = :generic_item_info
+      use_message = description
+    end
+
+    icon_logical_path = entry[:icon_logical_path].to_s
+    icon_logical_path = "Graphics/Items/#{raw_name.to_s.strip.gsub(/\A:/, "")}" if icon_logical_path.empty?
+
     return {
       :name              => display_name,
       :name_plural       => display_plural,
@@ -931,15 +1144,17 @@ module TravelExpansionFramework
       :price             => integer(entry[:price], 0),
       :pocket            => pocket,
       :type              => item_type,
-      :field_use         => generic_pbs_item_field_use(entry[:fielduse] || entry[:field_use]),
-      :battle_use        => generic_pbs_item_battle_use(entry[:battleuse] || entry[:battle_use]),
-      :handler_kind      => nil,
+      :field_use         => field_use,
+      :battle_use        => battle_use,
+      :handler_kind      => handler_kind,
+      :use_message       => use_message,
       :native_item       => nil,
       :battle_delegate   => nil,
       :happiness_method  => nil,
       :heal_amount       => nil,
       :exp_value         => nil,
-      :icon_logical_path => "Graphics/Items/#{raw_name.to_s.strip.gsub(/\A:/, "")}"
+      :native_id_number  => native_id,
+      :icon_logical_path => icon_logical_path
     }
   rescue => e
     log("Generic PBS item definition failed for #{expansion_id}/#{raw_name}: #{e.class}: #{e.message}") if respond_to?(:log)
@@ -1293,6 +1508,16 @@ module TravelExpansionFramework
     return if imported_item_handler_registry[key]
 
     case metadata[:handler_kind]
+    when :generic_item_info
+      message = normalize_imported_item_text(metadata[:use_message] || metadata[:description] || _INTL("Nothing happened."))
+      ItemHandlers::UseFromBag.add(runtime_symbol, proc { |_item|
+        pbMessage(message) if defined?(pbMessage)
+        next 1
+      })
+      ItemHandlers::UseInField.add(runtime_symbol, proc { |_item|
+        pbMessage(message) if defined?(pbMessage)
+        next true
+      })
     when :reborn_common_candy
       ItemHandlers::UseOnPokemon.add(runtime_symbol, proc { |_item, pkmn, scene|
         if pkmn.nil? || pkmn.level <= 1 || (pkmn.respond_to?(:shadowPokemon?) && pkmn.shadowPokemon?) ||

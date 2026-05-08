@@ -1253,8 +1253,25 @@ end
 class PokemonPauseMenu_Scene
   alias tef_original_pbShowCommands pbShowCommands unless defined?(tef_original_pbShowCommands)
 
+  def tef_prepare_imported_pause_window
+    expansion = TravelExpansionFramework.current_asset_expansion_id if defined?(TravelExpansionFramework)
+    expansion = TravelExpansionFramework.current_runtime_expansion_id if (expansion.nil? || expansion.to_s.empty?) &&
+                                                                          defined?(TravelExpansionFramework) &&
+                                                                          TravelExpansionFramework.respond_to?(:current_runtime_expansion_id)
+    return if expansion.nil? || expansion.to_s.empty?
+    cmdwindow = @sprites && @sprites["cmdwindow"]
+    return if cmdwindow.nil?
+    cmdwindow.opacity = 255 if cmdwindow.respond_to?(:opacity=)
+    cmdwindow.back_opacity = 255 if cmdwindow.respond_to?(:back_opacity=)
+    cmdwindow.contents_opacity = 255 if cmdwindow.respond_to?(:contents_opacity=)
+    cmdwindow.refresh if cmdwindow.respond_to?(:refresh)
+  rescue => e
+    TravelExpansionFramework.log("Pause menu window normalization failed: #{e.class}: #{e.message}") if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:log)
+  end
+
   def pbShowCommands(commands)
     return -1 if $game_temp && $game_temp.player_transferring
+    tef_prepare_imported_pause_window
     return tef_original_pbShowCommands(commands)
   end
 end

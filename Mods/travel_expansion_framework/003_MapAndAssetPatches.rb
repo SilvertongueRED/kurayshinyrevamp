@@ -67,7 +67,18 @@ module TravelExpansionFramework
     graphics/ebdx/pictures/ui/symmega
     graphics/ebdx/pictures/ui/types
     graphics/ebdx/pictures/ui/types2
+    graphics/pictures/leftarrow
+    graphics/pictures/rightarrow
+    graphics/windowskins/window
+    graphics/windowskins/windowskin
+    graphics/windowskins/001-blue01
+    graphics/windowskins/default_opaque
+    graphics/windowskins/default_transparent
+    graphics/windowskins/choice_1
   ].freeze unless const_defined?(:HOST_UI_BITMAPS)
+  HOST_UI_BITMAP_PREFIXES = %w[
+    graphics/pictures/bag/
+  ].freeze unless const_defined?(:HOST_UI_BITMAP_PREFIXES)
   AUDIO_EXTENSIONS = ["", ".ogg", ".mp3", ".wav", ".mid", ".midi", ".wma"].freeze if !const_defined?(:AUDIO_EXTENSIONS)
 
   def current_asset_expansion_id
@@ -118,7 +129,7 @@ module TravelExpansionFramework
     extname = File.extname(normalized)
     base = normalized
     base = base[0...-extname.length] if !extname.empty?
-    return nil if !HOST_UI_BITMAPS.include?(base.downcase)
+    return nil if !host_ui_bitmap_base?(base.downcase)
     candidates = []
     candidates << normalized if !extname.empty?
     exts = extensions.is_a?(Array) ? extensions : [extensions]
@@ -135,6 +146,17 @@ module TravelExpansionFramework
     return nil
   rescue
     return nil
+  end
+
+  def host_ui_bitmap_base?(base)
+    normalized = base.to_s.downcase
+    return true if HOST_UI_BITMAPS.include?(normalized)
+    HOST_UI_BITMAP_PREFIXES.each do |prefix|
+      return true if normalized.start_with?(prefix)
+    end
+    return false
+  rescue
+    return false
   end
 
   def with_rendering_expansion(expansion_id)
