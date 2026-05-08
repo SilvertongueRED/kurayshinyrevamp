@@ -62,6 +62,11 @@ module TravelExpansionFramework
   GADIR_DELUXE_SWITCH_ULTIMO_PARCHE = 702 unless const_defined?(:GADIR_DELUXE_SWITCH_ULTIMO_PARCHE)
   GADIR_DELUXE_INTRO_IDLE_RECOVERY_FRAMES = 150 unless const_defined?(:GADIR_DELUXE_INTRO_IDLE_RECOVERY_FRAMES)
   GADIR_DELUXE_INTRO_RECOVERY_EVENT_IDS = [3, 5, 9].freeze unless const_defined?(:GADIR_DELUXE_INTRO_RECOVERY_EVENT_IDS)
+  GADIR_DELUXE_HOME_WAKEUP_EVENT_ID = 12 unless const_defined?(:GADIR_DELUXE_HOME_WAKEUP_EVENT_ID)
+  GADIR_DELUXE_HOME_EXIT_EVENT_IDS = [3, 4].freeze unless const_defined?(:GADIR_DELUXE_HOME_EXIT_EVENT_IDS)
+  GADIR_DELUXE_HOME_SAFE_X = 14 unless const_defined?(:GADIR_DELUXE_HOME_SAFE_X)
+  GADIR_DELUXE_HOME_SAFE_Y = 12 unless const_defined?(:GADIR_DELUXE_HOME_SAFE_Y)
+  GADIR_DELUXE_HOME_SAFE_DIRECTION = 6 unless const_defined?(:GADIR_DELUXE_HOME_SAFE_DIRECTION)
   HOLLOW_WOODS_EXPANSION_ID = "hollow_woods" unless const_defined?(:HOLLOW_WOODS_EXPANSION_ID)
   HOLLOW_WOODS_LEGACY_EXPANSION_IDS = ["hollowwoods", "pokemon_hollow_woods", "pokemon_hollowwoods"].freeze unless const_defined?(:HOLLOW_WOODS_LEGACY_EXPANSION_IDS)
   KEISHOU_EXPANSION_ID = "keishou" unless const_defined?(:KEISHOU_EXPANSION_ID)
@@ -933,6 +938,57 @@ module TravelExpansionFramework
     return false
   end
 
+  def new_project_current_map_interpreter
+    if defined?(pbMapInterpreter) && pbMapInterpreter
+      return pbMapInterpreter
+    end
+    if defined?($game_system) && $game_system &&
+       $game_system.respond_to?(:map_interpreter)
+      return $game_system.map_interpreter
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def new_project_current_interpreter_event_id
+    interpreter = new_project_current_map_interpreter
+    return 0 if !interpreter
+    return integer(interpreter.instance_variable_get(:@event_id), 0)
+  rescue
+    return 0
+  end
+
+  def new_project_release_player_controls!(clear_message = false, clear_transfer = true)
+    $game_system.menu_disabled = false if defined?($game_system) && $game_system && $game_system.respond_to?(:menu_disabled=)
+    if defined?($game_temp) && $game_temp
+      $game_temp.message_window_showing = false if clear_message && $game_temp.respond_to?(:message_window_showing=)
+      $game_temp.menu_calling = false if $game_temp.respond_to?(:menu_calling=)
+      $game_temp.in_menu = false if $game_temp.respond_to?(:in_menu=)
+      if clear_transfer
+        $game_temp.player_transferring = false if $game_temp.respond_to?(:player_transferring=)
+        $game_temp.transition_processing = false if $game_temp.respond_to?(:transition_processing=)
+        $game_temp.transition_name = "" if $game_temp.respond_to?(:transition_name=)
+      end
+    end
+    if defined?($PokemonTemp) && $PokemonTemp
+      $PokemonTemp.miniupdate = false if $PokemonTemp.respond_to?(:miniupdate=)
+      $PokemonTemp.hiddenMoveEventCalling = false if $PokemonTemp.respond_to?(:hiddenMoveEventCalling=)
+      $PokemonTemp.keyItemCalling = false if $PokemonTemp.respond_to?(:keyItemCalling=)
+      $PokemonTemp.waitingTrainer = nil if $PokemonTemp.respond_to?(:waitingTrainer=)
+    end
+    if defined?($game_player) && $game_player
+      $game_player.unlock if $game_player.respond_to?(:unlock)
+      $game_player.cancelMoveRoute if $game_player.respond_to?(:cancelMoveRoute)
+      $game_player.straighten if $game_player.respond_to?(:straighten)
+      $game_player.through = false if $game_player.respond_to?(:through=)
+      $game_player.transparent = false if $game_player.respond_to?(:transparent=)
+    end
+    return true
+  rescue
+    return false
+  end
+
   def new_project_visuals_dark?(scene = nil)
     screen = defined?($game_screen) ? $game_screen : nil
     return true if respond_to?(:screen_visuals_stuck_dark?) && screen_visuals_stuck_dark?(screen)
@@ -1054,6 +1110,7 @@ module TravelExpansionFramework
     [
       GADIR_DELUXE_SWITCH_CHAPI_INTRO,
       GADIR_DELUXE_SWITCH_FININTRO,
+      GADIR_DELUXE_WAKEUP_SWITCH,
       GADIR_DELUXE_SWITCH_ENCIENDE,
       GADIR_DELUXE_SWITCH_ULTIMO_PARCHE
     ].each { |switch_id| gadir_deluxe_set_switch!(expansion, switch_id, true) }
@@ -1080,9 +1137,9 @@ module TravelExpansionFramework
     log("[gadir_deluxe] recovered stalled character intro; transferring to bedroom start") if respond_to?(:log)
     result = safe_transfer_to_anchor({
       :map_id    => target_map,
-      :x         => 9,
-      :y         => 8,
-      :direction => 6
+      :x         => GADIR_DELUXE_HOME_SAFE_X,
+      :y         => GADIR_DELUXE_HOME_SAFE_Y,
+      :direction => GADIR_DELUXE_HOME_SAFE_DIRECTION
     }, {
       :source            => :story_transfer,
       :expansion_id      => expansion,
@@ -1105,20 +1162,44 @@ module TravelExpansionFramework
     local_map = local_map_id_for(expansion, map_id) rescue map_id
     return false if integer(local_map, 0) != GADIR_DELUXE_HOME_LOCAL_MAP_ID
     metadata = new_project_metadata(expansion)
+    interpreter = new_project_current_map_interpreter
+    event_id = new_project_current_interpreter_event_id
+    return false if GADIR_DELUXE_HOME_EXIT_EVENT_IDS.include?(event_id)
     wakeup_done = gadir_deluxe_switch_active?(expansion, GADIR_DELUXE_WAKEUP_SWITCH)
     intro_done = gadir_deluxe_switch_active?(expansion, GADIR_DELUXE_SWITCH_FININTRO)
     return false if !wakeup_done && !intro_done
-    recovery_key = wakeup_done ? "gadir_home_visuals_recovered" : "gadir_home_pre_wakeup_visuals_recovered"
-    if metadata && metadata[recovery_key] &&
-       !new_project_visuals_dark?(scene)
+    if intro_done && !wakeup_done
+      gadir_deluxe_set_switch!(expansion, GADIR_DELUXE_WAKEUP_SWITCH, true)
+      wakeup_done = true
+      if event_id == GADIR_DELUXE_HOME_WAKEUP_EVENT_ID && interpreter &&
+         respond_to?(:clear_interpreter_state!)
+        clear_interpreter_state!(interpreter, "gadir_deluxe bedroom wakeup autorun")
+      end
+    end
+    visual_recovery_needed = new_project_visuals_dark?(scene)
+    safe_landing_needed = metadata ? !metadata["gadir_home_safe_landing_recovered"] : false
+    control_release_needed = metadata ? !metadata["gadir_home_controls_released"] : true
+    if !visual_recovery_needed && !safe_landing_needed && !control_release_needed
       return false
     end
-    new_project_clear_screen_pictures!("gadir_deluxe bedroom wakeup") if respond_to?(:new_project_clear_screen_pictures!)
-    clear_stuck_screen_effects!("gadir_deluxe bedroom wakeup", true) if respond_to?(:clear_stuck_screen_effects!)
-    release_player_movement_lock if respond_to?(:release_player_movement_lock)
+    new_project_clear_screen_pictures!("gadir_deluxe bedroom wakeup") if visual_recovery_needed && respond_to?(:new_project_clear_screen_pictures!)
+    clear_stuck_screen_effects!("gadir_deluxe bedroom wakeup", true) if visual_recovery_needed && respond_to?(:clear_stuck_screen_effects!)
+    new_project_release_player_controls!(true, true)
+    if safe_landing_needed && defined?($game_player) && $game_player &&
+       $game_player.respond_to?(:moveto)
+      $game_player.moveto(GADIR_DELUXE_HOME_SAFE_X, GADIR_DELUXE_HOME_SAFE_Y)
+      if $game_player.respond_to?(:direction=)
+        $game_player.direction = GADIR_DELUXE_HOME_SAFE_DIRECTION
+      end
+      metadata["gadir_home_safe_landing_recovered"] = true if metadata
+      log("[gadir_deluxe] placed player on safe bedroom exit tile #{GADIR_DELUXE_HOME_SAFE_X},#{GADIR_DELUXE_HOME_SAFE_Y}") if respond_to?(:log)
+    end
     apply_host_player_visuals!(expansion) if respond_to?(:apply_host_player_visuals!)
-    metadata[recovery_key] = true if metadata
-    log("[gadir_deluxe] cleared bedroom wakeup overlays on map #{map_id}") if respond_to?(:log)
+    if metadata
+      metadata["gadir_home_visuals_recovered"] = true if visual_recovery_needed
+      metadata["gadir_home_controls_released"] = true
+    end
+    log("[gadir_deluxe] released bedroom wakeup controls on map #{map_id}") if respond_to?(:log)
     return true
   rescue => e
     log("[gadir_deluxe] bedroom wakeup recovery failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
