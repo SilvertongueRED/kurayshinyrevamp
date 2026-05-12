@@ -1,0 +1,399 @@
+{
+  "name": "Autoplay Dex Bot",
+  "id": "autoplay_bot",
+  "version": "0.1.0",
+  "author": "OpenAI Codex",
+  "description": [
+    "Adds a pausable in-game autoplay bot that uses virtual inputs, scans maps/events, follows guide objectives, and tracks dex progress.",
+    "This first release is intentionally conservative: it can plan, explore, battle with existing AI, catch needed species, and pause for manual takeover when uncertain."
+  ],
+  "tags": ["Gameplay", "QoL", "AI"],
+  "dependencies": [
+    { "id": "diagonal_movement", "min_version": "0" },
+    { "id": "mouse_ui", "min_version": "0" }
+  ],
+  "incompatible": [],
+  "settings": [
+    {
+      "key": "enabled",
+      "type": "toggle",
+      "label": "Runtime Hooks",
+      "description": "Allows the bot runtime and hotkey to run while this mod is loaded.",
+      "default": true
+    },
+    {
+      "key": "autostart",
+      "type": "toggle",
+      "label": "Autostart",
+      "description": "Starts the bot automatically. Off means press the pause key to start or resume.",
+      "default": false
+    },
+    {
+      "key": "pause_key",
+      "type": "enum",
+      "label": "Pause Key",
+      "description": "Key used to start, pause, and resume the bot.",
+      "options": ["F5", "F6", "F7", "F8"],
+      "default": "F5"
+    },
+    {
+      "key": "overlay_mode",
+      "type": "enum",
+      "label": "Bot Overlay",
+      "description": "Compact HUD is a lightweight always-on bot status panel. Classic Window uses the older Pokemon text window. Off hides bot status UI.",
+      "options": ["compact_hud", "classic_window", "off"],
+      "default": "compact_hud"
+    },
+    {
+      "key": "auto_choose_exclusive",
+      "type": "toggle",
+      "label": "Auto Exclusive Choices",
+      "description": "On: randomly picks one-time choices like starters. Off: pauses so the player can choose.",
+      "default": true
+    },
+    {
+      "key": "route_profile",
+      "type": "enum",
+      "label": "Route Profile",
+      "description": "Routing assumption used by the objective planner.",
+      "options": ["current_save", "normal_non_random"],
+      "default": "current_save"
+    },
+    {
+      "key": "automation_scope",
+      "type": "enum",
+      "label": "Automation Scope",
+      "description": "Wild Capture Focus keeps autonomy small and reliable: find nearby grass, catch needed Pokemon, and handle battles. Story Explorer enables the broader story/frontier planner.",
+      "options": ["wild_capture_focus", "story_explorer"],
+      "default": "wild_capture_focus"
+    },
+    {
+      "key": "guide_pack",
+      "type": "enum",
+      "label": "Guide Pack",
+      "description": "Human-editable guide pack used for story objectives.",
+      "options": ["default"],
+      "default": "default"
+    },
+    {
+      "key": "prime_objective",
+      "type": "enum",
+      "label": "Prime Objective",
+      "description": "Top-level mission for autonomous play. Living Dex + Fusions keeps story progress pointed toward unlocking every collectible Pokemon and fusion.",
+      "options": ["living_dex_all_fusions", "base_living_dex", "story_clear"],
+      "default": "living_dex_all_fusions"
+    },
+    {
+      "key": "completion_scope",
+      "type": "enum",
+      "label": "Completion Scope",
+      "description": "How broadly the bot treats unlocked routes, regions, and modded content as required progression.",
+      "options": ["all_available_game_content", "main_story_plus_dex", "current_region"],
+      "default": "all_available_game_content"
+    },
+    {
+      "key": "dex_copy_goal",
+      "type": "enum",
+      "label": "Dex Copies",
+      "description": "How hard the bot tries to keep duplicate base species for fusions.",
+      "options": ["flexible_two", "one_each"],
+      "default": "flexible_two"
+    },
+    {
+      "key": "rare_policy",
+      "type": "enum",
+      "label": "Rare Policy",
+      "description": "How the bot handles rare encounters before leaving an area.",
+      "options": ["defer", "time_budget"],
+      "default": "defer"
+    },
+    {
+      "key": "nickname_policy",
+      "type": "enum",
+      "label": "Nicknames",
+      "description": "Controls whether the bot nicknames newly obtained Pokemon.",
+      "options": ["smart", "always", "never"],
+      "default": "smart"
+    },
+    {
+      "key": "trainer_capture_policy",
+      "type": "enum",
+      "label": "Trainer Capture",
+      "description": "Controls bot use of Kuray Rocket Mode trainer steals. Respect Game follows the save's Rocket Mode option.",
+      "options": ["respect_game", "off", "force_rocket_balls", "force_all_balls"],
+      "default": "respect_game"
+    },
+    {
+      "key": "team_strategy",
+      "type": "enum",
+      "label": "Team Strategy",
+      "description": "Controls caught Pokemon party/storage decisions and roster scoring.",
+      "options": ["smart_safe", "store_only", "off"],
+      "default": "smart_safe"
+    },
+    {
+      "key": "fusion_strategy",
+      "type": "enum",
+      "label": "Fusion Strategy",
+      "description": "Records safe fusion recommendations for the bot's progression team without consuming last dex copies.",
+      "options": ["recommend_safe", "off"],
+      "default": "recommend_safe"
+    },
+    {
+      "key": "fusion_collection_goal",
+      "type": "enum",
+      "label": "Fusion Collection",
+      "description": "Own Each Seen Fusion makes unseen wild/static/trainer-stealable fusions count as capture targets, while still protecting last base copies.",
+      "options": ["own_each_seen_fusion", "track_only", "off"],
+      "default": "own_each_seen_fusion"
+    },
+    {
+      "key": "recovery_policy",
+      "type": "enum",
+      "label": "Recovery",
+      "description": "Controls whether normal bot confusion becomes a recoverable route objective or a manual pause.",
+      "options": ["soft_recover", "manual_pause"],
+      "default": "soft_recover"
+    },
+    {
+      "key": "training_after_loss",
+      "type": "toggle",
+      "label": "Train After Loss",
+      "description": "After a blackout from a major fight, heal, train nearby, and retry instead of immediately repeating the same loss.",
+      "default": true
+    },
+    {
+      "key": "frontier_explore",
+      "type": "toggle",
+      "label": "Frontier Explore",
+      "description": "Allows the bot to explore scanned unknown or modded transfers with bounded retries.",
+      "default": true
+    },
+    {
+      "key": "safe_mode",
+      "type": "toggle",
+      "label": "Safe Mode",
+      "description": "Prioritizes known story rails and delays optional frontier cleanup on large outdoor/story maps to reduce lockups.",
+      "default": true
+    },
+    {
+      "key": "local_discovery",
+      "type": "toggle",
+      "label": "Local Discovery",
+      "description": "While following story rails, detours for nearby reachable items, resource spots, NPCs, and buildings before walking past them.",
+      "default": true
+    },
+    {
+      "key": "local_discovery_radius",
+      "type": "enum",
+      "label": "Discovery Radius",
+      "description": "How far the bot may detour for local items, NPCs, and buildings before continuing the current story route.",
+      "options": ["nearby", "room", "wide"],
+      "default": "nearby"
+    },
+    {
+      "key": "autonomy_profile",
+      "type": "enum",
+      "label": "Autonomy Profile",
+      "description": "Controls how strongly the scheduler favors collector cleanup versus story momentum.",
+      "options": ["collector_opportunistic", "story_guided", "minimal"],
+      "default": "collector_opportunistic"
+    },
+    {
+      "key": "map_clear_policy",
+      "type": "enum",
+      "label": "Map Clear Policy",
+      "description": "Queue Opportunistic records every scanned target, clears nearby work, and returns later for expensive cleanup.",
+      "options": ["queue_opportunistic", "story_first", "clear_before_leave"],
+      "default": "queue_opportunistic"
+    },
+    {
+      "key": "collector_intensity",
+      "type": "enum",
+      "label": "Collector Intensity",
+      "description": "Controls duplicate catching, resource restocking, and bounded cleanup eagerness.",
+      "options": ["high_bounded", "normal", "minimal"],
+      "default": "high_bounded"
+    },
+    {
+      "key": "adaptive_planner_budget",
+      "type": "enum",
+      "label": "Adaptive Planner",
+      "description": "Allows short low-lag pathfinding bursts for recovery, interactables, healer routes, and transfers.",
+      "options": ["low_lag_burst", "strict_low_lag", "balanced_burst"],
+      "default": "low_lag_burst"
+    },
+    {
+      "key": "resource_autonomy",
+      "type": "enum",
+      "label": "Resources",
+      "description": "Controls how the bot restocks supplies. Legit Shop Flow only buys through shops the bot has reached normally.",
+      "options": ["legit_shop_flow", "strict_inputs_only", "pragmatic_helper"],
+      "default": "legit_shop_flow"
+    },
+    {
+      "key": "hunt_completion",
+      "type": "enum",
+      "label": "Hunt Goal",
+      "description": "Controls which dex targets the hunt-first loop prioritizes.",
+      "options": ["base_plus_seen_fusions", "base_species_only", "all_seen_fusions"],
+      "default": "base_plus_seen_fusions"
+    },
+    {
+      "key": "hunt_unlock_strategy",
+      "type": "enum",
+      "label": "Hunt Unlocks",
+      "description": "Controls how much story/explorer movement the bot uses after a zone stops producing useful encounters.",
+      "options": ["hunt_first_conservative", "manual_unlocks", "full_story_explorer"],
+      "default": "hunt_first_conservative"
+    },
+    {
+      "key": "hunt_zone_budget",
+      "type": "enum",
+      "label": "Zone Budget",
+      "description": "Controls how long the bot samples a zone before trying a better known area or conservative unlock path.",
+      "options": ["bounded", "patient", "quick_sample"],
+      "default": "bounded"
+    },
+    {
+      "key": "world_coverage",
+      "type": "toggle",
+      "label": "World Coverage",
+      "description": "Lets the bot build a persistent map atlas and use story unlocks, transfers, NPCs, trainers, and items as world-level goals.",
+      "default": true
+    },
+    {
+      "key": "story_unlock_priority",
+      "type": "toggle",
+      "label": "Story Unlocks First",
+      "description": "Prioritizes story progress when it opens routes, towns, HMs, shops, fast travel, or encounter zones.",
+      "default": true
+    },
+    {
+      "key": "world_backtrack_policy",
+      "type": "enum",
+      "label": "Backtracking",
+      "description": "Controls whether the world atlas may route back to earlier maps for cleanup after new paths open.",
+      "options": ["quick_route", "nearby_only", "off"],
+      "default": "quick_route"
+    },
+    {
+      "key": "rocket_ball_wild_policy",
+      "type": "enum",
+      "label": "Wild Rocket Balls",
+      "description": "Controls whether Rocket Balls may ever be used on wild Pokemon.",
+      "options": ["never", "allow_if_only_ball"],
+      "default": "never"
+    },
+    {
+      "key": "min_standard_balls",
+      "type": "enum",
+      "label": "Ball Floor",
+      "description": "Minimum non-Rocket balls the bot tries to keep for dex hunting.",
+      "options": ["5", "10", "15", "20", "30"],
+      "default": "15"
+    },
+    {
+      "key": "min_heal_items",
+      "type": "enum",
+      "label": "Heal Floor",
+      "description": "Minimum healing items the bot tries to keep before extended hunting.",
+      "options": ["0", "3", "5", "8", "12"],
+      "default": "5"
+    },
+    {
+      "key": "repeatable_battle_policy",
+      "type": "enum",
+      "label": "Repeatable Battles",
+      "description": "Controls how the bot learns repeatable trainer battles.",
+      "options": ["hybrid_learning", "guide_flags_first", "script_heuristics_first"],
+      "default": "hybrid_learning"
+    },
+    {
+      "key": "farming_policy",
+      "type": "enum",
+      "label": "Farming",
+      "description": "Controls when the bot uses repeatable battles for XP or money.",
+      "options": ["need_based", "aggressive_grind", "minimal_fallback"],
+      "default": "need_based"
+    },
+    {
+      "key": "max_farm_cycles_per_objective",
+      "type": "enum",
+      "label": "Farm Cycles",
+      "description": "Caps repeatable battle farming before the bot returns to the current story objective.",
+      "options": ["1", "2", "3", "4", "5"],
+      "default": "3"
+    },
+    {
+      "key": "min_money_reserve",
+      "type": "enum",
+      "label": "Money Reserve",
+      "description": "Minimum cash the bot tries to keep after shopping.",
+      "options": ["0", "500", "1000", "1500", "2000"],
+      "default": "1000"
+    },
+    {
+      "key": "resource_overlay_detail",
+      "type": "enum",
+      "label": "Resource Overlay",
+      "description": "Controls whether resource needs appear in the bot overlay.",
+      "options": ["off", "normal", "verbose"],
+      "default": "normal"
+    },
+    {
+      "key": "self_improvement_logging",
+      "type": "toggle",
+      "label": "Learning Logs",
+      "description": "Records soft failures, manual pauses, stuck loops, and crash-adjacent states so future planning can avoid repeating them.",
+      "default": true
+    },
+    {
+      "key": "menu_idle_escape",
+      "type": "toggle",
+      "label": "Menu Escape",
+      "description": "If the bot sits in a menu too long without making progress, it assumes the menu should be closed and continues play.",
+      "default": true
+    },
+    {
+      "key": "menu_idle_escape_frames",
+      "type": "enum",
+      "label": "Menu Timeout",
+      "description": "Frames to wait before backing out of an idle menu. 600 is about ten seconds at 60 FPS.",
+      "options": ["180", "300", "600", "900", "1200"],
+      "default": "600"
+    },
+    {
+      "key": "max_objective_retries",
+      "type": "enum",
+      "label": "Objective Retries",
+      "description": "How many soft recovery retries the bot should attempt before treating an objective as failed frontier work.",
+      "options": ["1", "2", "3", "4", "5"],
+      "default": "3"
+    },
+    {
+      "key": "planner_budget",
+      "type": "enum",
+      "label": "Planner Budget",
+      "description": "Controls scanner/pathfinder aggressiveness. Low Lag favors known rails and small bursts.",
+      "options": ["low_lag", "balanced", "aggressive"],
+      "default": "low_lag"
+    },
+    {
+      "key": "allow_debug_escape",
+      "type": "toggle",
+      "label": "Debug Escape",
+      "description": "Reserved for future QA-only recovery. V1 does not use debug warps.",
+      "default": false
+    }
+  ],
+  "scripts": [
+    "001_Config.rb",
+    "002_JsonAndState.rb",
+    "003_InputQueue.rb",
+    "004_WorldScanner.rb",
+    "005_ObjectivesAndDex.rb",
+    "006_ExplorerCore.rb",
+    "006_RuntimeAndHooks.rb"
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "starter_sets": [
+    {
+      "id": "framework_default",
+      "label": "Framework Fakemon Trio",
+      "replace_default_starters": true,
+      "species": ["CSF_VERDALYK", "CSF_CINDRAKE", "CSF_AQUALITH"],
+      "rival_counterpick": {
+        "CSF_VERDALYK": "CSF_CINDRAKE",
+        "CSF_CINDRAKE": "CSF_AQUALITH",
+        "CSF_AQUALITH": "CSF_VERDALYK"
+      }
+    },
+    {
+      "id": "kanto_classic",
+      "label": "Kanto Classic",
+      "replace_default_starters": false,
+      "species": ["BULBASAUR", "CHARMANDER", "SQUIRTLE"],
+      "rival_counterpick": {}
+    }
+  ]
+}

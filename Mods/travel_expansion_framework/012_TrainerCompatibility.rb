@@ -1737,6 +1737,9 @@ module TravelExpansionFramework
       pokemon = build_external_trainer_pokemon(trainer, pkmn_data, expansion_id)
       trainer.party << pokemon if pokemon
     end
+    if expansion_id.to_s == "decades" && respond_to?(:decades_scale_trainer_party!)
+      trainer = decades_scale_trainer_party!(trainer)
+    end
     return trainer
   rescue => e
     log("Failed to build external trainer #{record[:trainer_type]}/#{record[:name]}/#{record[:version]}: #{e.class}: #{e.message}")
@@ -1749,7 +1752,19 @@ module TravelExpansionFramework
     return nil if species.nil?
     level = integer(pkmn_data[:level], 1)
     pkmn = Pokemon.new(species, level, trainer, false)
+    source_species = pkmn_data[:species]
+    if expansion_id && !expansion_id.to_s.empty?
+      pkmn.tef_origin_expansion_id = expansion_id.to_s if pkmn.respond_to?(:tef_origin_expansion_id=)
+      pkmn.tef_source_expansion_id = expansion_id.to_s if pkmn.respond_to?(:tef_source_expansion_id=)
+      pkmn.instance_variable_set(:@tef_source_expansion_id, expansion_id.to_s)
+    end
+    if source_species
+      pkmn.tef_source_species = source_species if pkmn.respond_to?(:tef_source_species=)
+      pkmn.instance_variable_set(:@tef_source_species, source_species)
+    end
     if pkmn_data[:form]
+      pkmn.tef_source_form = pkmn_data[:form] if pkmn.respond_to?(:tef_source_form=)
+      pkmn.instance_variable_set(:@tef_source_form, pkmn_data[:form])
       pkmn.forced_form = pkmn_data[:form] if pkmn.respond_to?(:forced_form=) && MultipleForms.hasFunction?(species, "getForm")
       pkmn.form_simple = pkmn_data[:form] if pkmn.respond_to?(:form_simple=)
     end
@@ -1806,7 +1821,7 @@ module TravelExpansionFramework
       return data.id if data
     end
     if defined?(CustomSpeciesFramework) && CustomSpeciesFramework.respond_to?(:compatibility_alias_target)
-      canonical = CustomSpeciesFramework.compatibility_alias_target(identifier) rescue nil
+      canonical = CustomSpeciesFramework.compatibility_alias_target(identifier, expansion_id) rescue nil
       if canonical
         data = GameData::Species.try_get(canonical) rescue nil
         return data.id if data
@@ -2197,41 +2212,49 @@ module TravelExpansionFramework
       expansion_id = external_trainer_expansion_id(trainer)
       trainer.lose_text = localized_external_trainer_text(expansion_id, end_speech)
     end
+    trainer = scale_imported_trainer_battle_args!([trainer])[0] if respond_to?(:scale_imported_trainer_battle_args!)
+    battle_context_expansion = external_trainer_expansion_id(trainer)
+    previous_battle_context_expansion = @active_imported_battle_expansion_id
+    @active_imported_battle_expansion_id = battle_context_expansion if battle_context_expansion && !battle_context_expansion.to_s.empty?
 
-    if !$PokemonTemp.waitingTrainer && pbMapInterpreterRunning? &&
-       ($Trainer.able_pokemon_count > 1 ||
-       ($Trainer.able_pokemon_count > 0 && $PokemonGlobal.partner))
-      this_event = pbMapInterpreter.get_character(0)
-      triggered_events = $game_player.pbTriggeredTrainerEvents([2], false)
-      other_event = []
-      for event in triggered_events
-        next if event.id == this_event.id
-        next if $game_self_switches[[$game_map.map_id, event.id, "A"]]
-        other_event.push(event)
+    begin
+      if !$PokemonTemp.waitingTrainer && pbMapInterpreterRunning? &&
+         ($Trainer.able_pokemon_count > 1 ||
+         ($Trainer.able_pokemon_count > 0 && $PokemonGlobal.partner))
+        this_event = pbMapInterpreter.get_character(0)
+        triggered_events = $game_player.pbTriggeredTrainerEvents([2], false)
+        other_event = []
+        for event in triggered_events
+          next if event.id == this_event.id
+          next if $game_self_switches[[$game_map.map_id, event.id, "A"]]
+          other_event.push(event)
+        end
+        Events.onTrainerPartyLoad.trigger(nil, trainer)
+        if other_event.length == 1 && trainer.party.length <= Settings::MAX_PARTY_SIZE
+          $PokemonTemp.waitingTrainer = [trainer, this_event.id]
+          return false
+        end
       end
-      Events.onTrainerPartyLoad.trigger(nil, trainer)
-      if other_event.length == 1 && trainer.party.length <= Settings::MAX_PARTY_SIZE
-        $PokemonTemp.waitingTrainer = [trainer, this_event.id]
-        return false
+
+      setBattleRule("outcomeVar", outcome_var) if outcome_var != 1
+      setBattleRule("canLose") if can_lose
+      setBattleRule("double") if double_battle || $PokemonTemp.waitingTrainer
+
+      if $PokemonTemp.waitingTrainer
+        decision = pbTrainerBattleCore($PokemonTemp.waitingTrainer[0], trainer)
+      else
+        Events.onTrainerPartyLoad.trigger(nil, trainer)
+        decision = pbTrainerBattleCore(trainer)
       end
-    end
 
-    setBattleRule("outcomeVar", outcome_var) if outcome_var != 1
-    setBattleRule("canLose") if can_lose
-    setBattleRule("double") if double_battle || $PokemonTemp.waitingTrainer
-
-    if $PokemonTemp.waitingTrainer
-      decision = pbTrainerBattleCore($PokemonTemp.waitingTrainer[0], trainer)
-    else
-      Events.onTrainerPartyLoad.trigger(nil, trainer)
-      decision = pbTrainerBattleCore(trainer)
+      if decision == 1 && $PokemonTemp.waitingTrainer
+        pbMapInterpreter.pbSetSelfSwitch($PokemonTemp.waitingTrainer[1], "A", true)
+      end
+      $PokemonTemp.waitingTrainer = nil
+      return (decision == 1)
+    ensure
+      @active_imported_battle_expansion_id = previous_battle_context_expansion
     end
-
-    if decision == 1 && $PokemonTemp.waitingTrainer
-      pbMapInterpreter.pbSetSelfSwitch($PokemonTemp.waitingTrainer[1], "A", true)
-    end
-    $PokemonTemp.waitingTrainer = nil
-    return (decision == 1)
   end
 
   def run_imported_double_trainer_battle(args)
@@ -2247,6 +2270,7 @@ module TravelExpansionFramework
       log("Imported double trainer battle could not resolve one or more trainers: #{args[0].inspect}, #{args[1].inspect}")
       return false
     end
+    trainers = scale_imported_trainer_battle_args!(trainers) if respond_to?(:scale_imported_trainer_battle_args!)
     decision = pbTrainerBattleCore(trainers[0], trainers[1])
     return (decision == 1)
   end
@@ -2265,6 +2289,7 @@ module TravelExpansionFramework
       log("Imported triple trainer battle could not resolve one or more trainers: #{args[0].inspect}, #{args[1].inspect}, #{args[2].inspect}")
       return false
     end
+    trainers = scale_imported_trainer_battle_args!(trainers) if respond_to?(:scale_imported_trainer_battle_args!)
     decision = pbTrainerBattleCore(trainers[0], trainers[1], trainers[2])
     return (decision == 1)
   end
@@ -2395,6 +2420,7 @@ alias tef_original_pbTrainerBattleCore pbTrainerBattleCore if defined?(pbTrainer
 def pbTrainerBattleCore(*args)
   return nil if !defined?(tef_original_pbTrainerBattleCore)
   resolved_args = args.map { |arg| TravelExpansionFramework.resolve_external_trainer_argument(arg) }
+  resolved_args = TravelExpansionFramework.scale_imported_trainer_battle_args!(resolved_args) if TravelExpansionFramework.respond_to?(:scale_imported_trainer_battle_args!)
   return tef_original_pbTrainerBattleCore(*resolved_args)
 end
 
@@ -2407,6 +2433,7 @@ def pbTrainerBattle(trainerID, trainerName, endSpeech=nil,
   return tef_original_pbTrainerBattle(trainerID, trainerName, endSpeech,
                                       doubleBattle, trainerPartyID, canLose, outcomeVar,
                                       name_override, trainer_type_overide) if !imported
+  imported = TravelExpansionFramework.scale_imported_trainer_battle_args!([imported])[0] if TravelExpansionFramework.respond_to?(:scale_imported_trainer_battle_args!)
   TravelExpansionFramework.log("Running imported trainer battle directly for #{trainerID}/#{trainerName}/#{trainerPartyID}")
   return TravelExpansionFramework.run_imported_trainer_battle(
     imported, endSpeech, doubleBattle, canLose, outcomeVar, name_override, trainer_type_overide

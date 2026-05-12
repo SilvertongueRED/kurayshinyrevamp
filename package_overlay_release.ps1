@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ReleaseName = "PIF-player-build-20260422-no-csf-update1",
+    [string]$ReleaseName = "PIF-player-build-20260512-full-current-update1",
     [string]$PreviousManifestPath = "",
     [string]$OutputRoot = "",
     [switch]$KeepStage
@@ -37,6 +37,7 @@ $sevenZipPath = Join-Path $projectRoot "REQUIRED_BY_INSTALLER_UPDATER\7z.exe"
 $includeDirectories = @(
     "Audio",
     "Data",
+    "ExpansionLinks",
     "Fonts",
     "Graphics",
     "Libs",
@@ -65,9 +66,22 @@ $includeFiles = @(
 $cleanupPaths = @(
     "Data\.idea",
     "Data\.DS_Store",
+    "Data\Map418 1.rxdata",
+    "Data\pokedex\rate_limit.log",
     "Data\sprites\sprites_rate_limit.log",
+    "Data\sprites\updated_spritesheets_cache",
+    "Data\sprites\updated_spritesheets_cache_full",
     "Mods\compat_report.txt",
     "Mods\mod_manager_state.json",
+    "Mods\autoplay_bot\data\cache",
+    "Mods\autoplay_bot\logs",
+    "Mods\custom_species_framework\checkpoints",
+    "Mods\custom_species_framework\framework_debug.log",
+    "Mods\custom_species_framework\creator\_job_state.json",
+    "Mods\custom_species_framework\creator\_creator_server_url.txt",
+    "Mods\custom_species_framework\creator\edge_dom.txt",
+    "Mods\custom_species_framework\importer\state\import_state.json",
+    "Mods\custom_species_framework\importer\import_output\import.log",
     "KIFM\platinum_uuids.txt",
     "KIFM\discord_ids.txt",
     "KIFM\pending_discord_link.txt",
@@ -76,38 +90,11 @@ $cleanupPaths = @(
     "KIFM\discord_link.log"
 )
 
-$excludedPackagePaths = @(
-    "Mods\custom_species_framework",
-    "Data\encounters.json",
-    "Data\starter_sets.json",
-    "Data\trainer_hooks.json",
-    "Data\species",
-    "Graphics\Battlers\1202",
-    "Graphics\Battlers\1203",
-    "Graphics\Battlers\1204",
-    "Graphics\Battlers\1205",
-    "Graphics\Battlers\1206",
-    "Graphics\CustomBattlers\indexed\1202",
-    "Graphics\CustomBattlers\indexed\1203",
-    "Graphics\CustomBattlers\indexed\1204",
-    "Graphics\CustomBattlers\indexed\1205",
-    "Graphics\CustomBattlers\indexed\1206",
-    "Graphics\Icons\icon1202.png",
-    "Graphics\Icons\icon1203.png",
-    "Graphics\Icons\icon1204.png",
-    "Graphics\Icons\icon1205.png",
-    "Graphics\Icons\icon1206.png",
-    "Graphics\Pokemon\Back\CSF_AQUALITH.png",
-    "Graphics\Pokemon\Back\CSF_CINDRAKE.png",
-    "Graphics\Pokemon\Back\CSF_VERDALYK.png",
-    "Graphics\Pokemon\Front\CSF_AQUALITH.png",
-    "Graphics\Pokemon\Front\CSF_CINDRAKE.png",
-    "Graphics\Pokemon\Front\CSF_VERDALYK.png",
-    "Graphics\Pokemon\Icons\CSF_AQUALITH.png",
-    "Graphics\Pokemon\Icons\CSF_CINDRAKE.png",
-    "Graphics\Pokemon\Icons\CSF_VERDALYK.png",
-    "Graphics\Pokemon\Icons\CSF_SANDSHREW_GLACIAL.png",
-    "Graphics\Pokemon\Icons\CSF_SANDSLASH_GLACIAL.png"
+$excludedPackagePaths = @()
+
+$cleanupWildcardRelativePatterns = @(
+    "Mods\autoplay_bot\data\state*.json",
+    "Mods\custom_species_framework\creator\*.log"
 )
 
 $cleanupRecursiveFileNames = @(
@@ -239,7 +226,101 @@ function Test-PackagedRelativePath {
         return $false
     }
 
+    foreach ($relativePattern in $cleanupWildcardRelativePatterns) {
+        if ($normalized -like (Normalize-RelativePath $relativePattern)) {
+            return $false
+        }
+    }
+
     return $true
+}
+
+function Convert-DescriptionToText {
+    param([Parameter(Mandatory = $true)]$Description)
+
+    if ($Description -is [System.Array]) {
+        return (($Description | ForEach-Object { $_.ToString().Trim() } | Where-Object { $_ }) -join " ")
+    }
+
+    return $Description.ToString().Trim()
+}
+
+function New-ModCreditsContent {
+    $lines = New-Object System.Collections.Generic.List[string]
+    $lines.Add("Kuray Infinite Fusion Packaged Mod Credits")
+    $lines.Add("")
+    $lines.Add("This tester build bundles the current local mod stack plus the current KIF multiplayer files.")
+    $lines.Add("Author labels below come from each included mod's own metadata when available.")
+    $lines.Add("")
+    $lines.Add("Included multiplayer")
+    $lines.Add("- KIF multiplayer client scripts under Data\\Scripts\\659_Multiplayer and the KIFM companion server/runtime files are included in this build.")
+    $lines.Add("")
+    $lines.Add("Included mods")
+
+    $modsRoot = Join-Path $projectRoot "Mods"
+    if (Test-Path -LiteralPath $modsRoot) {
+        $modEntries = Get-ChildItem -LiteralPath $modsRoot -Directory | ForEach-Object {
+            $modJsonPath = Join-Path $_.FullName "mod.json"
+            if (Test-Path -LiteralPath $modJsonPath) {
+                try {
+                    $manifest = Get-Content -LiteralPath $modJsonPath -Raw | ConvertFrom-Json
+                    [PSCustomObject]@{
+                        Name = if ($manifest.name) { $manifest.name.ToString() } else { $_.Name }
+                        Id = if ($manifest.id) { $manifest.id.ToString() } else { $_.Name }
+                        Version = if ($manifest.version) { $manifest.version.ToString() } else { "Unversioned" }
+                        Author = if ($manifest.author) { $manifest.author.ToString() } else { "Unknown" }
+                        Description = if ($manifest.description) { Convert-DescriptionToText -Description $manifest.description } else { "" }
+                    }
+                }
+                catch {
+                    [PSCustomObject]@{
+                        Name = $_.Name
+                        Id = $_.Name
+                        Version = "Unreadable mod.json"
+                        Author = "Unknown"
+                        Description = ""
+                    }
+                }
+            }
+        } | Sort-Object Name
+
+        foreach ($entry in $modEntries) {
+            $descriptionText = if ([string]::IsNullOrWhiteSpace($entry.Description)) {
+                ""
+            } else {
+                " | {0}" -f $entry.Description
+            }
+            $lines.Add(("- {0} ({1}, v{2}) | Author: {3}{4}" -f $entry.Name, $entry.Id, $entry.Version, $entry.Author, $descriptionText))
+        }
+    }
+
+    $importCreditsPath = Join-Path $projectRoot "Mods\custom_species_framework\importer\import_output\credits_manifest.json"
+    if (Test-Path -LiteralPath $importCreditsPath) {
+        try {
+            $creditsManifest = Get-Content -LiteralPath $importCreditsPath -Raw | ConvertFrom-Json
+            if ($creditsManifest.credits.Count -gt 0) {
+                $lines.Add("")
+                $lines.Add("Imported species pack credits")
+                foreach ($credit in $creditsManifest.credits) {
+                    $lines.Add(("- {0} | Creator: {1} | Source pack: {2} | Permission: {3}" -f $credit.species_name, $credit.creator, $credit.source_pack, $credit.usage_permission))
+                    if ($credit.credit_text) {
+                        $lines.Add(("  Release note credit: {0}" -f $credit.credit_text))
+                    }
+                }
+            }
+        }
+        catch {
+            $lines.Add("")
+            $lines.Add("Imported species pack credits")
+            $lines.Add("- The credits manifest under Mods\\custom_species_framework\\importer\\import_output\\credits_manifest.json could not be parsed during packaging.")
+        }
+    }
+
+    $lines.Add("")
+    $lines.Add("Project-wide credits")
+    $lines.Add("- Full project/base-game credits remain in PIF_Credits.txt and README.md.")
+
+    return ($lines -join [Environment]::NewLine) + [Environment]::NewLine
 }
 
 function Get-PackagedFiles {
@@ -310,11 +391,13 @@ function New-OverlayPlayerReadme {
         "Kuray Infinite Fusion Overlay Update",
         "",
         "This package only contains files that changed after the base no-CSF player build generated at {0}." -f $Cutoff.ToString("yyyy-MM-dd HH:mm:ss zzz"),
-        "It is meant to be applied on top of the existing 2026-04-22 no-CSF release.",
+        "It upgrades the existing 2026-04-22 no-CSF release into the current experimental full tester build.",
         "",
         "What this update expects",
         "- Fresh installs should use the updated WebSetup installer so it can download the base release first and then apply this overlay automatically.",
         "- Existing installs from the public 2026-04-22 no-CSF release can apply this update directly through the same updated WebSetup installer.",
+        "- This overlay now carries the current custom species framework content, modded multiplayer content, travel expansion links, and current packaged mod stack.",
+        "- Local save data and machine-specific cache/log files still stay out of the package.",
         "",
         "Changed packaged files in this overlay: {0}" -f $ChangedCount
     )
@@ -370,8 +453,10 @@ Copy-ChangedFilesToStage -Files $changedFiles
 
 $playerReadmePath = Join-Path $packageRoot "PLAYER_RELEASE_README.txt"
 $buildManifestPath = Join-Path $packageRoot "PACKAGED_BUILD_MANIFEST.txt"
+$modCreditsPath = Join-Path $packageRoot "PACKAGED_MOD_CREDITS.txt"
 Set-Content -LiteralPath $playerReadmePath -Value (New-OverlayPlayerReadme -Cutoff $cutoff -ChangedCount $changedFiles.Count) -Encoding UTF8
 Set-Content -LiteralPath $buildManifestPath -Value (New-OverlayManifest -Cutoff $cutoff -ChangedFiles $changedFiles -ChangedBytes $changedBytes) -Encoding UTF8
+Set-Content -LiteralPath $modCreditsPath -Value (New-ModCreditsContent) -Encoding UTF8
 Set-Content -LiteralPath $manifestPath -Value (New-OverlayManifest -Cutoff $cutoff -ChangedFiles $changedFiles -ChangedBytes $changedBytes) -Encoding UTF8
 
 if (Test-Path -LiteralPath $archivePath) {

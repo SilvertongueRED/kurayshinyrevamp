@@ -15,6 +15,13 @@ module TravelExpansionFramework
     2 => "Pluto"
   }.freeze
   URANIUM_ROCKSMASH_SOFTLOCK_MAPS = [32, 33, 35, 36, 37].freeze
+  URANIUM_BRIDGE_TILE_IDS = [
+    824, 825, 826, 827,
+    829, 830, 831,
+    837, 838, 839,
+    840, 841, 842, 843,
+    845, 846, 847
+  ].freeze
   URANIUM_TERRAIN_TAG_TRANSLATIONS = {
     4  => 15,  # Uranium Rock -> IF Rock
     6  => 3,   # Uranium Beach -> treat as sand-like ground
@@ -57,8 +64,21 @@ module TravelExpansionFramework
   }.freeze
 
   class UraniumTerrainTagProxy
+    attr_reader :source
+
     def initialize(source)
       @source = source
+    end
+
+    def _dump(_depth = -1)
+      return Marshal.dump(@source)
+    rescue
+      return Marshal.dump([])
+    end
+
+    def self._load(payload)
+      source = Marshal.load(payload) rescue []
+      return new(source)
     end
 
     def [](index)
@@ -177,6 +197,65 @@ module TravelExpansionFramework
   def uranium_map?(map_id = nil)
     return uranium_expansion_id?(current_map_expansion_id(map_id))
   rescue
+    return false
+  end
+
+  def uranium_bridge_tile?(game_map, x, y)
+    return false if !game_map || !game_map.respond_to?(:valid?) || !game_map.valid?(x, y)
+    data = game_map.respond_to?(:data) ? game_map.data : nil
+    terrain_tags = game_map.respond_to?(:terrain_tags) ? game_map.terrain_tags : game_map.instance_variable_get(:@terrain_tags)
+    return false if !data
+    [2, 1, 0].each do |layer|
+      tile_id = data[x, y, layer] rescue nil
+      next if tile_id.nil? || tile_id <= 0
+      return true if URANIUM_BRIDGE_TILE_IDS.include?(tile_id)
+      next if !terrain_tags
+      terrain = GameData::TerrainTag.try_get(terrain_tags[tile_id]) if defined?(GameData) && defined?(GameData::TerrainTag)
+      return true if terrain && terrain.respond_to?(:bridge) && terrain.bridge
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def uranium_bridge_passable_tile?(game_map, x, y, d)
+    return nil if !uranium_bridge_tile?(game_map, x, y)
+    data = game_map.data
+    terrain_tags = game_map.respond_to?(:terrain_tags) ? game_map.terrain_tags : game_map.instance_variable_get(:@terrain_tags)
+    passages = game_map.respond_to?(:passages) ? game_map.passages : game_map.instance_variable_get(:@passages)
+    bit = (1 << (d / 2 - 1)) & 0x0f
+    [2, 1, 0].each do |layer|
+      tile_id = data[x, y, layer] rescue nil
+      next if tile_id.nil? || tile_id <= 0
+      return true if URANIUM_BRIDGE_TILE_IDS.include?(tile_id)
+      terrain = GameData::TerrainTag.try_get(terrain_tags[tile_id]) if defined?(GameData) && defined?(GameData::TerrainTag)
+      next if !terrain || !terrain.respond_to?(:bridge) || !terrain.bridge
+      passage = passages[tile_id] rescue 0
+      # Uranium bridge overlays often use blocked passability bits because the
+      # original engine treats the bridge terrain itself as the active surface.
+      # Once a tile is explicitly translated as Bridge, do not let the water or
+      # cliff layer underneath veto normal bridge walking.
+      return true if passage.nil? || (passage & 0x0f == 0x0f)
+      return (passage & bit == 0)
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def uranium_update_bridge_state!(game_map, x = nil, y = nil)
+    return false if !defined?($PokemonGlobal) || !$PokemonGlobal || !$PokemonGlobal.respond_to?(:bridge=)
+    current_x = x
+    current_y = y
+    if (current_x.nil? || current_y.nil?) && defined?($game_player) && $game_player
+      current_x = $game_player.x
+      current_y = $game_player.y
+    end
+    on_bridge = uranium_bridge_tile?(game_map, current_x, current_y)
+    $PokemonGlobal.bridge = on_bridge ? 2 : 0
+    return on_bridge
+  rescue => e
+    log("[pokemon_uranium] bridge state update failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
     return false
   end
 
@@ -786,6 +865,8 @@ class Game_Map
 
   def playerPassable?(x, y, d, self_event = nil)
     return tef_uranium_original_playerPassable?(x, y, d, self_event) if !TravelExpansionFramework.uranium_map?(@map_id)
+    bridge_passable = TravelExpansionFramework.uranium_bridge_passable_tile?(self, x, y, d)
+    return bridge_passable if !bridge_passable.nil?
     bit = (1 << (d / 2 - 1)) & 0x0f
     for i in [2, 1, 0]
       tile_id = data[x, y, i]
@@ -803,6 +884,17 @@ class Game_Map
     return true
   end
 
+  if method_defined?(:passableStrict?)
+    alias tef_uranium_original_passableStrict? passableStrict? unless method_defined?(:tef_uranium_original_passableStrict?)
+
+    def passableStrict?(x, y, d, self_event = nil)
+      return tef_uranium_original_passableStrict?(x, y, d, self_event) if !TravelExpansionFramework.uranium_map?(@map_id)
+      bridge_passable = TravelExpansionFramework.uranium_bridge_passable_tile?(self, x, y, d)
+      return bridge_passable if !bridge_passable.nil?
+      return tef_uranium_original_passableStrict?(x, y, d, self_event)
+    end
+  end
+
   def terrain_tag(x, y, countBridge = false)
     return tef_uranium_original_terrain_tag(x, y, countBridge) if !TravelExpansionFramework.uranium_map?(@map_id)
     if valid?(x, y)
@@ -814,5 +906,21 @@ class Game_Map
       end
     end
     return GameData::TerrainTag.get(:None)
+  end
+end
+
+class Game_Player
+  alias tef_uranium_original_update update unless method_defined?(:tef_uranium_original_update)
+
+  def update(*args)
+    result = tef_uranium_original_update(*args)
+    current_map_id = nil
+    current_map_id = $game_map.map_id if defined?($game_map) && $game_map && $game_map.respond_to?(:map_id)
+    if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:uranium_map?) &&
+       TravelExpansionFramework.uranium_map?(current_map_id) &&
+       TravelExpansionFramework.respond_to?(:uranium_update_bridge_state!)
+      TravelExpansionFramework.uranium_update_bridge_state!($game_map)
+    end
+    return result
   end
 end

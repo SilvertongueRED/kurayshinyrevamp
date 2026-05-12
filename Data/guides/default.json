@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "name": "Default Hybrid Route",
+  "notes": [
+    "This guide pack is intentionally sparse. Add walkthrough-derived objectives here as JSON while the bot also scans maps and encounters dynamically.",
+    "The dynamic planner explores transfers, records events, and pauses when it needs a human to resolve an unknown gate."
+  ],
+  "objectives": [
+    {
+      "id": "title_start",
+      "type": "story",
+      "title_action": "continue_or_new"
+    },
+    {
+      "id": "dynamic_exploration",
+      "type": "travel",
+      "mode": "scan_and_explore"
+    },
+    {
+      "id": "dex_backtrack",
+      "type": "dex_backtrack",
+      "mode": "deferred_targets"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "PC Storage Sorter",
+  "id": "pc_storage_sorter",
+  "version": "1.0.0",
+  "author": "Codex",
+  "description": "Adds focused PC storage sorting options for the current box or all boxes, leaving Box 1 open when sorting the full collection.",
+  "tags": ["QoL", "PC", "UI"],
+  "dependencies": [],
+  "incompatible": [],
+  "settings": [],
+  "scripts": ["main.rb"]
+}

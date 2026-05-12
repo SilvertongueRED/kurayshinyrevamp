@@ -27,6 +27,91 @@
       "default": "party_present",
       "note": "Starter ownership is inferred from host party."
     },
+    "pbStoryModeSetup": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported story-mode bootstrap is acknowledged without bulk mutating the host save."
+    },
+    "pbStoryModeGiveDummyStarters": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported dummy starters are skipped so the host party is preserved."
+    },
+    "pbStoryModeRemoveDummyStarters": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported dummy starter cleanup is skipped so the host party is preserved."
+    },
+    "pbStoryModeTrainerItemSuite": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported bulk key-item suite is skipped until a world-specific safe grant is certified."
+    },
+    "pbClearAllPokemonSetup": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported all-Pokemon cleanup is skipped to protect host PC/storage."
+    },
+    "pbAllPokemonSetup5": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported all-Pokemon PC fill is skipped to protect host save size and storage."
+    },
+    "pbAllPokemonSetup30": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported all-Pokemon PC fill is skipped to protect host save size and storage."
+    },
+    "pbAllPokemonSetup50": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported all-Pokemon PC fill is skipped to protect host save size and storage."
+    },
+    "pbAllPokemonSetup100": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported all-Pokemon PC fill is skipped to protect host save size and storage."
+    },
+    "pbOptimisedPartyQuickStart5": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported stock challenge team is skipped so the host party is preserved."
+    },
+    "pbOptimisedPartyQuickStart30": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported stock challenge team is skipped so the host party is preserved."
+    },
+    "pbOptimisedPartyQuickStart50": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported stock challenge team is skipped so the host party is preserved."
+    },
+    "pbOptimisedPartyQuickStart100": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported stock challenge team is skipped so the host party is preserved."
+    },
+    "pbBattleModeSetup5": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Decades Battle Mode setup is acknowledged safely; Story Mode is the release path."
+    },
+    "pbBattleModeSetup30": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Decades Battle Mode setup is acknowledged safely; Story Mode is the release path."
+    },
+    "pbBattleModeSetup50": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Decades Battle Mode setup is acknowledged safely; Story Mode is the release path."
+    },
+    "pbBattleModeSetup100": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Decades Battle Mode setup is acknowledged safely; Story Mode is the release path."
+    },
     "prerandomizeMiningStones": {
       "category": "startup",
       "default": "true",
@@ -71,6 +156,181 @@
       "category": "item_handlers",
       "default": "nil",
       "note": "Unsupported random pickup gives no item."
+    },
+    "pbEncounter": {
+      "category": "encounters",
+      "default": "false",
+      "note": "Imported scripted encounter requests are mapped to host encounter tables."
+    },
+    "EncounterTypes": {
+      "category": "encounters",
+      "default": "host_symbols",
+      "note": "Legacy encounter constants map to host EncounterType symbols."
+    },
+    "pbUnlockRecipe": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported recipe unlocks are recorded when a world bridge supports recipes."
+    },
+    "pbLockRecipe": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported recipe locks are recorded when a world bridge supports recipes."
+    },
+    "pbGetRecipes": {
+      "category": "item_handlers",
+      "default": "array",
+      "note": "Imported recipe lists fall back to an empty compatible list."
+    },
+    "pbItemCrafter": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported crafting screens use the world bridge when available, otherwise fail closed."
+    },
+    "pbFormTrader": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported form trader requests are acknowledged safely until the native screen is certified."
+    },
+    "pbFormTraderPC": {
+      "category": "item_handlers",
+      "default": "host_pc",
+      "note": "Imported PC form trader opens the host PC fallback."
+    },
+    "pbDumpOutAllItems": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported battle-mode bag clear is skipped to protect the shared host save."
+    },
+    "pbJumpInAllItems": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported battle-mode bag fill alias is skipped to protect the shared host save."
+    },
+    "pbPumbInAllItems": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported battle-mode bag fill is skipped to protect the shared host save."
+    },
+    "pbRemoveBagClutter": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported bag cleanup is skipped unless a world-specific adapter owns it."
+    },
+    "pbRemoveStoryModeBagClutter": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported story-mode bag cleanup is skipped to preserve host inventory."
+    },
+    "pbShowTipCard": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported tip-card scenes are acknowledged safely."
+    },
+    "pbCharacterSelect": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported character selector is skipped to preserve host player identity."
+    },
+    "startCharacterSelection": {
+      "category": "startup",
+      "default": "zero",
+      "note": "Imported character selection returns the first safe host-compatible choice."
+    },
+    "pbPokemonSelection": {
+      "category": "startup",
+      "default": "starter_species",
+      "note": "Imported modular starter selection returns a rotating host-compatible starter species."
+    },
+    "pbGrantRandomPokemonSilent": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported random starter helpers choose a valid host species when possible."
+    },
+    "pbGrantRandomPokemon": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported random starter helpers choose a valid host species when possible."
+    },
+    "pbGetRandomPokemon": {
+      "category": "startup",
+      "default": "starter_species",
+      "note": "Imported random starter lookup returns a valid host species."
+    },
+    "pbBattleChallenge": {
+      "category": "trainer_battle",
+      "default": "host_safe_challenge",
+      "note": "Imported battle challenge state uses a host-safe inert challenge wrapper."
+    },
+    "pbBattleChallengeBattle": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported Battle Frontier cup battles are acknowledged safely until certified."
+    },
+    "pbHasEligible?": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported challenge eligibility checks allow the shared host party through safely."
+    },
+    "pbEntryScreen": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported challenge party entry screens are bypassed to protect the host party."
+    },
+    "pbInChallenge?": {
+      "category": "trainer_battle",
+      "default": "false",
+      "note": "Host save is not treated as being inside an imported challenge facility."
+    },
+    "pbPokeCupRules": {
+      "category": "trainer_battle",
+      "default": "challenge_rules",
+      "note": "Imported cup rules use a host-safe rule placeholder."
+    },
+    "pbPikaCupRules": {
+      "category": "trainer_battle",
+      "default": "challenge_rules",
+      "note": "Imported cup rules use a host-safe rule placeholder."
+    },
+    "pbPrimeCupRules": {
+      "category": "trainer_battle",
+      "default": "challenge_rules",
+      "note": "Imported cup rules use a host-safe rule placeholder."
+    },
+    "pbFancyCupRules": {
+      "category": "trainer_battle",
+      "default": "challenge_rules",
+      "note": "Imported cup rules use a host-safe rule placeholder."
+    },
+    "pbLittleCupRules": {
+      "category": "trainer_battle",
+      "default": "challenge_rules",
+      "note": "Imported cup rules use a host-safe rule placeholder."
+    },
+    "pbStrictLittleCupRules": {
+      "category": "trainer_battle",
+      "default": "challenge_rules",
+      "note": "Imported cup rules use a host-safe rule placeholder."
+    },
+    "pbWriteCup": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported generated cup writes are skipped to protect host data."
+    },
+    "pbGenerateChallenge": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported generated cup data is not persisted into the host save."
+    },
+    "setBattleRule": {
+      "category": "trainer_battle",
+      "default": "record_imported",
+      "note": "Imported Deluxe Battle Kit rules are recorded when harmless, otherwise ignored safely."
+    },
+    "ChallengeModes.start": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported challenge-mode setup is acknowledged with host-safe defaults."
     },
     "TrainerBattle.start": {
       "category": "trainer_battle",

@@ -731,6 +731,9 @@ module TravelExpansionFramework
 
     target_expansion = current_map_expansion_id(target[:map_id])
     previous_expansion = current_expansion_id
+    capture_host_player_visual_state_for_expansion!(target_expansion, "safe_transfer") if target_expansion && target_expansion.to_s != HOST_EXPANSION_ID &&
+                                                                                          previous_expansion.to_s.empty? &&
+                                                                                          respond_to?(:capture_host_player_visual_state_for_expansion!)
     if previous_expansion.to_s.empty? && !target_expansion.to_s.empty?
       remember_host_anchor_from_current_location
     elsif !previous_expansion.to_s.empty? && previous_expansion != target_expansion.to_s

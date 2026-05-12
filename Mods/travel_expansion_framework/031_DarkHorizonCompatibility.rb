@@ -7,6 +7,7 @@ if defined?(TravelExpansionFramework)
       :y         => 9,
       :direction => 6
     }.freeze unless const_defined?(:DARKHORIZON_START_ANCHOR)
+    DARKHORIZON_SIMPLE_DOOR_EVENT_NAMES = /\A(?:Door|ExitArrow|Entrance)\z/i unless const_defined?(:DARKHORIZON_SIMPLE_DOOR_EVENT_NAMES)
 
     module_function
 
@@ -54,6 +55,18 @@ if defined?(TravelExpansionFramework)
       return darkhorizon_map_block_start + local
     rescue
       return 35_000 + local_map_id.to_i
+    end
+
+    def darkhorizon_local_map_id(map_id = nil)
+      raw = integer(map_id || ($game_map.map_id rescue 0), 0)
+      return raw if raw <= 0
+      expansion = current_map_expansion_id(raw) if respond_to?(:current_map_expansion_id)
+      return raw if expansion.to_s.empty?
+      start = darkhorizon_map_block_start
+      return raw - start if raw >= start && raw < start + RESERVED_MAP_BLOCK_SIZE
+      return raw
+    rescue
+      return integer(map_id, 0)
     end
 
     def darkhorizon_anchor(local_anchor = nil)
@@ -294,6 +307,155 @@ if defined?(TravelExpansionFramework)
     rescue => e
       log("[darkhorizon] pbStartNewGame shim failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
       clear_stuck_screen_effects!("darkhorizon intro failure", true) if respond_to?(:clear_stuck_screen_effects!)
+      return true
+    end
+
+    def darkhorizon_event_name(event)
+      return "" if !event
+      return event.name.to_s if event.respond_to?(:name)
+      source = event.instance_variable_get(:@event) rescue nil
+      return source.name.to_s if source && source.respond_to?(:name)
+      return ""
+    rescue
+      return ""
+    end
+
+    def darkhorizon_event_list(event)
+      return [] if !event
+      list = event.list if event.respond_to?(:list)
+      list = event.instance_variable_get(:@list) if list.nil?
+      return Array(list)
+    rescue
+      return []
+    end
+
+    def darkhorizon_transfer_command_from_list(list)
+      Array(list).find do |command|
+        code = command.respond_to?(:code) ? command.code : command.instance_variable_get(:@code)
+        next false if code.to_i != 201
+        params = command.respond_to?(:parameters) ? command.parameters : command.instance_variable_get(:@parameters)
+        Array(params).length >= 5
+      end
+    rescue
+      return nil
+    end
+
+    def darkhorizon_transfer_anchor_from_event(event)
+      command = darkhorizon_transfer_command_from_list(darkhorizon_event_list(event))
+      return nil if !command
+      params = command.respond_to?(:parameters) ? command.parameters : command.instance_variable_get(:@parameters)
+      params = Array(params)
+      return nil if params[0].to_i != 0
+      anchor = {
+        :map_id    => params[1].to_i,
+        :x         => params[2].to_i,
+        :y         => params[3].to_i,
+        :direction => params[4].to_i
+      }
+      anchor[:direction] = 2 if anchor[:direction].to_i == 0
+      return darkhorizon_anchor(anchor)
+    rescue => e
+      log("[darkhorizon] failed to read door transfer target: #{e.class}: #{e.message}") if respond_to?(:log)
+      return nil
+    end
+
+    def darkhorizon_simple_transfer_event?(event)
+      return false if !darkhorizon_active_now?
+      return false if !event
+      name = darkhorizon_event_name(event)
+      return false if name !~ DARKHORIZON_SIMPLE_DOOR_EVENT_NAMES
+      list = darkhorizon_event_list(event)
+      return false if list.empty?
+      return false if !darkhorizon_transfer_command_from_list(list)
+      list.each do |command|
+        code = command.respond_to?(:code) ? command.code : command.instance_variable_get(:@code)
+        return false if [101, 102, 103, 104, 355, 655].include?(code.to_i)
+      end
+      return true
+    rescue
+      return false
+    end
+
+    def darkhorizon_clear_current_interpreter_if_from_previous_map!(previous_map_id, reason)
+      return false if !previous_map_id
+      interpreter = new_project_current_map_interpreter if respond_to?(:new_project_current_map_interpreter)
+      interpreter ||= pbMapInterpreter if defined?(pbMapInterpreter) && pbMapInterpreter
+      interpreter ||= $game_system.map_interpreter if defined?($game_system) && $game_system && $game_system.respond_to?(:map_interpreter)
+      return false if !interpreter
+      interpreter_map_id = integer(interpreter.instance_variable_get(:@map_id), 0)
+      return false if interpreter_map_id != integer(previous_map_id, 0)
+      if respond_to?(:clear_interpreter_state!)
+        clear_interpreter_state!(interpreter, reason)
+      else
+        interpreter.clear if interpreter.respond_to?(:clear)
+        interpreter.instance_variable_set(:@list, nil)
+        interpreter.instance_variable_set(:@move_route_waiting, false)
+      end
+      return true
+    rescue => e
+      log("[darkhorizon] stale doorway interpreter cleanup failed: #{e.class}: #{e.message}") if respond_to?(:log)
+      return false
+    end
+
+    def darkhorizon_release_doorway_transfer!(previous_map_id = nil)
+      current_map_id = ($game_map.map_id rescue nil)
+      return false if !darkhorizon_active_now?(current_map_id)
+      doorway = $game_temp.instance_variable_get(:@tef_darkhorizon_doorway_transfer) if defined?($game_temp) && $game_temp
+      doorway = nil if !doorway.is_a?(Hash)
+      return false if !doorway
+      target_map_id = integer(doorway[:to_map_id] || doorway["to_map_id"], 0)
+      return false if target_map_id > 0 && integer(current_map_id, 0) != target_map_id
+      previous_expansion = current_map_expansion_id(previous_map_id) if previous_map_id && respond_to?(:current_map_expansion_id)
+      current_expansion = current_map_expansion_id(current_map_id) if respond_to?(:current_map_expansion_id)
+      return false if previous_map_id && previous_expansion.to_s != current_expansion.to_s
+      if previous_map_id && integer(previous_map_id, 0) != integer(current_map_id, 0)
+        darkhorizon_clear_current_interpreter_if_from_previous_map!(previous_map_id, "darkhorizon doorway #{previous_map_id} -> #{current_map_id}")
+      end
+      if respond_to?(:new_project_release_player_controls!)
+        new_project_release_player_controls!(false, true)
+      elsif respond_to?(:release_player_movement_lock)
+        release_player_movement_lock(previous_map_id)
+      end
+      clear_stuck_screen_effects!("darkhorizon doorway transfer #{previous_map_id} -> #{current_map_id}") if respond_to?(:clear_stuck_screen_effects!)
+      $game_temp.instance_variable_set(:@tef_darkhorizon_doorway_transfer, nil) if defined?($game_temp) && $game_temp
+      log("[darkhorizon] released doorway transfer #{previous_map_id.inspect} -> #{current_map_id.inspect}") if respond_to?(:log)
+      return true
+    rescue => e
+      log("[darkhorizon] doorway release failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return false
+    end
+
+    def darkhorizon_fast_door_transfer!(event)
+      return false if !darkhorizon_simple_transfer_event?(event)
+      anchor = darkhorizon_transfer_anchor_from_event(event)
+      return false if !anchor
+      event.clear_starting if event.respond_to?(:clear_starting)
+      new_project_release_player_controls!(false, true) if respond_to?(:new_project_release_player_controls!)
+      if respond_to?(:safe_transfer_to_anchor)
+        if defined?($game_temp) && $game_temp
+          $game_temp.instance_variable_set(:@tef_darkhorizon_doorway_transfer, {
+            :from_map_id => ($game_map.map_id rescue nil),
+            :to_map_id   => anchor[:map_id],
+            :to_x        => anchor[:x],
+            :to_y        => anchor[:y]
+          })
+        end
+        result = safe_transfer_to_anchor(anchor, {
+          :source            => :story_transfer,
+          :expansion_id      => current_darkhorizon_expansion_id(anchor[:map_id]),
+          :allow_story_state => false,
+          :immediate         => true,
+          :auto_rescue       => true
+        })
+        darkhorizon_release_doorway_transfer!(nil) if result
+        log("[darkhorizon] fast doorway transfer to #{anchor[:map_id]} #{anchor[:x]},#{anchor[:y]}") if result && respond_to?(:log)
+        $game_temp.instance_variable_set(:@tef_darkhorizon_doorway_transfer, nil) if !result && defined?($game_temp) && $game_temp
+        return true
+      end
+      return false
+    rescue => e
+      log("[darkhorizon] fast doorway transfer failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      new_project_release_player_controls!(false, true) if respond_to?(:new_project_release_player_controls!)
       return true
     end
   end
@@ -594,6 +756,21 @@ end
 if defined?(Interpreter) && defined?(::TrainerBattle)
   class Interpreter
     TrainerBattle = ::TrainerBattle unless const_defined?(:TrainerBattle, false)
+  end
+end
+
+if defined?(Game_Event)
+  class Game_Event
+    alias tef_darkhorizon_original_start start unless method_defined?(:tef_darkhorizon_original_start)
+
+    def start(*args)
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:darkhorizon_fast_door_transfer!) &&
+         TravelExpansionFramework.darkhorizon_fast_door_transfer!(self)
+        return
+      end
+      return tef_darkhorizon_original_start(*args)
+    end
   end
 end
 

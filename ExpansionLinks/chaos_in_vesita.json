@@ -1,0 +1,13 @@
+{
+  "id": "chaos_in_vesita",
+  "root": "C:/Games/ChaosInVesita",
+  "root_aliases": ["C:/Games/Pokemon Chaos in Vesita", "C:/Games/Chaos in Vesita"],
+  "display_name": "Pokemon Chaos in Vesita",
+  "enabled": true,
+  "direct_mount": true,
+  "prepared_data_root": "C:/Games/PIF/ExpansionLibrary/ExtractedArchives/chaos_in_vesita/Data",
+  "prepared_project_root": "C:/Games/PIF/ExpansionLibrary/ExtractedArchives/chaos_in_vesita",
+  "position_mode": "fixed",
+  "mode_options": ["shared"],
+  "status_reason": "Extracted archive staged at C:/Games/PIF/ExpansionLibrary/ExtractedArchives/chaos_in_vesita/Data. Restart the game to relink this install through the extracted data snapshot."
+}

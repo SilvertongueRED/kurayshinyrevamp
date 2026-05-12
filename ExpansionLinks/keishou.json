@@ -1,0 +1,13 @@
+{
+  "id": "keishou",
+  "root": "C:/Games/Keishou",
+  "root_aliases": ["C:/Games/Pokemon Keishou"],
+  "display_name": "Pokemon Keishou",
+  "enabled": true,
+  "direct_mount": true,
+  "prepared_data_root": "C:/Games/PIF/ExpansionLibrary/ExtractedArchives/keishou/Data",
+  "prepared_project_root": "C:/Games/PIF/ExpansionLibrary/ExtractedArchives/keishou",
+  "position_mode": "fixed",
+  "mode_options": ["shared"],
+  "status_reason": "Extracted archive staged at C:/Games/PIF/ExpansionLibrary/ExtractedArchives/keishou/Data. Restart the game to relink this install through the extracted data snapshot."
+}

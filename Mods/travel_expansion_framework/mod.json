@@ -45,6 +45,10 @@
     "031_DarkHorizonCompatibility.rb",
     "032_SolarEclipseCompatibility.rb",
     "033_BattleUICompatibility.rb",
-    "034_ReleaseCompatibility.rb"
+    "034_ReleaseCompatibility.rb",
+    "035_SaveCorruptionSafety.rb",
+    "036_VanguardCompatibility.rb",
+    "037_WaterEffectPerformance.rb",
+    "038_BerryPotsCompatibility.rb"
   ]
 }

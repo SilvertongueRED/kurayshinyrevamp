@@ -18,7 +18,9 @@ $scriptRoot = if ($PSScriptRoot) {
 }
 
 $projectRoot = [System.IO.Path]::GetFullPath($scriptRoot)
-$defaultPayloadArchiveName = "PIF-player-build-20260422-no-csf.7z"
+$defaultPayloadArchiveName = "PIF-player-build-20260512-full-current-update1.7z"
+$defaultInstallerName = "PIF-player-build-20260512-full-current-WebSetup"
+$defaultPayloadBuilderScript = "package_overlay_release.ps1"
 $bootstrapProjectPath = Join-Path $projectRoot "InstallerBootstrap\InstallerBootstrap.csproj"
 $trailerMagic = [System.Text.Encoding]::ASCII.GetBytes("PIFINST1")
 
@@ -124,7 +126,7 @@ $resolvedPayloadArchive = if ([string]::IsNullOrWhiteSpace($PayloadArchivePath))
 New-Item -ItemType Directory -Path $resolvedOutputRoot -Force | Out-Null
 
 if ((-not (Test-Path -LiteralPath $resolvedPayloadArchive)) -and [string]::IsNullOrWhiteSpace($PayloadArchivePath)) {
-    $packageReleaseScript = Join-Path $projectRoot "package_release.ps1"
+    $packageReleaseScript = Join-Path $projectRoot $defaultPayloadBuilderScript
     $releaseName = [System.IO.Path]::GetFileNameWithoutExtension($defaultPayloadArchiveName)
     $archiveOutputRoot = Split-Path -Parent $resolvedPayloadArchive
 
@@ -145,7 +147,7 @@ if (-not (Test-Path -LiteralPath $resolvedPayloadArchive)) {
 
 $payloadItem = Get-Item -LiteralPath $resolvedPayloadArchive
 $resolvedInstallerName = if ([string]::IsNullOrWhiteSpace($InstallerName)) {
-    "{0}-Setup" -f [System.IO.Path]::GetFileNameWithoutExtension($payloadItem.Name)
+    $defaultInstallerName
 } else {
     [System.IO.Path]::GetFileNameWithoutExtension($InstallerName)
 }

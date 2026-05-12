@@ -1,0 +1,12 @@
+{
+  "id": "pokemon_uranium",
+  "root": "C:/Games/Uranium",
+  "root_aliases": ["C:/Games/Pokemon Uranium"],
+  "display_name": "Pokemon Uranium",
+  "enabled": true,
+  "direct_mount": true,
+  "prepared_data_root": "C:/Games/PIF/ExpansionLibrary/ExtractedArchives/pokemon_uranium/Data",
+  "position_mode": "fixed",
+  "mode_options": ["shared"],
+  "status_reason": "Extracted archive staged at C:/Games/PIF/ExpansionLibrary/ExtractedArchives/pokemon_uranium/Data. Restart the game to relink this install through the extracted data snapshot."
+}

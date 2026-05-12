@@ -1,0 +1,17 @@
+{
+  "id": "safe_save_fallbacks",
+  "name": "Safe Save Fallbacks",
+  "version": "0.1.0",
+  "author": "KIF",
+  "description": [
+    "Adds compatibility shims and safe relocation for saves that still reference removable framework or map-content mods.",
+    "Keep this mod installed when testing uninstall/reinstall flows for custom species, travel expansions, player identity bedroom, or other removable map content."
+  ],
+  "tags": [
+    "Bug Fix",
+    "QoL"
+  ],
+  "scripts": [
+    "main.rb"
+  ]
+}

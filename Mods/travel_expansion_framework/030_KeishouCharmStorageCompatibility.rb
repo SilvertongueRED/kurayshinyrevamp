@@ -45,6 +45,7 @@ if defined?(TravelExpansionFramework)
     }.freeze unless const_defined?(:KEISHOU_CRAFTING_ITEM_FLAGS)
 
     KEISHOU_ROCK_SMASH_ITEM_PROBABILITY = 50 unless const_defined?(:KEISHOU_ROCK_SMASH_ITEM_PROBABILITY)
+    KEISHOU_BRIDGE_SCAN_RADIUS = 4 unless const_defined?(:KEISHOU_BRIDGE_SCAN_RADIUS)
     KEISHOU_ROCK_SMASH_ITEMS = [
       [:FIREGEM, 35, 1],
       [:WATERGEM, 35, 1],
@@ -532,6 +533,209 @@ if defined?(TravelExpansionFramework)
       candidates << current_map_expansion_id(map_id) if respond_to?(:current_map_expansion_id)
       return candidates.compact.any? { |entry| ids.include?(entry.to_s) }
     rescue
+      return false
+    end
+
+    def keishou_bridge_command_list?(list)
+      Array(list).any? do |command|
+        code = command.respond_to?(:code) ? command.code : command.instance_variable_get(:@code)
+        next false if code.to_i != 355 && code.to_i != 655
+        params = command.respond_to?(:parameters) ? command.parameters : command.instance_variable_get(:@parameters)
+        Array(params).join("\n")[/pbBridge(On|Off)/i]
+      end
+    rescue
+      return false
+    end
+
+    def keishou_bridge_events(game_map)
+      return [] if !game_map || !game_map.respond_to?(:events)
+      game_map.events.values.select do |event|
+        next false if !event
+        list = event.respond_to?(:list) ? event.list : event.instance_variable_get(:@list)
+        keishou_bridge_command_list?(list)
+      end
+    rescue
+      return []
+    end
+
+    def keishou_bridge_event_at?(game_map, x, y, command = nil)
+      return false if !game_map || !game_map.respond_to?(:events)
+      game_map.events.values.any? do |event|
+        next false if !event
+        ex = event.respond_to?(:x) ? event.x : event.instance_variable_get(:@x)
+        ey = event.respond_to?(:y) ? event.y : event.instance_variable_get(:@y)
+        next false if ex.to_i != x.to_i || ey.to_i != y.to_i
+        list = event.respond_to?(:list) ? event.list : event.instance_variable_get(:@list)
+        Array(list).any? do |cmd|
+          code = cmd.respond_to?(:code) ? cmd.code : cmd.instance_variable_get(:@code)
+          next false if code.to_i != 355 && code.to_i != 655
+          params = cmd.respond_to?(:parameters) ? cmd.parameters : cmd.instance_variable_get(:@parameters)
+          text = Array(params).join("\n")
+          command ? text[/pbBridge#{command}/i] : text[/pbBridge(On|Off)/i]
+        end
+      end
+    rescue
+      return false
+    end
+
+    def keishou_bridge_surface_tile_ids_at(game_map, x, y)
+      return [] if !game_map || !game_map.respond_to?(:valid?) || !game_map.valid?(x, y)
+      data = game_map.respond_to?(:data) ? game_map.data : game_map.instance_variable_get(:@map).data
+      passages = game_map.respond_to?(:passages) ? game_map.passages : game_map.instance_variable_get(:@passages)
+      priorities = game_map.respond_to?(:priorities) ? game_map.priorities : game_map.instance_variable_get(:@priorities)
+      terrain_tags = game_map.respond_to?(:terrain_tags) ? game_map.terrain_tags : game_map.instance_variable_get(:@terrain_tags)
+      return [] if !data || !terrain_tags
+      ids = []
+      [2, 1, 0].each do |layer|
+        tile_id = data[x, y, layer] rescue nil
+        next if tile_id.nil? || tile_id.to_i <= 0
+        tag_value = terrain_tags[tile_id] rescue 0
+        terrain = GameData::TerrainTag.try_get(tag_value) if defined?(GameData) && defined?(GameData::TerrainTag)
+        if terrain && terrain.respond_to?(:bridge) && terrain.bridge
+          ids << tile_id.to_i
+          next
+        end
+        passage = passages[tile_id] rescue nil
+        priority = priorities[tile_id] rescue 0
+        # Keishou's wooden bridge surfaces carry a custom bridge terrain tag
+        # from the source project. Preserve that meaning even when the host
+        # tileset tables mark the water/cliff layer underneath as blocked.
+        ids << tile_id.to_i if tag_value.to_i == 15 && priority.to_i >= 3 && !passage.nil?
+      end
+      return ids.uniq
+    rescue
+      return []
+    end
+
+    def keishou_prepare_bridge_cache!(game_map)
+      return false if !game_map || !keishou_active_now?(game_map.map_id)
+      map_id = game_map.map_id
+      @keishou_bridge_tile_ids_by_map_id ||= {}
+      @keishou_bridge_coords_by_map_id ||= {}
+      return true if @keishou_bridge_tile_ids_by_map_id[map_id] &&
+                     @keishou_bridge_coords_by_map_id[map_id]
+      tile_ids = {}
+      coords = {}
+      queue = []
+      radius = KEISHOU_BRIDGE_SCAN_RADIUS
+      keishou_bridge_events(game_map).each do |event|
+        ex = event.respond_to?(:x) ? event.x : event.instance_variable_get(:@x)
+        ey = event.respond_to?(:y) ? event.y : event.instance_variable_get(:@y)
+        (-radius..radius).each do |dx|
+          (-radius..radius).each do |dy|
+            x = ex.to_i + dx
+            y = ey.to_i + dy
+            ids = keishou_bridge_surface_tile_ids_at(game_map, x, y)
+            next if ids.empty?
+            key = "#{x},#{y}"
+            next if coords[key]
+            coords[key] = true
+            ids.each { |tile_id| tile_ids[tile_id] = true }
+            queue << [x, y]
+          end
+        end
+      end
+      checked = 0
+      until queue.empty? || checked > 1200
+        checked += 1
+        x, y = queue.shift
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].each do |dx, dy|
+          nx = x + dx
+          ny = y + dy
+          key = "#{nx},#{ny}"
+          next if coords[key]
+          ids = keishou_bridge_surface_tile_ids_at(game_map, nx, ny)
+          next if ids.empty?
+          coords[key] = true
+          ids.each { |tile_id| tile_ids[tile_id] = true }
+          queue << [nx, ny]
+        end
+      end
+      @keishou_bridge_tile_ids_by_map_id[map_id] = tile_ids
+      @keishou_bridge_coords_by_map_id[map_id] = coords
+      game_map.instance_variable_set(:@tef_keishou_bridge_tile_ids, tile_ids)
+      game_map.instance_variable_set(:@tef_keishou_bridge_coords, coords)
+      log("[keishou] bridge cache map=#{map_id} tiles=#{tile_ids.length} coords=#{coords.length}") if respond_to?(:log) && !tile_ids.empty?
+      return true
+    rescue => e
+      log("[keishou] bridge cache failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return false
+    end
+
+    def keishou_bridge_surface_coord?(game_map, x, y)
+      return false if !game_map || !game_map.respond_to?(:valid?) || !game_map.valid?(x, y)
+      keishou_prepare_bridge_cache!(game_map)
+      coords = game_map.instance_variable_get(:@tef_keishou_bridge_coords)
+      return true if coords && coords["#{x},#{y}"]
+      return !keishou_bridge_surface_tile_ids_at(game_map, x, y).empty?
+    rescue
+      return false
+    end
+
+    def keishou_set_bridge_height!(height = 2)
+      value = integer(height, 2) if respond_to?(:integer)
+      value = height.to_i if value.nil?
+      value = 2 if value <= 0
+      $PokemonGlobal.bridge = value if defined?($PokemonGlobal) && $PokemonGlobal && $PokemonGlobal.respond_to?(:bridge=)
+      return true
+    rescue
+      return true
+    end
+
+    def keishou_clear_bridge_height!
+      $PokemonGlobal.bridge = 0 if defined?($PokemonGlobal) && $PokemonGlobal && $PokemonGlobal.respond_to?(:bridge=)
+      return true
+    rescue
+      return true
+    end
+
+    def keishou_prepare_bridge_for_step!(game_map, x, y, d)
+      return false if !keishou_active_now?(game_map.map_id)
+      return false if ![2, 4, 6, 8].include?(d.to_i)
+      new_x = x + (d.to_i == 6 ? 1 : d.to_i == 4 ? -1 : 0)
+      new_y = y + (d.to_i == 2 ? 1 : d.to_i == 8 ? -1 : 0)
+      if keishou_bridge_event_at?(game_map, x, y, "On") ||
+         keishou_bridge_event_at?(game_map, new_x, new_y, "On") ||
+         keishou_bridge_surface_coord?(game_map, x, y) ||
+         keishou_bridge_surface_coord?(game_map, new_x, new_y)
+        return keishou_set_bridge_height!(2)
+      end
+      return false
+    rescue
+      return false
+    end
+
+    def keishou_bridge_step_passable?(game_map, x, y, d)
+      return false if !keishou_active_now?(game_map.map_id)
+      return false if ![2, 4, 6, 8].include?(d.to_i)
+      new_x = x + (d.to_i == 6 ? 1 : d.to_i == 4 ? -1 : 0)
+      new_y = y + (d.to_i == 2 ? 1 : d.to_i == 8 ? -1 : 0)
+      return true if keishou_bridge_surface_coord?(game_map, x, y)
+      return true if keishou_bridge_surface_coord?(game_map, new_x, new_y)
+      return true if keishou_bridge_event_at?(game_map, x, y, "On")
+      return true if keishou_bridge_event_at?(game_map, new_x, new_y, "On")
+      return false
+    rescue
+      return false
+    end
+
+    def keishou_update_bridge_state!(game_map, x = nil, y = nil)
+      return false if !game_map || !keishou_active_now?(game_map.map_id)
+      current_x = x
+      current_y = y
+      if (current_x.nil? || current_y.nil?) && defined?($game_player) && $game_player
+        current_x = $game_player.x
+        current_y = $game_player.y
+      end
+      on_bridge = keishou_bridge_surface_coord?(game_map, current_x, current_y)
+      if on_bridge
+        keishou_set_bridge_height!(2)
+      else
+        keishou_clear_bridge_height!
+      end
+      return on_bridge
+    rescue => e
+      log("[keishou] bridge state update failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
       return false
     end
 
@@ -2205,6 +2409,92 @@ if defined?(Interpreter)
       player.maxCharms = [player.maxCharms.to_i - dec.to_i, 0].max if player && player.respond_to?(:maxCharms=)
       return player ? player.maxCharms : 0
     end unless method_defined?(:pbDecMaxCharms)
+  end
+end
+
+if defined?(Interpreter)
+  class Interpreter
+    alias tef_keishou_bridge_original_pbBridgeOn pbBridgeOn if method_defined?(:pbBridgeOn) &&
+                                                               !method_defined?(:tef_keishou_bridge_original_pbBridgeOn)
+    alias tef_keishou_bridge_original_pbBridgeOff pbBridgeOff if method_defined?(:pbBridgeOff) &&
+                                                                 !method_defined?(:tef_keishou_bridge_original_pbBridgeOff)
+
+    def pbBridgeOn(height = 2, *args)
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:keishou_active_now?) &&
+         TravelExpansionFramework.keishou_active_now?
+        return TravelExpansionFramework.keishou_set_bridge_height!(height)
+      end
+      return tef_keishou_bridge_original_pbBridgeOn(height, *args) if respond_to?(:tef_keishou_bridge_original_pbBridgeOn, true)
+      $PokemonGlobal.bridge = height if defined?($PokemonGlobal) && $PokemonGlobal && $PokemonGlobal.respond_to?(:bridge=)
+      return true
+    rescue
+      return true
+    end
+
+    def pbBridgeOff(*args)
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:keishou_active_now?) &&
+         TravelExpansionFramework.keishou_active_now?
+        return TravelExpansionFramework.keishou_clear_bridge_height!
+      end
+      return tef_keishou_bridge_original_pbBridgeOff(*args) if respond_to?(:tef_keishou_bridge_original_pbBridgeOff, true)
+      $PokemonGlobal.bridge = 0 if defined?($PokemonGlobal) && $PokemonGlobal && $PokemonGlobal.respond_to?(:bridge=)
+      return true
+    rescue
+      return true
+    end
+  end
+end
+
+if defined?(Game_Map)
+  class Game_Map
+    alias tef_keishou_bridge_original_setup setup unless method_defined?(:tef_keishou_bridge_original_setup)
+    alias tef_keishou_bridge_original_playerPassable? playerPassable? unless method_defined?(:tef_keishou_bridge_original_playerPassable?)
+
+    def setup(map_id)
+      result = tef_keishou_bridge_original_setup(map_id)
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:keishou_active_now?) &&
+         TravelExpansionFramework.respond_to?(:keishou_prepare_bridge_cache!) &&
+         TravelExpansionFramework.keishou_active_now?(map_id)
+        TravelExpansionFramework.keishou_prepare_bridge_cache!(self)
+      end
+      return result
+    end
+
+    def playerPassable?(x, y, d, self_event = nil)
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:keishou_active_now?) &&
+         TravelExpansionFramework.respond_to?(:keishou_prepare_bridge_for_step!) &&
+         TravelExpansionFramework.keishou_active_now?(@map_id)
+        TravelExpansionFramework.keishou_prepare_bridge_for_step!(self, x, y, d)
+      end
+      result = tef_keishou_bridge_original_playerPassable?(x, y, d, self_event)
+      return true if !result &&
+                     defined?(TravelExpansionFramework) &&
+                     TravelExpansionFramework.respond_to?(:keishou_bridge_step_passable?) &&
+                     TravelExpansionFramework.keishou_bridge_step_passable?(self, x, y, d)
+      return result
+    end
+  end
+end
+
+if defined?(Game_Player)
+  class Game_Player
+    alias tef_keishou_bridge_original_update update unless method_defined?(:tef_keishou_bridge_original_update)
+
+    def update(*args)
+      result = tef_keishou_bridge_original_update(*args)
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:keishou_active_now?) &&
+         TravelExpansionFramework.respond_to?(:keishou_update_bridge_state!) &&
+         defined?($game_map) && $game_map &&
+         TravelExpansionFramework.keishou_active_now?($game_map.map_id)
+        TravelExpansionFramework.keishou_update_bridge_state!($game_map, @x, @y)
+      end
+      return result
+    end
   end
 end
 

@@ -1457,6 +1457,11 @@ def get_unfused_sprite_path(dex_number_id, spriteform = nil)
 end
 
 module CustomSpeciesFramework
+  CUSTOM_BATTLER_CANVAS_SIZE = 288 unless const_defined?(:CUSTOM_BATTLER_CANVAS_SIZE)
+  CUSTOM_BATTLER_MAX_VISIBLE_SIZE = 180 unless const_defined?(:CUSTOM_BATTLER_MAX_VISIBLE_SIZE)
+  CUSTOM_BATTLER_SMALL_FRAME_MAX = 160 unless const_defined?(:CUSTOM_BATTLER_SMALL_FRAME_MAX)
+  CUSTOM_BATTLER_MAX_UPSCALE = 3.0 unless const_defined?(:CUSTOM_BATTLER_MAX_UPSCALE)
+
   def self.battler_asset_path(species, back = false)
     runtime_path = runtime_battler_path(species, back)
     return runtime_path if runtime_path
@@ -1470,11 +1475,79 @@ module CustomSpeciesFramework
     return battler_asset_path(fallback_species, back)
   end
 
+  def self.custom_battler_source_rect(animated_bitmap)
+    width = animated_bitmap.width.to_i
+    height = animated_bitmap.height.to_i
+    return Rect.new(0, 0, 1, 1) if width <= 0 || height <= 0
+    if width > height * 2
+      return Rect.new(0, 0, height, height)
+    elsif width > height && (width.to_f / height.to_f) >= 1.5
+      side = [width, height].min
+      return Rect.new(0, 0, side, side)
+    end
+    return Rect.new(0, 0, width, height)
+  rescue
+    return Rect.new(0, 0, 1, 1)
+  end
+
+  def self.custom_battler_needs_runtime_normalization?(path, source_rect, animated_bitmap)
+    normalized_path = path.to_s.tr("\\", "/")
+    return true if normalized_path.include?("/Graphics/Pokemon/Imported/")
+    return true if source_rect.width <= CUSTOM_BATTLER_SMALL_FRAME_MAX &&
+                   source_rect.height <= CUSTOM_BATTLER_SMALL_FRAME_MAX
+    return true if animated_bitmap.width.to_i > animated_bitmap.height.to_i * 2 &&
+                   source_rect.height <= CUSTOM_BATTLER_SMALL_FRAME_MAX
+    return false
+  rescue
+    return false
+  end
+
+  def self.normalized_custom_battler_bitmap(path, back = false)
+    return nil if blank?(path)
+    source = nil
+    source = AnimatedBitmap.new(path)
+    source_rect = custom_battler_source_rect(source)
+    return nil if !custom_battler_needs_runtime_normalization?(path, source_rect, source)
+    bounds = bitmap_alpha_bounds(source.bitmap, source_rect)
+    return nil if bounds.width <= 0 || bounds.height <= 0
+
+    max_visible = CUSTOM_BATTLER_MAX_VISIBLE_SIZE.to_f
+    scale = [
+      max_visible / [bounds.width.to_f, 1.0].max,
+      max_visible / [bounds.height.to_f, 1.0].max
+    ].min
+    scale = CUSTOM_BATTLER_MAX_UPSCALE if scale > CUSTOM_BATTLER_MAX_UPSCALE
+    scale = 1.0 if scale <= 0
+
+    dest_width = [(bounds.width * scale).round, 1].max
+    dest_height = [(bounds.height * scale).round, 1].max
+    canvas_size = CUSTOM_BATTLER_CANVAS_SIZE
+    dest_x = ((canvas_size - dest_width) / 2.0).round
+    dest_y = ((canvas_size - dest_height) / 2.0).round
+
+    normalized = Bitmap.new(canvas_size, canvas_size)
+    normalized.clear if normalized.respond_to?(:clear)
+    normalized.stretch_blt(Rect.new(dest_x, dest_y, dest_width, dest_height), source.bitmap, bounds)
+    return AnimatedBitmap.from_bitmap(normalized)
+  rescue => e
+    log("Custom battler normalization failed for #{path.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  ensure
+    source.dispose if source && source.respond_to?(:dispose) && (!source.respond_to?(:disposed?) || !source.disposed?)
+  end
+
   def self.load_custom_battler_bitmap(species, back = false, shiny = false, body_shiny = false, head_shiny = false, shiny_value = 0, shiny_r = 0, shiny_g = 1, shiny_b = 2, shiny_krs = nil, shiny_omega = nil)
     battler_path = battler_asset_path(species, back)
     return nil if battler_path.nil?
 
-    sprite = AnimatedBitmap.new(battler_path).recognizeDims rescue AnimatedBitmap.new(battler_path)
+    sprite = normalized_custom_battler_bitmap(battler_path, back)
+    if sprite.nil?
+      begin
+        sprite = AnimatedBitmap.new(battler_path).recognizeDims
+      rescue
+        sprite = AnimatedBitmap.new(battler_path)
+      end
+    end
     return sprite if !shiny || sprite.nil?
 
     begin

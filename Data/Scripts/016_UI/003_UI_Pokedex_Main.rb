@@ -234,11 +234,11 @@ class PokemonPokedex_Scene
   def pbStartScene(filter_owned=false)
     @filter_owned=filter_owned
     @sliderbitmap       = AnimatedBitmap.new("Graphics/Pictures/Pokedex/icon_slider")
-    @typebitmap         = AnimatedBitmap.new(_INTL("Graphics/Pictures/Pokedex/icon_types"))
+    @typebitmap         = AnimatedBitmap.new("Graphics/Pictures/Pokedex/icon_types")
     @shapebitmap        = AnimatedBitmap.new("Graphics/Pictures/Pokedex/icon_shapes")
     @hwbitmap           = AnimatedBitmap.new("Graphics/Pictures/Pokedex/icon_hw")
     @selbitmap          = AnimatedBitmap.new("Graphics/Pictures/Pokedex/icon_searchsel")
-    @searchsliderbitmap = AnimatedBitmap.new(_INTL("Graphics/Pictures/Pokedex/icon_searchslider"))
+    @searchsliderbitmap = AnimatedBitmap.new("Graphics/Pictures/Pokedex/icon_searchslider")
     @sprites = {}
     @viewport = Viewport.new(0,0,Graphics.width,Graphics.height)
     @viewport.z = 99999
@@ -347,20 +347,22 @@ class PokemonPokedex_Scene
 
 
   def pbGetDexList(filter_owned=false)
-    dexlist=[]
-    regionalSpecies=[]
-    for i in 1..PBSpecies.maxValue
-      regionalSpecies.push(i)
+    if defined?(CustomSpeciesFramework) && CustomSpeciesFramework.respond_to?(:safe_pokedex_list)
+      return CustomSpeciesFramework.safe_pokedex_list(filter_owned)
     end
-    for i in 1...PBSpecies.maxValue
-      nationalSpecies=i
-      if $Trainer.seen?(nationalSpecies)
-        if !filter_owned || $Trainer.owned?(nationalSpecies)
-          species = GameData::Species.get(nationalSpecies)
-          dexlist.push([species.id_number,species.real_name,0,0,i+1,0])
-        end
-      end
+    dexlist = []
+    seen_display_numbers = {}
+    GameData::Species.each do |species|
+      next if species.form != 0
+      species_id = species.species
+      next if !$Trainer.seen?(species_id)
+      next if filter_owned && !$Trainer.owned?(species_id)
+      display_number = species.id_number.to_i
+      next if display_number <= 0 || seen_display_numbers[display_number]
+      dexlist.push([display_number, species.real_name, species.height, species.weight, display_number, 0, species.type1, species.type2, species.color, species.shape])
+      seen_display_numbers[display_number] = true
     end
+    dexlist.sort_by! { |entry| entry[4] || entry[0] }
     return dexlist
   end
 
@@ -1034,13 +1036,9 @@ class PokemonPokedex_Scene
     @orderCommands[MODELIGHTEST]  = _INTL("Lightest")
     @orderCommands[MODETALLEST]   = _INTL("Tallest")
     @orderCommands[MODESMALLEST]  = _INTL("Smallest")
-    @nameCommands = [_INTL("A"),_INTL("B"),_INTL("C"),_INTL("D"),_INTL("E"),
-                    _INTL("F"),_INTL("G"),_INTL("H"),_INTL("I"),_INTL("J"),
-                    _INTL("K"),_INTL("L"),_INTL("M"),_INTL("N"),_INTL("O"),
-                    _INTL("P"),_INTL("Q"),_INTL("R"),_INTL("S"),_INTL("T"),
-                    _INTL("U"),_INTL("V"),_INTL("W"),_INTL("X"),_INTL("Y"),
-                    _INTL("Z")]
+    @nameCommands = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
     @typeCommands = []
+
     count = 0
     GameData::Type.each do |t|
       @typeCommands.push(t) if !t.pseudo_type && count <= 18

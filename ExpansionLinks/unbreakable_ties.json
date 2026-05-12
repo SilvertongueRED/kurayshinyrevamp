@@ -1,0 +1,11 @@
+{
+  "id": "unbreakable_ties",
+  "root": "C:/Games/UnbreakableTies",
+  "root_aliases": ["C:/Games/Pokemon Unbreakable Ties", "C:/Games/Unbreakable Ties"],
+  "display_name": "Pokemon Unbreakable Ties",
+  "enabled": true,
+  "direct_mount": true,
+  "position_mode": "fixed",
+  "mode_options": ["shared"],
+  "status_reason": "Linked directly from C:/Games/UnbreakableTies. Uses the shared-world compatibility layer and the project's Data/english.dat catalog."
+}

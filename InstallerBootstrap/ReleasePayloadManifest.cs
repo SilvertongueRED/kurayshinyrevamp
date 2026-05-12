@@ -50,14 +50,14 @@ internal static class ReleasePayloadManifest
         SourceMode: PayloadSourceMode.DownloadOnly);
 
     public static PayloadPackageManifest CurrentUpdatePackage { get; } = new(
-        PackageId: "embedded-update-2026-04-22a",
-        DisplayName: "Latest changed files update",
+        PackageId: "embedded-update-2026-05-12-full-current",
+        DisplayName: "Current full tester build update",
         ReleaseTag: string.Empty,
-        PayloadArchiveName: "PIF-player-build-20260422-no-csf-update1.7z",
+        PayloadArchiveName: "PIF-player-build-20260512-full-current-update1.7z",
         TotalPayloadBytes: 0,
         PayloadPartNames: Array.Empty<string>(),
         SourceMode: PayloadSourceMode.EmbeddedOrSidecarOnly,
-        SidecarArchiveName: "PIF-player-build-20260422-no-csf-update1.7z");
+        SidecarArchiveName: "PIF-player-build-20260512-full-current-update1.7z");
 
     public static IReadOnlyList<PayloadPackageManifest> GetPackagesForInstall(string installRoot, bool updateOnly)
     {

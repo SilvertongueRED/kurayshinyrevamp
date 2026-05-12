@@ -529,10 +529,20 @@ module TravelExpansionFramework
     filename = region_data[1].to_s if region_data.is_a?(Array)
     return nil if filename.to_s.empty?
     logical = filename.gsub("\\", "/")
-    logical = "Graphics/Pictures/#{logical}" if logical !~ %r{\AGraphics/}i
-    resolved = resolve_runtime_path_for_expansion(expansion_id, logical, TOWN_MAP_IMAGE_EXTENSIONS) if respond_to?(:resolve_runtime_path_for_expansion)
-    return resolved if resolved
-    return logical
+    candidates = []
+    if logical =~ %r{\AGraphics/}i
+      candidates << logical
+    else
+      candidates << "Graphics/Pictures/#{logical}"
+      candidates << "Graphics/UI/Town Map/Regions/#{logical}"
+      candidates << "Graphics/UI/Town Map/#{logical}"
+      candidates << "Graphics/Pictures/RegionMap/#{logical}"
+    end
+    candidates.uniq.each do |candidate|
+      resolved = resolve_runtime_path_for_expansion(expansion_id, candidate, TOWN_MAP_IMAGE_EXTENSIONS) if respond_to?(:resolve_runtime_path_for_expansion)
+      return resolved if resolved
+    end
+    return candidates.first
   rescue
     return nil
   end

@@ -44,10 +44,27 @@ module TravelExpansionFramework
 
   def expansion_runtime_store(expansion_id, key)
     state = state_for(expansion_id)
-    state.metadata ||= {}
-    state.metadata["runtime_state"] ||= {}
-    state.metadata["runtime_state"][key.to_s] ||= {}
-    return state.metadata["runtime_state"][key.to_s]
+    return {} if state.nil?
+    metadata = state.respond_to?(:metadata) ? state.metadata : nil
+    if !metadata.is_a?(Hash)
+      metadata = {}
+      state.metadata = metadata if state.respond_to?(:metadata=)
+      state.instance_variable_set(:@metadata, metadata) if state.respond_to?(:instance_variable_set)
+    end
+    runtime_state = metadata["runtime_state"]
+    if !runtime_state.is_a?(Hash)
+      runtime_state = {}
+      metadata["runtime_state"] = runtime_state
+    end
+    store = runtime_state[key.to_s]
+    if !store.is_a?(Hash)
+      store = {}
+      runtime_state[key.to_s] = store
+    end
+    return store
+  rescue => e
+    log("Compatibility runtime store failed for #{expansion_id.inspect}/#{key.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return {}
   end
 
   def expansion_switch_value(expansion_id, switch_id)
@@ -622,13 +639,13 @@ class Interpreter
   end
 
   def command_201
+    source_map_id = integer(@map_id, ($game_map ? $game_map.map_id : 0))
     if defined?(tef_compat_original_command_201)
       raw_target_map_id = if @parameters[0] == 0
         integer(@parameters[1], 0)
       else
         integer($game_variables[@parameters[1]], 0)
       end
-      source_map_id = integer(@map_id, ($game_map ? $game_map.map_id : 0))
       source_expansion = @tef_expansion_id.to_s
       source_expansion = TravelExpansionFramework.current_runtime_expansion_id.to_s if source_expansion.empty?
       source_expansion = TravelExpansionFramework.current_map_expansion_id(source_map_id).to_s if source_expansion.empty? && source_map_id > 0
@@ -653,6 +670,26 @@ class Interpreter
     transfer_expansion = @tef_expansion_id.to_s
     transfer_expansion = source_expansion if transfer_expansion.empty? && defined?(source_expansion)
     target_map_id = TravelExpansionFramework.translate_expansion_map_id(transfer_expansion, target_map_id)
+    resume_index = nil
+    if TravelExpansionFramework.respond_to?(:rewrite_infinity_lab_stair_transfer)
+      rewrite = TravelExpansionFramework.rewrite_infinity_lab_stair_transfer(
+        source_map_id,
+        (@event_id rescue nil),
+        (@index rescue nil),
+        (@list rescue nil),
+        target_map_id,
+        target_x,
+        target_y,
+        target_direction
+      )
+      if rewrite.is_a?(Hash)
+        target_map_id = rewrite[:map_id] if rewrite.has_key?(:map_id)
+        target_x = rewrite[:x] if rewrite.has_key?(:x)
+        target_y = rewrite[:y] if rewrite.has_key?(:y)
+        target_direction = rewrite[:direction] if rewrite.has_key?(:direction)
+        resume_index = rewrite[:resume_index]
+      end
+    end
     queued = TravelExpansionFramework.safe_transfer_to_anchor({
       :map_id    => target_map_id,
       :x         => target_x,
@@ -670,10 +707,20 @@ class Interpreter
       return false
     end
     @index += 1
+    @index = resume_index if resume_index && integer(resume_index, -1) >= 0
     if @parameters[5] == 0
       Graphics.freeze
       $game_temp.transition_processing = true
       $game_temp.transition_name = ""
+    end
+    if TravelExpansionFramework.respond_to?(:decades_story_region_transfer?) &&
+       TravelExpansionFramework.decades_story_region_transfer?(
+         source_map_id,
+         (@event_id rescue nil),
+         target_map_id
+       )
+      TravelExpansionFramework.decades_note_story_region_transfer!(target_map_id, "event #{@event_id rescue "?"}") if TravelExpansionFramework.respond_to?(:decades_note_story_region_transfer!)
+      @index = @list.length if @list.respond_to?(:length)
     end
     return false
   end
@@ -682,5 +729,552 @@ class Interpreter
 
   def integer(value, fallback = 0)
     return TravelExpansionFramework.integer(value, fallback)
+  end
+end
+
+module TravelExpansionFramework
+  EARLY_RELEASE_STUB_METHODS = [
+    :pbStoryModeSetup,
+    :pbStoryModeGiveDummyStarters,
+    :pbStoryModeRemoveDummyStarters,
+    :pbStoryModeTrainerItemSuite,
+    :pbClearAllPokemonSetup,
+    :pbAllPokemonSetup5,
+    :pbAllPokemonSetup30,
+    :pbAllPokemonSetup50,
+    :pbAllPokemonSetup100,
+    :pbOptimisedPartyQuickStart5,
+    :pbOptimisedPartyQuickStart30,
+    :pbOptimisedPartyQuickStart50,
+    :pbOptimisedPartyQuickStart100,
+    :pbBattleModeSetup5,
+    :pbBattleModeSetup30,
+    :pbBattleModeSetup50,
+    :pbBattleModeSetup100,
+    :pbDumpOutAllItems,
+    :pbJumpInAllItems,
+    :pbPumbInAllItems,
+    :pbRemoveBagClutter,
+    :pbRemoveStoryModeBagClutter,
+    :pbShowTipCard,
+    :pbFormTrader,
+    :pbFormTraderPC,
+    :pbCharacterSelect,
+    :pbPokemonSelection,
+    :pbGrantRandomPokemonSilent,
+    :pbGrantRandomPokemon,
+    :pbGetRandomPokemon,
+    :pbApplyBattleRule,
+    :setBattleRule,
+    :pbBattleChallenge,
+    :pbBattleChallengeBattle,
+    :pbHasEligible?,
+    :pbEntryScreen,
+    :pbInChallenge?,
+    :pbPokeCupRules,
+    :pbPikaCupRules,
+    :pbPrimeCupRules,
+    :pbFancyCupRules,
+    :pbLittleCupRules,
+    :pbStrictLittleCupRules,
+    :pbBattleTowerRules,
+    :pbBattlePalaceRules,
+    :pbBattleArenaRules,
+    :pbBattleFactoryRules,
+    :pbWriteCup,
+    :pbGenerateChallenge
+  ].freeze unless const_defined?(:EARLY_RELEASE_STUB_METHODS)
+
+  class EarlyChallengeRules
+    attr_accessor :ruleset
+
+    def initialize(*_args)
+      @ruleset = self
+      @rules = []
+    end
+
+    def copy; return self.class.new; end
+    def setRuleset(rule = nil); @ruleset = rule || self; return self; end
+    def setBattleType(*args); @rules << [:battle_type, args]; return self; end
+    def setLevelAdjustment(*args); @rules << [:level_adjustment, args]; return self; end
+    def setNumber(*args); @rules << [:number, args]; return self; end
+    def setDoubleBattle(*args); @rules << [:double, args]; return self; end
+    def addPokemonRule(*args); @rules << [:pokemon_rule, args]; return self; end
+    def addLevelRule(*args); @rules << [:level_rule, args]; return self; end
+    def addSubsetRule(*args); @rules << [:subset_rule, args]; return self; end
+    def addTeamRule(*args); @rules << [:team_rule, args]; return self; end
+    def addBattleRule(*args); @rules << [:battle_rule, args]; return self; end
+    def hasValidTeam?(_team = nil); return true; end
+    def hasRegistrableTeam?(_team = nil); return true; end
+    def canRegisterTeam?(_team = nil); return true; end
+    def isValid?(_team = nil, _error = nil); return true; end
+    def isPokemonValid?(_pkmn = nil); return true; end
+    def suggestedNumber; return 3; end
+    def suggestedLevel; return 50; end
+    def number; return 3; end
+    def name; return "Imported Cup"; end
+  end unless const_defined?(:EarlyChallengeRules)
+
+  class EarlyBattleChallengeType
+    def saveWins(_challenge = nil); return true; end
+  end unless const_defined?(:EarlyBattleChallengeType)
+
+  class EarlyBattleChallenge
+    attr_reader :currentChallenge
+
+    def initialize
+      @currentChallenge = -1
+      @rules = EarlyChallengeRules.new
+      @types = {}
+    end
+
+    def set(id = nil, _numrounds = nil, rules = nil)
+      @currentChallenge = id || -1
+      @rules = rules || EarlyChallengeRules.new
+      return true
+    end
+
+    def register(id = nil, *_args)
+      @currentChallenge = id || -1
+      return true
+    end
+
+    def start(*_args); @currentChallenge = 0 if @currentChallenge == -1; return true; end
+    def pbStart(_challenge = nil); return true; end
+    def pbEnd; @currentChallenge = -1; return true; end
+    def pbBattle; return true; end
+    def pbInChallenge?; return false; end
+    def pbInProgress?; return false; end
+    def pbResting?; return false; end
+    def rules; return @rules || EarlyChallengeRules.new; end
+    def extra; return nil; end
+    def decision; return 0; end
+    def wins; return 0; end
+    def swaps; return 0; end
+    def battleNumber; return 0; end
+    def nextTrainer; return 0; end
+    def pbGoOn; return true; end
+    def pbAddWin; return true; end
+    def pbCancel; @currentChallenge = -1; return true; end
+    def pbRest; return true; end
+    def pbMatchOver?; return true; end
+    def pbGoToStart; return true; end
+    def setDecision(_value); return true; end
+    def setParty(_value); return true; end
+    def data; return self; end
+    def getCurrentWins(_challenge = nil); return 0; end
+    def getPreviousWins(_challenge = nil); return 0; end
+    def getMaxWins(_challenge = nil); return 0; end
+    def getCurrentSwaps(_challenge = nil); return 0; end
+    def getPreviousSwaps(_challenge = nil); return 0; end
+    def getMaxSwaps(_challenge = nil); return 0; end
+    def ensureType(id); @types[id] ||= EarlyBattleChallengeType.new; return @types[id]; end
+  end unless const_defined?(:EarlyBattleChallenge)
+
+  EARLY_STARTER_POOLS = {
+    "Final_Starters" => [
+      :BULBASAUR, :CHARMANDER, :SQUIRTLE, :PIKACHU, :EEVEE,
+      :CHIKORITA, :CYNDAQUIL, :TOTODILE, :TREECKO, :TORCHIC, :MUDKIP,
+      :TURTWIG, :CHIMCHAR, :PIPLUP, :SNIVY, :TEPIG, :OSHAWOTT,
+      :CHESPIN, :FENNEKIN, :FROAKIE, :ROWLET, :LITTEN, :POPPLIO
+    ],
+    "Final_Mono_Bug" => [:CATERPIE, :WEEDLE, :PARAS, :VENONAT, :SCYTHER, :PINSIR, :LEDYBA, :SPINARAK, :YANMA, :PINECO, :SHUCKLE, :HERACROSS],
+    "Final_Mono_Dark" => [:MURKROW, :HOUNDOUR, :SNEASEL, :UMBREON, :POOCHYENA, :CARVANHA, :SABLEYE, :ABSOL],
+    "Final_Mono_Dragon" => [:DRATINI, :HORSEA, :TRAPINCH, :BAGON, :GIBLE, :AXEW],
+    "Final_Mono_Electric" => [:PIKACHU, :MAGNEMITE, :VOLTORB, :ELECTABUZZ, :MAREEP, :ELEKID, :SHINX],
+    "Final_Mono_Fairy" => [:CLEFAIRY, :JIGGLYPUFF, :TOGEPI, :SNUBBULL, :RALTS, :AZURILL],
+    "Final_Mono_Fighting" => [:MANKEY, :MACHOP, :TYROGUE, :MAKUHITA, :MEDITITE, :RIOLU],
+    "Final_Mono_Fire" => [:CHARMANDER, :VULPIX, :GROWLITHE, :PONYTA, :MAGBY, :HOUNDOUR, :TORCHIC],
+    "Final_Mono_Flying" => [:PIDGEY, :SPEAROW, :ZUBAT, :DODUO, :HOOTHOOT, :TAILLOW],
+    "Final_Mono_Ghost" => [:GASTLY, :MISDREAVUS, :SHUPPET, :DUSKULL, :SABLEYE],
+    "Final_Mono_Grass" => [:BULBASAUR, :ODDISH, :BELLSPROUT, :CHIKORITA, :TREECKO, :TURTWIG],
+    "Final_Mono_Ground" => [:SANDSHREW, :DIGLETT, :CUBONE, :PHANPY, :TRAPINCH, :BALTOY],
+    "Final_Mono_Ice" => [:SEEL, :SHELLDER, :SWINUB, :SMOOCHUM, :SNORUNT, :SPHEAL],
+    "Final_Mono_Normal" => [:RATTATA, :EEVEE, :MEOWTH, :DODUO, :SENTRET, :ZIGZAGOON],
+    "Final_Mono_Poison" => [:EKANS, :ZUBAT, :ODDISH, :VENONAT, :GRIMER, :KOFFING, :GULPIN],
+    "Final_Mono_Psychic" => [:ABRA, :DROWZEE, :NATU, :RALTS, :MEDITITE, :SPOINK],
+    "Final_Mono_Rock" => [:GEODUDE, :ONIX, :OMANYTE, :KABUTO, :AERODACTYL, :LARVITAR, :NOSEPASS],
+    "Final_Mono_Steel" => [:MAGNEMITE, :SKARMORY, :MAWILE, :ARON, :BELDUM],
+    "Final_Mono_Water" => [:SQUIRTLE, :PSYDUCK, :POLIWAG, :TENTACOOL, :SLOWPOKE, :KRABBY, :HORSEA, :TOTODILE, :MUDKIP, :PIPLUP]
+  }.freeze unless const_defined?(:EARLY_STARTER_POOLS)
+
+  module_function
+
+  def early_species_available?(species)
+    candidate = species.respond_to?(:species) ? species.species : species
+    candidate = candidate.to_sym if candidate.respond_to?(:to_sym)
+    return false if candidate.nil?
+    return !GameData::Species.try_get(candidate).nil? if defined?(GameData::Species) && GameData::Species.respond_to?(:try_get)
+    return true if !defined?(GameData::Species) || !GameData::Species.respond_to?(:exists?)
+    return GameData::Species.exists?(candidate)
+  rescue
+    return false
+  end
+
+  def early_imported_starter_pool(list_id = nil)
+    return list_id if list_id.is_a?(Array)
+    pools = const_defined?(:EARLY_STARTER_POOLS) ? EARLY_STARTER_POOLS : {}
+    key = list_id.to_s
+    return early_random_all_types_pool if key == "RANDOM_ALL_TYPES"
+    return pools[key] if pools.key?(key)
+    return pools["Final_Starters"] || [:BULBASAUR, :CHARMANDER, :SQUIRTLE, :PIKACHU, :EEVEE]
+  rescue
+    return [:BULBASAUR, :CHARMANDER, :SQUIRTLE, :PIKACHU, :EEVEE]
+  end
+
+  def early_random_all_types_pool
+    pools = const_defined?(:EARLY_STARTER_POOLS) ? EARLY_STARTER_POOLS : {}
+    pool = []
+    pools.each do |key, values|
+      next unless key.to_s == "Final_Starters" || key.to_s.start_with?("Final_Mono_")
+      pool.concat(Array(values))
+    end
+    pool = [:BULBASAUR, :CHARMANDER, :SQUIRTLE, :PIKACHU, :EEVEE] if pool.empty?
+    return pool.compact.uniq
+  rescue
+    return [:BULBASAUR, :CHARMANDER, :SQUIRTLE, :PIKACHU, :EEVEE]
+  end
+
+  def early_pick_imported_starter(list_id = nil, _settings = nil)
+    pool = Array(early_imported_starter_pool(list_id)).flatten.compact
+    fallback_pool = Array(early_imported_starter_pool("Final_Starters")).flatten.compact
+    pool = fallback_pool if pool.empty?
+    key = list_id.is_a?(Array) ? "array:#{pool.length}" : list_id.to_s
+    @early_imported_starter_offsets ||= Hash.new(0)
+    offset = @early_imported_starter_offsets[key].to_i
+    chosen = nil
+    pool.length.times do |index|
+      candidate = pool[(offset + index) % pool.length]
+      if early_species_available?(candidate)
+        chosen = candidate
+        break
+      end
+    end
+    if chosen.nil?
+      fallback_pool.length.times do |index|
+        candidate = fallback_pool[(offset + index) % fallback_pool.length]
+        if early_species_available?(candidate)
+          chosen = candidate
+          break
+        end
+      end
+    end
+    chosen ||= :PIKACHU
+    @early_imported_starter_offsets[key] = offset + 1
+    record_release_shim_hit("pbPokemonSelection", "startup", "starter_species") if respond_to?(:record_release_shim_hit)
+    log("[release] imported starter selection #{key.empty? ? "default" : key} => #{chosen}") if respond_to?(:log)
+    return chosen
+  rescue => e
+    log("[release] imported starter selection failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return :PIKACHU
+  end
+
+  def early_imported_starter_settings(settings = nil)
+    return settings if settings.is_a?(Hash)
+    case settings.to_s
+    when "STARTER"
+      return { :level => 5, :pokeball => :CHERISHBALL }
+    when "FAMILY"
+      return { :level => 5, :pokeball => :LOVEBALL }
+    else
+      return { :level => 5 }
+    end
+  rescue
+    return { :level => 5 }
+  end
+
+  def early_build_imported_starter(list_id = nil, settings = nil)
+    species = early_pick_imported_starter(list_id, settings)
+    options = early_imported_starter_settings(settings)
+    level = integer(options[:level], 5) rescue 5
+    if defined?(Pokemon)
+      pokemon = Pokemon.new(species, level) rescue nil
+      if pokemon
+        pokemon.poke_ball = options[:pokeball] if options[:pokeball] && pokemon.respond_to?(:poke_ball=)
+        return pokemon
+      end
+    end
+    return species
+  rescue => e
+    log("[release] imported starter build failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return :PIKACHU
+  end
+
+  def early_random_available_species(species_pool, fallback = :PIKACHU)
+    pool = Array(species_pool).flatten.compact
+    pool = early_random_all_types_pool if pool.empty?
+    shuffled = pool.sort_by { rand }
+    chosen = shuffled.find { |entry| early_species_available?(entry) }
+    chosen ||= fallback if early_species_available?(fallback)
+    return chosen || fallback
+  rescue
+    return fallback
+  end
+
+  def early_release_default_value(default_name, args = [])
+    return release_default_value(default_name, args) if respond_to?(:release_default_value)
+    case default_name.to_s
+    when "false" then return false
+    when "nil" then return nil
+    when "array" then return []
+    when "zero" then return 0
+    when "party_present"
+      party = nil
+      party = $player.party if defined?($player) && $player && $player.respond_to?(:party)
+      party = $Trainer.party if party.nil? && defined?($Trainer) && $Trainer && $Trainer.respond_to?(:party)
+      return party.respond_to?(:length) && party.length > 0
+    else
+      return true
+    end
+  rescue
+    return true
+  end
+
+  def early_release_stub(name, default_name = "true", category = "missing_api", *args)
+    return release_safe_stub(name, default_name, category, *args) if respond_to?(:release_safe_stub)
+    log("[release] early shim #{name} => #{default_name}") if respond_to?(:log)
+    return early_release_default_value(default_name, args)
+  rescue
+    return true
+  end
+
+  def early_battle_challenge
+    @early_battle_challenge ||= EarlyBattleChallenge.new
+    return @early_battle_challenge
+  rescue
+    return EarlyBattleChallenge.new
+  end
+
+  module EarlyInterpreterStubs
+    def pbStoryModeSetup(*args)
+      if defined?($player) && $player
+        $player.has_running_shoes = true if $player.respond_to?(:has_running_shoes=)
+        $player.has_pokegear = true if $player.respond_to?(:has_pokegear=)
+        $player.has_pokedex = true if $player.respond_to?(:has_pokedex=)
+        $player.seen_storage_creator = true if $player.respond_to?(:seen_storage_creator=)
+      end
+      TravelExpansionFramework.decades_grant_story_mode_kit!(:pbStoryModeSetup) if TravelExpansionFramework.respond_to?(:decades_grant_story_mode_kit!)
+      return TravelExpansionFramework.early_release_stub("pbStoryModeSetup", "true", "startup", *args)
+    rescue
+      return true
+    end
+
+    def pbStoryModeGiveDummyStarters(*args)
+      return TravelExpansionFramework.early_release_stub("pbStoryModeGiveDummyStarters", "true", "startup", *args)
+    end
+
+    def pbStoryModeRemoveDummyStarters(*args)
+      return TravelExpansionFramework.early_release_stub("pbStoryModeRemoveDummyStarters", "true", "startup", *args)
+    end
+
+    def pbStoryModeTrainerItemSuite(*args)
+      TravelExpansionFramework.decades_grant_story_mode_kit!(:pbStoryModeTrainerItemSuite) if TravelExpansionFramework.respond_to?(:decades_grant_story_mode_kit!)
+      return TravelExpansionFramework.early_release_stub("pbStoryModeTrainerItemSuite", "true", "item_handlers", *args)
+    end
+
+    def pbClearAllPokemonSetup(*args)
+      return TravelExpansionFramework.early_release_stub("pbClearAllPokemonSetup", "true", "startup", *args)
+    end
+
+    def pbAllPokemonSetup5(*args)
+      return TravelExpansionFramework.early_release_stub("pbAllPokemonSetup5", "true", "startup", *args)
+    end
+
+    def pbAllPokemonSetup30(*args)
+      return TravelExpansionFramework.early_release_stub("pbAllPokemonSetup30", "true", "startup", *args)
+    end
+
+    def pbAllPokemonSetup50(*args)
+      return TravelExpansionFramework.early_release_stub("pbAllPokemonSetup50", "true", "startup", *args)
+    end
+
+    def pbAllPokemonSetup100(*args)
+      return TravelExpansionFramework.early_release_stub("pbAllPokemonSetup100", "true", "startup", *args)
+    end
+
+    def pbOptimisedPartyQuickStart5(*args)
+      return TravelExpansionFramework.early_release_stub("pbOptimisedPartyQuickStart5", "true", "startup", *args)
+    end
+
+    def pbOptimisedPartyQuickStart30(*args)
+      return TravelExpansionFramework.early_release_stub("pbOptimisedPartyQuickStart30", "true", "startup", *args)
+    end
+
+    def pbOptimisedPartyQuickStart50(*args)
+      return TravelExpansionFramework.early_release_stub("pbOptimisedPartyQuickStart50", "true", "startup", *args)
+    end
+
+    def pbOptimisedPartyQuickStart100(*args)
+      return TravelExpansionFramework.early_release_stub("pbOptimisedPartyQuickStart100", "true", "startup", *args)
+    end
+
+    def pbBattleModeSetup5(*args)
+      return TravelExpansionFramework.early_release_stub("pbBattleModeSetup5", "true", "trainer_battle", *args)
+    end
+
+    def pbBattleModeSetup30(*args)
+      return TravelExpansionFramework.early_release_stub("pbBattleModeSetup30", "true", "trainer_battle", *args)
+    end
+
+    def pbBattleModeSetup50(*args)
+      return TravelExpansionFramework.early_release_stub("pbBattleModeSetup50", "true", "trainer_battle", *args)
+    end
+
+    def pbBattleModeSetup100(*args)
+      return TravelExpansionFramework.early_release_stub("pbBattleModeSetup100", "true", "trainer_battle", *args)
+    end
+
+    def pbDumpOutAllItems(*args)
+      return TravelExpansionFramework.early_release_stub("pbDumpOutAllItems", "true", "item_handlers", *args)
+    end
+
+    def pbJumpInAllItems(*args)
+      TravelExpansionFramework.decades_grant_story_mode_kit!(:pbJumpInAllItems) if TravelExpansionFramework.respond_to?(:decades_grant_story_mode_kit!)
+      return TravelExpansionFramework.early_release_stub("pbJumpInAllItems", "true", "item_handlers", *args)
+    end
+
+    def pbPumbInAllItems(*args)
+      TravelExpansionFramework.decades_grant_story_mode_kit!(:pbPumbInAllItems) if TravelExpansionFramework.respond_to?(:decades_grant_story_mode_kit!)
+      return TravelExpansionFramework.early_release_stub("pbPumbInAllItems", "true", "item_handlers", *args)
+    end
+
+    def pbRemoveBagClutter(*args)
+      return TravelExpansionFramework.early_release_stub("pbRemoveBagClutter", "true", "item_handlers", *args)
+    end
+
+    def pbRemoveStoryModeBagClutter(*args)
+      return TravelExpansionFramework.early_release_stub("pbRemoveStoryModeBagClutter", "true", "item_handlers", *args)
+    end
+
+    def pbShowTipCard(*args)
+      return TravelExpansionFramework.early_release_stub("pbShowTipCard", "true", "menu_settings", *args)
+    end
+
+    def pbFormTrader(*args)
+      return TravelExpansionFramework.early_release_stub("pbFormTrader", "true", "item_handlers", *args)
+    end
+
+    def pbFormTraderPC(*args)
+      return TravelExpansionFramework.early_release_stub("pbFormTraderPC", "host_pc", "item_handlers", *args)
+    end
+
+    def pbCharacterSelect(*args)
+      return TravelExpansionFramework.early_release_stub("pbCharacterSelect", "true", "startup", *args)
+    end
+
+    def pbPokemonSelection(list = nil, must_choose = true, settings = nil)
+      return TravelExpansionFramework.early_build_imported_starter(list, settings || must_choose)
+    rescue
+      return :PIKACHU
+    end
+
+    def pbGrantRandomPokemonSilent(pokemon_array, level = 5)
+      TravelExpansionFramework.early_release_stub("pbGrantRandomPokemonSilent", "true", "startup", pokemon_array, level)
+      species = TravelExpansionFramework.early_random_available_species(pokemon_array)
+      return pbAddPokemonSilent(species, level) if defined?(pbAddPokemonSilent)
+      return pbAddPokemon(species, level) if defined?(pbAddPokemon)
+      return true
+    rescue => e
+      TravelExpansionFramework.log("[release] early pbGrantRandomPokemonSilent failed safely: #{e.class}: #{e.message}") if TravelExpansionFramework.respond_to?(:log)
+      return true
+    end
+
+    def pbGrantRandomPokemon(pokemon_array, level = 5)
+      TravelExpansionFramework.early_release_stub("pbGrantRandomPokemon", "true", "startup", pokemon_array, level)
+      species = TravelExpansionFramework.early_random_available_species(pokemon_array)
+      return pbAddPokemon(species, level) if defined?(pbAddPokemon)
+      return pbAddPokemonSilent(species, level) if defined?(pbAddPokemonSilent)
+      return true
+    rescue => e
+      TravelExpansionFramework.log("[release] early pbGrantRandomPokemon failed safely: #{e.class}: #{e.message}") if TravelExpansionFramework.respond_to?(:log)
+      return true
+    end
+
+    def pbGetRandomPokemon(pokemon_array)
+      return TravelExpansionFramework.early_random_available_species(pokemon_array)
+    rescue
+      return :PIKACHU
+    end
+
+    def pbApplyBattleRule(rule, _value_type = nil, set_value = true, *_args)
+      return TravelExpansionFramework.release_safe_set_battle_rule!(rule, set_value) if TravelExpansionFramework.respond_to?(:release_safe_set_battle_rule!)
+      return TravelExpansionFramework.early_release_stub("pbApplyBattleRule", "record_imported", "trainer_battle", rule, set_value)
+    end
+
+    def setBattleRule(*args)
+      return TravelExpansionFramework.release_safe_set_battle_rule!(*args) if TravelExpansionFramework.respond_to?(:release_safe_set_battle_rule!)
+      return TravelExpansionFramework.early_release_stub("setBattleRule", "record_imported", "trainer_battle", *args)
+    end
+
+    def pbBattleChallenge(*_args)
+      return TravelExpansionFramework.early_battle_challenge
+    end
+
+    def pbBattleChallengeBattle(*_args)
+      return pbBattleChallenge.pbBattle
+    end
+
+    def pbHasEligible?(*_args)
+      return true
+    end
+
+    def pbEntryScreen(*_args)
+      return true
+    end
+
+    def pbInChallenge?(*_args)
+      challenge = pbBattleChallenge
+      return challenge.pbInChallenge? if challenge.respond_to?(:pbInChallenge?)
+      return false
+    rescue
+      return false
+    end
+
+    def pbPokeCupRules(double = false); return TravelExpansionFramework::EarlyChallengeRules.new(double); end
+    def pbPikaCupRules(double = false); return TravelExpansionFramework::EarlyChallengeRules.new(double); end
+    def pbPrimeCupRules(double = false); return TravelExpansionFramework::EarlyChallengeRules.new(double); end
+    def pbFancyCupRules(double = false); return TravelExpansionFramework::EarlyChallengeRules.new(double); end
+    def pbLittleCupRules(double = false); return TravelExpansionFramework::EarlyChallengeRules.new(double); end
+    def pbStrictLittleCupRules(double = false); return TravelExpansionFramework::EarlyChallengeRules.new(double); end
+    def pbBattleTowerRules(double = false, openlevel = false); return TravelExpansionFramework::EarlyChallengeRules.new(double, openlevel); end
+    def pbBattlePalaceRules(double = false, openlevel = false); return TravelExpansionFramework::EarlyChallengeRules.new(double, openlevel); end
+    def pbBattleArenaRules(openlevel = false); return TravelExpansionFramework::EarlyChallengeRules.new(openlevel); end
+    def pbBattleFactoryRules(double = false, openlevel = false); return TravelExpansionFramework::EarlyChallengeRules.new(double, openlevel); end
+
+    def pbWriteCup(*args)
+      return TravelExpansionFramework.early_release_stub("pbWriteCup", "true", "trainer_battle", *args)
+    end
+
+    def pbGenerateChallenge(*args)
+      return TravelExpansionFramework.early_release_stub("pbGenerateChallenge", "true", "trainer_battle", *args)
+    end
+  end unless const_defined?(:EarlyInterpreterStubs)
+end
+
+Object.const_set(:RANDOM_ALL_TYPES, TravelExpansionFramework.early_random_all_types_pool) unless Object.const_defined?(:RANDOM_ALL_TYPES, false)
+
+if defined?(Interpreter) && !Interpreter.const_defined?(:RANDOM_ALL_TYPES, false)
+  Interpreter.const_set(:RANDOM_ALL_TYPES, Object.const_get(:RANDOM_ALL_TYPES))
+end
+
+class BattleChallenge < TravelExpansionFramework::EarlyBattleChallenge
+end unless defined?(BattleChallenge)
+
+class PokemonChallengeRules < TravelExpansionFramework::EarlyChallengeRules
+end unless defined?(PokemonChallengeRules)
+
+class PokemonRuleSet < TravelExpansionFramework::EarlyChallengeRules
+end unless defined?(PokemonRuleSet)
+
+class Object
+  include TravelExpansionFramework::EarlyInterpreterStubs unless ancestors.include?(TravelExpansionFramework::EarlyInterpreterStubs)
+  TravelExpansionFramework::EARLY_RELEASE_STUB_METHODS.each do |method_name|
+    private method_name if method_defined?(method_name) || private_method_defined?(method_name)
+  end
+end
+
+if defined?(Interpreter)
+  class Interpreter
+    include TravelExpansionFramework::EarlyInterpreterStubs unless ancestors.include?(TravelExpansionFramework::EarlyInterpreterStubs)
   end
 end

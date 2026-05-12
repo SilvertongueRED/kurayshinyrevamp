@@ -1,0 +1,16 @@
+{
+  "id": "my_linked_project",
+  "display_name": "My Linked Project",
+  "root": "C:/Games/MyLinkedProject",
+  "enabled": true,
+  "direct_mount": true,
+  "prepared_data_root": "",
+  "position_mode": "fixed",
+  "entry_map_id": 1,
+  "entry_x": 0,
+  "entry_y": 0,
+  "direction": 2,
+  "map_block_start": 26000,
+  "mode_options": ["shared"],
+  "status_reason": "Optional custom note shown in the external install status browser."
+}

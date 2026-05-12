@@ -1,0 +1,24 @@
+{
+  "id": "insurgence",
+  "root": "C:/Games/Insurgence",
+  "display_name": "Pokemon Insurgence",
+  "enabled": true,
+  "direct_mount": true,
+  "prepared_data_root": "C:/Games/PIF/ExpansionLibrary/ExtractedArchives/insurgence/Data",
+  "story_anchor": {
+    "map_id": 214,
+    "x": 9,
+    "y": 7,
+    "direction": 2
+  },
+  "exploration_anchor": {
+    "map_id": 689,
+    "x": 17,
+    "y": 126,
+    "direction": 2
+  },
+  "position_mode": "fixed",
+  "show_exploration_node": true,
+  "mode_options": ["shared"],
+  "status_reason": "Extracted archive staged at C:/Games/PIF/ExpansionLibrary/ExtractedArchives/insurgence/Data. Restart the game to relink this install through the extracted data snapshot."
+}

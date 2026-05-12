@@ -23,7 +23,50 @@ class PokemonPokedexInfo_Scene
 
     #alts_list= pbGetAvailableAlts
     @selected_index = 0 if !@selected_index
+    ensureSpritesPageInitialized if respond_to?(:ensureSpritesPageInitialized)
+    return if !@available || @available.empty?
+    @sprites["selectedSprite"].visible = true if @sprites["selectedSprite"]
     update_displayed
+  end
+
+  def ensureSpritesPageInitialized
+    if @sprites["selectedSprite"] && @available_bitmaps && !@available_bitmaps.compact.empty?
+      @pokedex_sprite_page_initialized = true
+      return true
+    end
+    @available = pbGetAvailableForms
+    initializeSpritesPage(@available)
+    @pokedex_sprite_page_initialized = true
+    return true
+  end
+
+  def resetSpritesPageCache
+    if @available_bitmaps
+      @available_bitmaps.each do |bmp|
+        next if !bmp
+        begin
+          bmp.dispose if bmp.respond_to?(:dispose) && !bmp.disposed?
+        rescue
+        end
+      end
+    end
+    if @sprites
+      ["bgSelected_previous", "bgSelected_center", "bgSelected_next",
+       "creditsOverlay", "selectedSprite", "previousSprite", "nextSprite"].each do |key|
+        sprite = @sprites[key]
+        next if !sprite
+        begin
+          sprite.dispose if sprite.respond_to?(:dispose) && !(pbDisposed?(sprite) rescue false)
+        rescue
+        end
+        @sprites.delete(key)
+      end
+    end
+    @creditsOverlay = nil
+    @available_bitmaps = nil
+    @available_bitmap_paths = nil
+    @available = []
+    @pokedex_sprite_page_initialized = false
   end
 
   def init_selected_bg
@@ -45,11 +88,19 @@ class PokemonPokedexInfo_Scene
     @sprites["bgSelected_next"].setBitmap(_INTL("Graphics/Pictures/Pokedex/bg_forms_selected_small"))
     @sprites["bgSelected_next"].visible = false
 
-    @creditsOverlay = BitmapSprite.new(Graphics.width, Graphics.height, @viewport).bitmap
+    @sprites["creditsOverlay"] = BitmapSprite.new(Graphics.width, Graphics.height, @viewport)
+    @sprites["creditsOverlay"].z = 9999999
+    @creditsOverlay = @sprites["creditsOverlay"].bitmap
 
   end
 
   def initializeSpritesPage(altsList)
+    altsList = [] if !altsList.is_a?(Array)
+    altsList = altsList.compact
+    @available = altsList
+    setAvailableBitmaps(@available) if !@available_bitmaps || @available_bitmap_paths != @available
+    return false if @available.empty? || !@available_bitmaps || @available_bitmaps.compact.empty?
+
     @forms_list = list_pokemon_forms()
     @formIndex = 0
 
@@ -98,6 +149,8 @@ class PokemonPokedexInfo_Scene
       @sprites["previousSprite"].visible = true
     end
 
+    return true
+
   end
 
   def get_currently_selected_sprite()
@@ -141,12 +194,33 @@ class PokemonPokedexInfo_Scene
   end
 
   def setAvailableBitmaps(available_alts)
-    @available_bitmaps = available_alts.map { |path| AnimatedBitmap.new(path).recognizeDims() }
+    available_alts = [] if !available_alts.is_a?(Array)
+    available_alts = available_alts.compact
+    if @available_bitmaps
+      @available_bitmaps.each do |bmp|
+        next if !bmp
+        begin
+          bmp.dispose if bmp.respond_to?(:dispose) && !bmp.disposed?
+        rescue
+        end
+      end
+    end
+    @available_bitmap_paths = available_alts.dup
+    @available_bitmaps = available_alts.map do |path|
+      begin
+        AnimatedBitmap.new(path).recognizeDims()
+      rescue
+        echoln("Failed to load pokedex sprite bitmap: #{path}")
+        nil
+      end
+    end
   end
 
   def getAvailableBitmap(index)
-    if @available_bitmaps[index] 
-      return @available_bitmaps[index].bitmap
+    return nil if !@available_bitmaps || @available_bitmaps.empty?
+    available_bitmap = @available_bitmaps[index]
+    if available_bitmap
+      return available_bitmap.bitmap
     end
     echoln("nil bitmap. check @available and @available_bitmaps")
     return nil
@@ -159,6 +233,7 @@ class PokemonPokedexInfo_Scene
   end
 
   def update_selected
+    return if !@available || @available.empty?
     hide_all_selected_windows
     previous_index = @selected_index == 0 ? @available.size - 1 : @selected_index - 1
     next_index = @selected_index == @available.size - 1 ? 0 : @selected_index + 1
@@ -174,6 +249,7 @@ class PokemonPokedexInfo_Scene
   end
 
   def update_displayed
+    return if !@available || @available.empty? || !@available_bitmaps || @available_bitmaps.compact.empty?
     @sprites["selectedSprite"].bitmap = getAvailableBitmap(@selected_index)
     nextIndex = @selected_index + 1
     previousIndex = @selected_index - 1
@@ -192,6 +268,7 @@ class PokemonPokedexInfo_Scene
     @sprites["nextSprite"].bitmap = getAvailableBitmap(nextIndex)
 
     selected_bitmap = @available_bitmaps[@selected_index] # AnimatedBitmap
+    return if !selected_bitmap
     sprite_path = selected_bitmap.path
     isBaseSprite = isBaseSpritePath(@available[@selected_index])
     # is_generated = sprite_path.start_with?(Settings::BATTLERS_FOLDER)
@@ -202,7 +279,8 @@ class PokemonPokedexInfo_Scene
   end
 
   def showSpriteCredits(filename, generated_sprite = false)
-    @creditsOverlay.dispose
+    return if !@creditsOverlay
+    @creditsOverlay.clear
 
     x = Graphics.width / 2 - 75
     y = Graphics.height - 60
@@ -221,7 +299,6 @@ class PokemonPokedexInfo_Scene
 
     label_base_color = Color.new(248, 248, 248)
     label_shadow_color = Color.new(104, 104, 104)
-    @creditsOverlay = BitmapSprite.new(Graphics.width, Graphics.height, @viewport).bitmap
     textpos = [[author_name, x, y, 0, label_base_color, label_shadow_color]]
     pbDrawTextPositions(@creditsOverlay, textpos)
   end
@@ -312,6 +389,26 @@ class PokemonPokedexInfo_Scene
     end
     @sprites["uparrow"].visible = false
     @sprites["downarrow"].visible = false
+  end
+
+  unless method_defined?(:pokedex_sprite_page_original_pbEndScene)
+    alias pokedex_sprite_page_original_pbEndScene pbEndScene
+  end
+
+  def pbEndScene
+    if @available_bitmaps
+      @available_bitmaps.each do |bmp|
+        next if !bmp
+        begin
+          bmp.dispose if bmp.respond_to?(:dispose) && !bmp.disposed?
+        rescue
+        end
+      end
+      @available_bitmaps = nil
+      @available_bitmap_paths = nil
+    end
+    @creditsOverlay = nil
+    pokedex_sprite_page_original_pbEndScene
   end
 
   # def is_main_sprite(index = nil)

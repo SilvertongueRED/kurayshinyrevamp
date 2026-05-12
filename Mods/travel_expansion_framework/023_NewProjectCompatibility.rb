@@ -41,6 +41,12 @@ module TravelExpansionFramework
   DARKHORIZON_LEGACY_EXPANSION_IDS = ["dark_horizon", "pokemon_darkhorizon", "pokemon_dark_horizon"].freeze unless const_defined?(:DARKHORIZON_LEGACY_EXPANSION_IDS)
   INFINITY_EXPANSION_ID = "infinity" unless const_defined?(:INFINITY_EXPANSION_ID)
   INFINITY_LEGACY_EXPANSION_IDS = ["pokemon_infinity"].freeze unless const_defined?(:INFINITY_LEGACY_EXPANSION_IDS)
+  INFINITY_LAB_LOCAL_MAP_ID = 41 unless const_defined?(:INFINITY_LAB_LOCAL_MAP_ID)
+  INFINITY_LAB_STAIR_LANDINGS = {
+    [15, 25] => [13, 24, 4],
+    [14, 4]  => [16, 5, 6]
+  }.freeze unless const_defined?(:INFINITY_LAB_STAIR_LANDINGS)
+  INFINITY_VISUAL_WATCHDOG_FRAMES = 30 unless const_defined?(:INFINITY_VISUAL_WATCHDOG_FRAMES)
   SOLAR_ECLIPSE_EXPANSION_ID = "solar_eclipse" unless const_defined?(:SOLAR_ECLIPSE_EXPANSION_ID)
   SOLAR_ECLIPSE_LEGACY_EXPANSION_IDS = ["solareclipse", "pokemon_solar_eclipse", "pokemon_solareclipse", "solar_light_lunar_dark", "solar_light_and_lunar_dark", "pokemon_solar_light_lunar_dark"].freeze unless const_defined?(:SOLAR_ECLIPSE_LEGACY_EXPANSION_IDS)
   VANGUARD_EXPANSION_ID = "vanguard" unless const_defined?(:VANGUARD_EXPANSION_ID)
@@ -73,6 +79,28 @@ module TravelExpansionFramework
   KEISHOU_LEGACY_EXPANSION_IDS = ["pokemon_keishou"].freeze unless const_defined?(:KEISHOU_LEGACY_EXPANSION_IDS)
   UNBREAKABLE_TIES_EXPANSION_ID = "unbreakable_ties" unless const_defined?(:UNBREAKABLE_TIES_EXPANSION_ID)
   UNBREAKABLE_TIES_LEGACY_EXPANSION_IDS = ["unbreakableties", "pokemon_unbreakable_ties", "pokemon_unbreakableties"].freeze unless const_defined?(:UNBREAKABLE_TIES_LEGACY_EXPANSION_IDS)
+  DECADES_EXPANSION_ID = "decades" unless const_defined?(:DECADES_EXPANSION_ID)
+  DECADES_LEGACY_EXPANSION_IDS = ["pokemon_decades"].freeze unless const_defined?(:DECADES_LEGACY_EXPANSION_IDS)
+  DECADES_INTRO_LOCAL_MAP_ID = 1 unless const_defined?(:DECADES_INTRO_LOCAL_MAP_ID)
+  DECADES_SPEEDUP_PUNISHMENT_SWITCH = 90 unless const_defined?(:DECADES_SPEEDUP_PUNISHMENT_SWITCH)
+  DECADES_STORY_START_LOCAL_MAP_ID = 32 unless const_defined?(:DECADES_STORY_START_LOCAL_MAP_ID)
+  DECADES_STORY_START_EVENT_ID = 3 unless const_defined?(:DECADES_STORY_START_EVENT_ID)
+  DECADES_BATTLE_MODE_LOCAL_MAP_ID = 33 unless const_defined?(:DECADES_BATTLE_MODE_LOCAL_MAP_ID)
+  DECADES_GATEHOUSE_LOCAL_MAP_ID = 91 unless const_defined?(:DECADES_GATEHOUSE_LOCAL_MAP_ID)
+  DECADES_GATEHOUSE_TV_EVENT_ID = 3 unless const_defined?(:DECADES_GATEHOUSE_TV_EVENT_ID)
+  DECADES_GATEHOUSE_TRASH_EVENT_IDS = [1, 2].freeze unless const_defined?(:DECADES_GATEHOUSE_TRASH_EVENT_IDS)
+  DECADES_TRASH_ENCOUNTER_SPECIES = [:TRUBBISH, :GRIMER, :RATTATA, :GULPIN, :ZIGZAGOON].freeze unless const_defined?(:DECADES_TRASH_ENCOUNTER_SPECIES)
+  DECADES_STORY_MODE_KIT_ITEMS = [
+    [:POKEBALL, 10],
+    [:POTION, 5],
+    [:ANTIDOTE, 2],
+    [:PARLYZHEAL, 2],
+    [:REPEL, 3],
+    [:ESCAPEROPE, 1]
+  ].freeze unless const_defined?(:DECADES_STORY_MODE_KIT_ITEMS)
+  DECADES_STORY_REGION_LOCAL_MAP_IDS = [77, 87, 90, 96, 101, 103, 111, 113, 115, 117, 119, 121, 123, 125, 127, 129, 131, 133].freeze unless const_defined?(:DECADES_STORY_REGION_LOCAL_MAP_IDS)
+  NEW_PROJECT_HOST_PLAYER_VISUAL_KEYS = ["character_ID", "trainer_type", "outfit", "clothes", "hat", "hat2", "hair",
+                                          "skin_tone", "clothes_color", "hat_color", "hat2_color", "hair_color"].freeze unless const_defined?(:NEW_PROJECT_HOST_PLAYER_VISUAL_KEYS)
   NEW_PROJECT_PARTY_ISOLATION_IDS = [KEISHOU_EXPANSION_ID].freeze unless const_defined?(:NEW_PROJECT_PARTY_ISOLATION_IDS)
   NEW_PROJECT_BANKED_GIFT_IDS = [KEISHOU_EXPANSION_ID, OPALO_EXPANSION_ID].freeze unless const_defined?(:NEW_PROJECT_BANKED_GIFT_IDS)
   EMPYREAN_TERRAIN_TAG_TRANSLATIONS = {
@@ -83,8 +111,21 @@ module TravelExpansionFramework
   EMPYREAN_BRIDGE_SCAN_RADIUS = 3 unless const_defined?(:EMPYREAN_BRIDGE_SCAN_RADIUS)
 
   class EmpyreanTerrainTagProxy
+    attr_reader :source
+
     def initialize(source)
       @source = source
+    end
+
+    def _dump(_depth = -1)
+      return Marshal.dump(@source)
+    rescue
+      return Marshal.dump([])
+    end
+
+    def self._load(payload)
+      source = Marshal.load(payload) rescue []
+      return new(source)
     end
 
     def [](index)
@@ -255,7 +296,9 @@ module TravelExpansionFramework
     "unbreakable_ties" => { :aliases => ["unbreakableties", "pokemon_unbreakable_ties", "pokemon_unbreakableties"], :identity => :host },
     "unbreakableties" => { :canonical => "unbreakable_ties" },
     "pokemon_unbreakable_ties" => { :canonical => "unbreakable_ties" },
-    "pokemon_unbreakableties" => { :canonical => "unbreakable_ties" }
+    "pokemon_unbreakableties" => { :canonical => "unbreakable_ties" },
+    "decades"         => { :aliases => ["pokemon_decades"], :identity => :host },
+    "pokemon_decades" => { :canonical => "decades" }
   }.freeze unless const_defined?(:NEW_PROJECT_COMPATIBILITY_PROFILES)
 
   if !defined?(::OrderedHash)
@@ -375,6 +418,10 @@ module TravelExpansionFramework
     return [INFINITY_EXPANSION_ID] + INFINITY_LEGACY_EXPANSION_IDS
   end
 
+  def decades_expansion_ids
+    return [DECADES_EXPANSION_ID] + DECADES_LEGACY_EXPANSION_IDS
+  end
+
   def newly_registered_project_expansion_ids
     return [BUSHIDO_EXPANSION_ID] + BUSHIDO_LEGACY_EXPANSION_IDS +
            [DARKHORIZON_EXPANSION_ID] + DARKHORIZON_LEGACY_EXPANSION_IDS +
@@ -387,7 +434,8 @@ module TravelExpansionFramework
            [GADIR_DELUXE_EXPANSION_ID] + GADIR_DELUXE_LEGACY_EXPANSION_IDS +
            [HOLLOW_WOODS_EXPANSION_ID] + HOLLOW_WOODS_LEGACY_EXPANSION_IDS +
            [KEISHOU_EXPANSION_ID] + KEISHOU_LEGACY_EXPANSION_IDS +
-           [UNBREAKABLE_TIES_EXPANSION_ID] + UNBREAKABLE_TIES_LEGACY_EXPANSION_IDS
+           [UNBREAKABLE_TIES_EXPANSION_ID] + UNBREAKABLE_TIES_LEGACY_EXPANSION_IDS +
+           [DECADES_EXPANSION_ID] + DECADES_LEGACY_EXPANSION_IDS
   end
 
   def new_project_expansion_ids
@@ -749,6 +797,487 @@ module TravelExpansionFramework
 
   def infinity_active_now?(map_id = nil)
     return !active_project_expansion_id(infinity_expansion_ids, map_id).nil?
+  end
+
+  def infinity_local_map_id(map_id = nil)
+    current_map = integer(map_id || ($game_map.map_id rescue 0), 0)
+    expansion = active_project_expansion_id(infinity_expansion_ids, current_map)
+    return nil if expansion.to_s.empty?
+    return local_map_id_for(expansion, current_map) if respond_to?(:local_map_id_for)
+    return current_map
+  rescue
+    return nil
+  end
+
+  def infinity_lab_map?(map_id = nil)
+    current_map = integer(map_id || ($game_map.map_id rescue 0), 0)
+    return true if current_map == INFINITY_LAB_LOCAL_MAP_ID && infinity_active_now?
+    return integer(infinity_local_map_id(current_map), 0) == INFINITY_LAB_LOCAL_MAP_ID
+  rescue
+    return false
+  end
+
+  def infinity_lab_stair_landing_for(x, y)
+    return INFINITY_LAB_STAIR_LANDINGS[[integer(x, 0), integer(y, 0)]]
+  rescue
+    return nil
+  end
+
+  def event_command_code(command)
+    return command.code if command && command.respond_to?(:code)
+    return command.instance_variable_get(:@code) if command
+    return nil
+  rescue
+    return nil
+  end
+
+  def infinity_lab_stair_resume_index(list, index)
+    return nil if !list.respond_to?(:[])
+    i = integer(index, -1) + 1
+    return nil if i <= 0
+    saw_route = false
+    while i < list.length
+      code = event_command_code(list[i])
+      if code == 209
+        saw_route = true
+        i += 1
+        next
+      end
+      if code == 509 && saw_route
+        i += 1
+        next
+      end
+      return i if code == 223 && saw_route
+      break
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def rewrite_infinity_lab_stair_transfer(source_map_id, event_id, index, list, target_map_id, target_x, target_y, target_direction = 0)
+    return nil if !infinity_lab_map?(source_map_id)
+    return nil if !infinity_lab_map?(target_map_id)
+    landing = infinity_lab_stair_landing_for(target_x, target_y)
+    return nil if !landing
+    final_x, final_y, final_direction = landing
+    resume_index = infinity_lab_stair_resume_index(list, index)
+    @infinity_pending_lab_stair_cleanup = {
+      :map_id    => integer(target_map_id, 0),
+      :x         => final_x,
+      :y         => final_y,
+      :event_id  => integer(event_id, 0),
+      :resume    => resume_index,
+      :direction => final_direction
+    }
+    log("[infinity] rewrote lab stair transfer event #{event_id}: #{target_x},#{target_y} -> #{final_x},#{final_y}; resume=#{resume_index || "next"}") if respond_to?(:log)
+    return {
+      :map_id       => target_map_id,
+      :x            => final_x,
+      :y            => final_y,
+      :direction    => final_direction || target_direction,
+      :resume_index => resume_index
+    }
+  rescue => e
+    log("[infinity] lab stair transfer rewrite failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def finish_infinity_lab_stair_transfer_rewrite!(reason = "transfer")
+    pending = @infinity_pending_lab_stair_cleanup
+    return false if !pending.is_a?(Hash)
+    return false if !defined?($game_map) || !$game_map || !defined?($game_player) || !$game_player
+    if integer($game_map.map_id, 0) != integer(pending[:map_id], 0)
+      @infinity_pending_lab_stair_cleanup = nil
+      return false
+    end
+    $game_player.through = false if $game_player.respond_to?(:through=)
+    $game_player.transparent = false if $game_player.respond_to?(:transparent=)
+    if $game_player.respond_to?(:direction=) && integer(pending[:direction], 0) > 0
+      $game_player.direction = integer(pending[:direction], 0)
+    end
+    $game_player.straighten if $game_player.respond_to?(:straighten)
+    @infinity_pending_lab_stair_cleanup = nil
+    log("[infinity] finished lab stair transfer cleanup after #{reason}: #{$game_player.x},#{$game_player.y}") if respond_to?(:log)
+    return true
+  rescue => e
+    @infinity_pending_lab_stair_cleanup = nil
+    log("[infinity] lab stair transfer cleanup failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def decades_active_now?(map_id = nil)
+    return !active_project_expansion_id(decades_expansion_ids, map_id).nil?
+  end
+
+  def decades_intro_map?(map_id = nil)
+    map = integer(map_id, 0)
+    map = $game_map.map_id if map <= 0 && defined?($game_map) && $game_map
+    expansion = active_project_expansion_id(decades_expansion_ids, map)
+    return false if expansion.nil?
+    local_map = local_map_id_for(expansion, map) rescue map
+    return integer(local_map, 0) == DECADES_INTRO_LOCAL_MAP_ID
+  rescue
+    return false
+  end
+
+  def decades_speedup_punishment_switch?(switch_id, map_id = nil)
+    return integer(switch_id, 0) == DECADES_SPEEDUP_PUNISHMENT_SWITCH &&
+           decades_intro_map?(map_id)
+  rescue
+    return false
+  end
+
+  def decades_speedup_punishment_branch?(params, map_id = nil, _event_id = nil)
+    data = Array(params)
+    return false if data[0].to_i != 0
+    return false if data[2].to_i != 0
+    return decades_speedup_punishment_switch?(data[1], map_id)
+  rescue
+    return false
+  end
+
+  def decades_speedup_punishment_assignment?(params, map_id = nil)
+    data = Array(params)
+    return false if data.length < 3
+    first = integer(data[0], 0)
+    last = integer(data[1], first)
+    value = integer(data[2], 0)
+    return false if value != 0
+    return first <= DECADES_SPEEDUP_PUNISHMENT_SWITCH &&
+           last >= DECADES_SPEEDUP_PUNISHMENT_SWITCH &&
+           decades_intro_map?(map_id)
+  rescue
+    return false
+  end
+
+  def decades_clear_speedup_punishment!(source = nil)
+    if defined?($game_switches) && $game_switches
+      $game_switches[DECADES_SPEEDUP_PUNISHMENT_SWITCH] = false
+      $game_map.need_refresh = true if defined?($game_map) && $game_map
+    end
+    record_release_shim_hit("decades_speedup_punishment", "startup", "blocked") if respond_to?(:record_release_shim_hit)
+    log("[decades] blocked intro speed-up punishment#{source ? " from #{source}" : ""}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[decades] speed-up punishment guard failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def decades_story_region_transfer?(source_map_id, event_id, target_map_id)
+    source_map = integer(source_map_id, 0)
+    expansion = active_project_expansion_id(decades_expansion_ids, source_map)
+    return false if expansion.nil?
+    source_local = local_map_id_for(expansion, source_map) rescue source_map
+    target_local = local_map_id_for(expansion, target_map_id) rescue target_map_id
+    return integer(source_local, 0) == DECADES_STORY_START_LOCAL_MAP_ID &&
+           integer(event_id, 0) == DECADES_STORY_START_EVENT_ID &&
+           DECADES_STORY_REGION_LOCAL_MAP_IDS.include?(integer(target_local, 0))
+  rescue
+    return false
+  end
+
+  def decades_note_story_region_transfer!(target_map_id = nil, source = nil)
+    meta = new_project_metadata(DECADES_EXPANSION_ID) || new_project_metadata
+    if meta
+      meta["story_region_started"] = true
+      meta["story_region_target_map"] = integer(target_map_id, 0) if target_map_id
+      meta["story_region_started_at"] = timestamp_string if respond_to?(:timestamp_string)
+    end
+    record_release_shim_hit("decades_story_region_transfer", "story_transfer", "single_route") if respond_to?(:record_release_shim_hit)
+    log("[decades] ended startup city selector after first route#{source ? " from #{source}" : ""}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[decades] story region transfer marker failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def decades_safe_intro_bag_add(item, qty = 1, *args)
+    meta = new_project_metadata(DECADES_EXPANSION_ID) || new_project_metadata
+    grants = nil
+    if meta
+      meta["intro_item_grants"] = {} if !meta["intro_item_grants"].is_a?(Hash)
+      grants = meta["intro_item_grants"]
+    end
+    key = item.to_s.upcase
+    if grants && grants[key]
+      record_release_shim_hit("decades_intro_item_grant", "item_handlers", "deduped") if respond_to?(:record_release_shim_hit)
+      log("[decades] skipped duplicate intro item grant #{key}") if respond_to?(:log)
+      return true
+    end
+    result = false
+    result = decades_store_story_item(item, qty) if respond_to?(:decades_store_story_item)
+    result = $bag.add(item, qty, *args) if !result && defined?($bag) && $bag && $bag.respond_to?(:add)
+    grants[key] = { "qty" => integer(qty, 1), "granted_at" => (timestamp_string if respond_to?(:timestamp_string)) } if grants
+    record_release_shim_hit("decades_intro_item_grant", "item_handlers", "once") if respond_to?(:record_release_shim_hit)
+    return result
+  rescue => e
+    log("[decades] intro item grant failed safely for #{item.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def decades_item_exists?(item)
+    return release_item_exists?(item) if respond_to?(:release_item_exists?)
+    return GameData::Item.exists?(item) if defined?(GameData::Item) && GameData::Item.respond_to?(:exists?)
+    return !GameData::Item.get(item).nil? if defined?(GameData::Item) && GameData::Item.respond_to?(:get)
+    return true
+  rescue
+    return false
+  end
+
+  def decades_store_story_item(item, qty = 1)
+    return false if !decades_item_exists?(item)
+    quantity = [integer(qty, 1), 1].max
+    if defined?($PokemonBag) && $PokemonBag
+      return true if $PokemonBag.respond_to?(:pbStoreItem) && $PokemonBag.pbStoreItem(item, quantity)
+      return true if $PokemonBag.respond_to?(:add) && $PokemonBag.add(item, quantity)
+    end
+    if defined?($bag) && $bag
+      return true if $bag.respond_to?(:pbStoreItem) && $bag.pbStoreItem(item, quantity)
+      return true if $bag.respond_to?(:add) && $bag.add(item, quantity)
+    end
+    return false
+  rescue => e
+    log("[decades] story kit item #{item.inspect} skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def decades_grant_story_mode_kit!(source = nil)
+    meta = new_project_metadata(DECADES_EXPANSION_ID) || new_project_metadata
+    if meta
+      meta["story_mode_item_kit"] = {} if !meta["story_mode_item_kit"].is_a?(Hash)
+      kit = meta["story_mode_item_kit"]
+      return true if kit["granted"]
+    elsif @decades_story_mode_kit_granted
+      return true
+    end
+    granted = {}
+    DECADES_STORY_MODE_KIT_ITEMS.each do |item, qty|
+      next if !decades_store_story_item(item, qty)
+      granted[item.to_s] = integer(qty, 1)
+    end
+    if meta
+      meta["story_mode_item_kit"]["granted"] = true
+      meta["story_mode_item_kit"]["source"] = source.to_s if source
+      meta["story_mode_item_kit"]["items"] = granted
+      meta["story_mode_item_kit"]["granted_at"] = timestamp_string if respond_to?(:timestamp_string)
+    end
+    @decades_story_mode_kit_granted = true
+    record_release_shim_hit("decades_story_mode_kit", "item_handlers", "granted_once") if respond_to?(:record_release_shim_hit)
+    log("[decades] granted host-safe Story Mode item kit#{source ? " from #{source}" : ""}: #{granted.inspect}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[decades] story mode kit grant failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def decades_character_select!(*args)
+    ensure_player_global! if respond_to?(:ensure_player_global!)
+    apply_new_project_gender_selection! if respond_to?(:apply_new_project_gender_selection!)
+    apply_host_player_visuals!(DECADES_EXPANSION_ID) if respond_to?(:apply_host_player_visuals!)
+    record_release_shim_hit("pbCharacterSelect", "startup", "host_identity") if respond_to?(:record_release_shim_hit)
+    log("[decades] skipped imported character selector; host player identity retained") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[decades] character selector fallback failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def decades_current_local_map_id(map_id = nil)
+    map = integer(map_id, 0)
+    map = $game_map.map_id if map <= 0 && defined?($game_map) && $game_map
+    expansion = active_project_expansion_id(decades_expansion_ids, map)
+    return 0 if expansion.nil?
+    return integer(local_map_id_for(expansion, map), map)
+  rescue
+    return integer(map_id, 0)
+  end
+
+  def decades_current_event_id(fallback_event_id = nil)
+    context = current_runtime_context if respond_to?(:current_runtime_context)
+    event_id = integer(context[:event_id], 0) if context.is_a?(Hash)
+    event_id = integer(fallback_event_id, 0) if event_id.to_i <= 0
+    return event_id.to_i
+  rescue
+    return integer(fallback_event_id, 0)
+  end
+
+  def decades_current_event(event_id = nil)
+    id = decades_current_event_id(event_id)
+    return nil if id <= 0 || !defined?($game_map) || !$game_map || !$game_map.respond_to?(:events)
+    return $game_map.events[id] rescue nil
+  end
+
+  def current_or_facing_event(event = nil, event_id = nil)
+    return event if event && event.respond_to?(:id)
+    resolved = decades_current_event(event_id)
+    if resolved.nil? && defined?($game_player) && $game_player
+      if $game_player.respond_to?(:pbFacingEvent)
+        resolved = $game_player.pbFacingEvent(true) rescue nil
+        resolved ||= $game_player.pbFacingEvent rescue nil
+      end
+    end
+    return resolved
+  rescue
+    return event
+  end
+
+  def decades_current_event_name(event_id = nil)
+    event = decades_current_event(event_id)
+    return "" if event.nil?
+    return event.name.to_s if event.respond_to?(:name)
+    return event.instance_variable_get(:@event).name.to_s rescue ""
+  end
+
+  def imported_event_signature(event = nil, event_id = nil)
+    resolved = current_or_facing_event(event, event_id)
+    parts = []
+    parts << resolved.name if resolved && resolved.respond_to?(:name)
+    parts << resolved.character_name if resolved && resolved.respond_to?(:character_name)
+    raw_event = resolved.instance_variable_get(:@event) rescue nil
+    parts << raw_event.name if raw_event && raw_event.respond_to?(:name)
+    page = resolved.instance_variable_get(:@page) rescue nil
+    graphic = page.graphic if page && page.respond_to?(:graphic)
+    parts << graphic.character_name if graphic && graphic.respond_to?(:character_name)
+    Array(resolved.list).each do |command|
+      code = command.respond_to?(:code) ? command.code.to_i : 0
+      next if ![108, 408].include?(code)
+      parts.concat(Array(command.parameters))
+    end if resolved && resolved.respond_to?(:list)
+    return parts.compact.map(&:to_s).join(" ")
+  rescue
+    return ""
+  end
+
+  def imported_event_looks_like_tv?(event = nil, event_id = nil)
+    signature = imported_event_signature(event, event_id)
+    text = signature.downcase
+    return false if text.empty?
+    return false if text.include?("headbutttree")
+    return true if text.include?("television")
+    return true if text.include?("tvvisual")
+    return true if text.include?(" tv")
+    return true if text.include?("_tv")
+    return true if text.include?("tv_")
+    return true if text.include?("monitor")
+    return true if text.include?("screen")
+    return true if text.include?("broadcast")
+    return true if text.include?("news")
+    return false
+  rescue
+    return false
+  end
+
+  def imported_tv_event?(event = nil, event_id = nil, map_id = nil, expansion_ids = nil)
+    map = integer(map_id, 0)
+    map = $game_map.map_id if map <= 0 && defined?($game_map) && $game_map
+    expansion = nil
+    if expansion_ids
+      expansion = active_project_expansion_id(Array(expansion_ids), map) if respond_to?(:active_project_expansion_id)
+      return false if expansion.nil?
+    else
+      expansion = current_map_expansion_id(map) if respond_to?(:current_map_expansion_id)
+      return false if expansion.nil? || expansion.to_s.empty?
+    end
+    return imported_event_looks_like_tv?(event, event_id)
+  rescue
+    return false
+  end
+
+  def decades_gatehouse_tv_event?(event_id = nil, map_id = nil)
+    return imported_tv_event?(nil, event_id, map_id, decades_expansion_ids)
+  rescue
+    return false
+  end
+
+  def decades_gatehouse_trash_event?(event_id = nil, map_id = nil)
+    return false if !decades_active_now?(map_id)
+    return false if decades_current_local_map_id(map_id) != DECADES_GATEHOUSE_LOCAL_MAP_ID
+    id = decades_current_event_id(event_id)
+    return true if DECADES_GATEHOUSE_TRASH_EVENT_IDS.include?(id)
+    return decades_current_event_name(id) =~ /Trash/i ? true : false
+  rescue
+    return false
+  end
+
+  def decades_watch_tv!(*_args)
+    record_release_shim_hit("decades.pbWatchTV", "item_handlers", "local_broadcast") if respond_to?(:record_release_shim_hit)
+    pbMessage(_INTL("The TV is showing a local news report.")) if defined?(pbMessage)
+    return true
+  rescue => e
+    log("[decades] TV event skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def watch_imported_tv!(event = nil, *_args)
+    expansion = current_map_expansion_id if respond_to?(:current_map_expansion_id)
+    record_release_shim_hit("pbHeadbutt.tv_redirect", "item_handlers", expansion || "imported") if respond_to?(:record_release_shim_hit)
+    if expansion && decades_expansion_ids.include?(expansion.to_s)
+      return decades_watch_tv!(event)
+    end
+    pbMessage(_INTL("The TV is showing a local program.")) if defined?(pbMessage)
+    return true
+  rescue => e
+    log("[tv] imported TV event skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def decades_resolve_trash_species
+    DECADES_TRASH_ENCOUNTER_SPECIES.each do |species|
+      resolved = resolve_expansion_species(DECADES_EXPANSION_ID, species) if respond_to?(:resolve_expansion_species)
+      resolved ||= species
+      exists = !defined?(GameData::Species) || GameData::Species.exists?(resolved) rescue false
+      return resolved if exists
+    end
+    return :RATTATA
+  rescue
+    return :RATTATA
+  end
+
+  def decades_trash_encounter!(*_args)
+    return false if !decades_gatehouse_trash_event?
+    record_release_shim_hit("TrashCans.pbTrashEncounter", "encounters", "decades_gatehouse") if respond_to?(:record_release_shim_hit)
+    if rand(100) < 25
+      species = decades_resolve_trash_species
+      pbMessage(_INTL("Something jumped out!")) if defined?(pbMessage)
+      return start_decades_wild_battle(species, decades_effective_battle_level(3)) if respond_to?(:start_decades_wild_battle)
+    end
+    pbMessage(_INTL("There's nothing interesting inside.")) if defined?(pbMessage)
+    return false
+  rescue => e
+    log("[decades] trash can encounter skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def decades_headbutt!(event = nil, *_args)
+    event_id = event.respond_to?(:id) ? event.id : nil
+    return nil if !imported_tv_event?(event, event_id)
+    return watch_imported_tv!(event)
+  rescue => e
+    log("[decades] headbutt TV redirect failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def decades_prepare_event_script(script, map_id = nil, event_id = nil)
+    return script if script.nil? || !decades_active_now?(map_id)
+    text = script.to_s
+    rewritten = text.dup
+    if rewritten.include?("pbCharacterSelect")
+      rewritten.gsub!(/(^|\n)([ \t]*)pbCharacterSelect[ \t]*(?:\(\s*\))?[ \t]*(?=\r?\n|\z)/) do
+        "#{$1}#{$2}TravelExpansionFramework.decades_character_select!"
+      end
+    end
+    if decades_intro_map?(map_id) && rewritten.include?("$bag.add")
+      rewritten.gsub!(/\$bag\.add\s*\(/, "TravelExpansionFramework.decades_safe_intro_bag_add(")
+    end
+    if rewritten != text
+      record_release_shim_hit("decades_event_script", "startup", "rewritten") if respond_to?(:record_release_shim_hit)
+      log("[decades] rewrote startup event script #{event_id || "?"} on map #{map_id || "?"}") if respond_to?(:log)
+    end
+    return rewritten
+  rescue => e
+    log("[decades] event script preparation failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return script
   end
 
   def hollow_woods_game_mode
@@ -2011,6 +2540,199 @@ module TravelExpansionFramework
     return nil
   end
 
+  def new_project_player_visual_state(trainer = nil)
+    trainer ||= ($Trainer rescue nil)
+    return nil if !trainer
+    state = {}
+    NEW_PROJECT_HOST_PLAYER_VISUAL_KEYS.each do |key|
+      state[key] = trainer.send(key) if trainer.respond_to?(key)
+    end
+    if defined?($game_player) && $game_player
+      state["character_name"] = ($game_player.instance_variable_get(:@character_name) rescue nil)
+      state["default_character_name"] = ($game_player.instance_variable_get(:@defaultCharacterName) rescue nil)
+      state["charset_data"] = ($game_player.charsetData rescue nil) if $game_player.respond_to?(:charsetData)
+    end
+    return state
+  rescue => e
+    log("[travel] player visual snapshot failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def capture_host_player_visual_state_for_expansion!(expansion_id = nil, reason = "entry", force = false)
+    expansion = canonical_new_project_id(expansion_id || current_new_project_expansion_id)
+    return false if expansion.to_s.empty?
+    return false if !expansion_id_in_list?(expansion, new_project_identity_expansion_ids)
+    meta = new_project_metadata(expansion)
+    return false if !meta
+    return true if !force && meta["host_player_visual_state"].is_a?(Hash)
+    state = new_project_player_visual_state
+    return false if !state.is_a?(Hash) || state.empty?
+    meta["host_player_visual_state"] = state
+    meta["host_player_visual_state_reason"] = reason.to_s
+    meta["host_player_visual_state_at"] = timestamp_string if respond_to?(:timestamp_string)
+    log("[#{expansion}] captured host player visuals for #{reason}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[travel] host player visual capture failed for #{expansion_id.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def host_player_visual_state_for_expansion(expansion_id = nil)
+    expansion = canonical_new_project_id(expansion_id || current_new_project_expansion_id)
+    meta = new_project_metadata(expansion)
+    state = meta["host_player_visual_state"] if meta
+    return state if state.is_a?(Hash)
+    return nil
+  rescue
+    return nil
+  end
+
+  def restore_host_player_visual_state_for_expansion!(expansion_id = nil, reason = "runtime", scene = nil)
+    expansion = canonical_new_project_id(expansion_id || current_new_project_expansion_id)
+    state = host_player_visual_state_for_expansion(expansion)
+    trainer = $Trainer rescue nil
+    if trainer && state.is_a?(Hash)
+      NEW_PROJECT_HOST_PLAYER_VISUAL_KEYS.each do |key|
+        next if !state.has_key?(key)
+        trainer.instance_variable_set("@#{key}", state[key])
+      end
+    end
+    apply_host_player_visuals!("#{expansion} #{reason}") if respond_to?(:apply_host_player_visuals!)
+    if scene && scene.respond_to?(:reset_player_sprite)
+      scene.reset_player_sprite
+    elsif defined?($scene) && $scene && $scene.respond_to?(:reset_player_sprite)
+      $scene.reset_player_sprite
+    end
+    return true
+  rescue => e
+    log("[#{expansion_id || "new_project"}] host player visual restore failed after #{reason}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def new_project_visuals_changed_from_host?(expansion_id = nil)
+    state = host_player_visual_state_for_expansion(expansion_id)
+    return false if !state.is_a?(Hash)
+    trainer = $Trainer rescue nil
+    if trainer
+      NEW_PROJECT_HOST_PLAYER_VISUAL_KEYS.each do |key|
+        next if !state.has_key?(key) || !trainer.respond_to?(key)
+        return true if trainer.send(key) != state[key]
+      end
+    end
+    if defined?($game_player) && $game_player
+      expected_name = state["character_name"].to_s
+      current_name = ($game_player.instance_variable_get(:@character_name) rescue "").to_s
+      current_name = ($game_player.character_name rescue current_name).to_s if current_name.empty?
+      return true if !expected_name.empty? && !current_name.empty? && current_name != expected_name
+    end
+    return true if defined?($game_player) && $game_player && $game_player.respond_to?(:hasGraphicsOverride?) &&
+                   $game_player.hasGraphicsOverride?
+    return false
+  rescue
+    return false
+  end
+
+  def infinity_suppress_player_visual_assignment?(_field = nil, _value = nil)
+    return false if @infinity_restoring_host_visuals
+    return infinity_active_now? if respond_to?(:infinity_active_now?)
+    return false
+  rescue
+    return false
+  end
+
+  def infinity_note_suppressed_player_visual_assignment!(field, value)
+    @infinity_suppressed_visual_assignments ||= {}
+    key = "#{field}=#{value.inspect}"
+    return if @infinity_suppressed_visual_assignments[key]
+    @infinity_suppressed_visual_assignments[key] = true
+    log("[infinity] suppressed imported player visual #{key} to preserve host player sprite") if respond_to?(:log)
+  rescue
+  end
+
+  def infinity_restore_host_player_visuals!(reason = "runtime", scene = nil)
+    return false if !infinity_active_now?
+    @infinity_restoring_host_visuals = true
+    result = restore_host_player_visual_state_for_expansion!(INFINITY_EXPANSION_ID, reason, scene)
+    log("[infinity] restored host player visuals after #{reason}") if result && respond_to?(:log)
+    return result
+  rescue => e
+    log("[infinity] host player visual restore failed after #{reason}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  ensure
+    @infinity_restoring_host_visuals = false
+  end
+
+  def infinity_player_visuals_need_restore?
+    return false if !infinity_active_now?
+    return new_project_visuals_changed_from_host?(INFINITY_EXPANSION_ID)
+  rescue
+    return false
+  end
+
+  def infinity_repair_lab_stair_landing!(reason = "transfer")
+    return false if !defined?($game_map) || !$game_map || !defined?($game_player) || !$game_player
+    return false if !infinity_lab_map?($game_map.map_id)
+    if defined?($game_temp) && $game_temp
+      return false if $game_temp.respond_to?(:player_transferring) && $game_temp.player_transferring
+      return false if $game_temp.respond_to?(:transition_processing) && $game_temp.transition_processing
+      return false if $game_temp.respond_to?(:message_window_showing) && $game_temp.message_window_showing
+    end
+    return false if $game_player.respond_to?(:move_route_forcing) && $game_player.move_route_forcing
+    return false if defined?(pbMapInterpreterRunning?) && pbMapInterpreterRunning?
+    landing = infinity_lab_stair_landing_for($game_player.x, $game_player.y)
+    return false if !landing
+    target_x, target_y, direction = landing
+    $game_player.unlock if $game_player.respond_to?(:unlock)
+    $game_player.cancelMoveRoute if $game_player.respond_to?(:cancelMoveRoute)
+    $game_player.moveto(target_x, target_y) if $game_player.respond_to?(:moveto)
+    if $game_player.respond_to?(:direction=)
+      $game_player.direction = direction
+    else
+      case integer(direction, 2)
+      when 4 then $game_player.turn_left if $game_player.respond_to?(:turn_left)
+      when 6 then $game_player.turn_right if $game_player.respond_to?(:turn_right)
+      when 8 then $game_player.turn_up if $game_player.respond_to?(:turn_up)
+      else $game_player.turn_down if $game_player.respond_to?(:turn_down)
+      end
+    end
+    $game_player.through = false if $game_player.respond_to?(:through=)
+    $game_player.transparent = false if $game_player.respond_to?(:transparent=)
+    $game_player.straighten if $game_player.respond_to?(:straighten)
+    $game_map.need_refresh = true if $game_map.respond_to?(:need_refresh=)
+    if defined?($game_temp) && $game_temp
+      $game_temp.player_transferring = false if $game_temp.respond_to?(:player_transferring=)
+      $game_temp.transition_processing = false if $game_temp.respond_to?(:transition_processing=)
+      $game_temp.transition_name = "" if $game_temp.respond_to?(:transition_name=)
+    end
+    log("[infinity] repaired lab stair landing #{reason}: #{$game_player.x},#{$game_player.y}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[infinity] lab stair landing repair failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def infinity_after_transfer_repair!(_previous_map_id = nil, reason = "transfer")
+    return false if !infinity_active_now?
+    fixed = false
+    fixed = infinity_restore_host_player_visuals!(reason) || fixed if infinity_player_visuals_need_restore?
+    return fixed
+  rescue => e
+    log("[infinity] post-transfer repair failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def infinity_runtime_watchdog_update!(scene = nil)
+    return false if !infinity_active_now?
+    @infinity_visual_watchdog_frame = integer(@infinity_visual_watchdog_frame, 0) + 1
+    fixed = infinity_repair_lab_stair_landing!("idle_watchdog")
+    return fixed if (@infinity_visual_watchdog_frame % INFINITY_VISUAL_WATCHDOG_FRAMES) != 0
+    fixed = infinity_restore_host_player_visuals!("watchdog", scene) || fixed if infinity_player_visuals_need_restore?
+    return fixed
+  rescue => e
+    log("[infinity] watchdog failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
   def new_project_deep_clone(value)
     return nil if value.nil?
     return Marshal.load(Marshal.dump(value))
@@ -2316,6 +3038,18 @@ module TravelExpansionFramework
 
   def host_player_charset_name
     trainer = $Trainer rescue nil
+    visual_state = host_player_visual_state_for_expansion if respond_to?(:host_player_visual_state_for_expansion)
+    if visual_state.is_a?(Hash)
+      state_id = integer(visual_state["character_ID"], -1)
+      if defined?(GameData::Metadata) && state_id >= 0
+        meta = GameData::Metadata.get_player(state_id) rescue nil
+        charset_name = pbGetPlayerCharset(meta, 1, trainer, true) if meta && defined?(pbGetPlayerCharset)
+        return charset_name.to_s if charset_name && !charset_name.to_s.empty?
+        return meta[1].to_s if meta.respond_to?(:[]) && meta[1] && !meta[1].to_s.empty?
+      end
+      state_name = visual_state["character_name"].to_s
+      return state_name if !state_name.empty?
+    end
     if defined?(GameData::Metadata) && trainer
       meta = GameData::Metadata.get_player(trainer.character_ID) rescue nil
       charset = 1
@@ -2521,6 +3255,139 @@ module TravelExpansionFramework
     return nil
   end
 
+  def decades_cancel_choice_index(commands)
+    list = Array(commands)
+    return nil if list.empty?
+    return choice_index_matching(list, /\Acancel\z/i) ||
+           choice_index_matching(list, /cancel|back|never mind|no/i) ||
+           4
+  rescue
+    return nil
+  end
+
+  def decades_battle_mode_map?(map_id = nil)
+    return integer(decades_current_local_map_id(map_id), 0) == DECADES_BATTLE_MODE_LOCAL_MAP_ID
+  rescue
+    return false
+  end
+
+  def decades_battle_mode_choice_index(previous_message, commands, map_id = nil)
+    return nil if !decades_active_now?(map_id)
+    list = Array(commands)
+    return nil if list.empty?
+    text = normalize_choice_text(previous_message)
+    joined = normalize_choice_text(list.join(" "))
+    if joined[/begin story mode/] && joined[/begin battle mode/]
+      record_release_shim_hit("decades_battle_mode", "startup", "forced_story_mode_npc") if respond_to?(:record_release_shim_hit)
+      log("[decades] routed Battle Mode prompt to Story Mode") if respond_to?(:log)
+      return choice_index_matching(list, /begin story mode/i) || choice_index_matching(list, /story mode/i) || 0
+    end
+    battle_prompt = text[/battle mode|level format|cup|challenge battle|deluxe battle/] ||
+                    joined[/smogon cup|vgc cup|nfe cup|starter cup|level format|begin battle mode|battle mode|cup.*lvl/] ||
+                    (decades_battle_mode_map?(map_id) && joined[/cancel/])
+    return nil if !battle_prompt && !decades_battle_mode_map?(map_id)
+    choice = decades_cancel_choice_index(list)
+    if !choice.nil?
+      record_release_shim_hit("decades_battle_mode", "trainer_battle", "cancelled_unsupported_menu") if respond_to?(:record_release_shim_hit)
+      log("[decades] cancelled unsupported Battle Mode choice #{list.inspect}") if respond_to?(:log)
+    end
+    return choice
+  rescue => e
+    log("[decades] battle mode auto choice failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def decades_title_menu_choice_index(previous_message, commands, map_id = nil)
+    return nil if !decades_active_now?(map_id)
+    list = Array(commands)
+    return nil if list.empty?
+    text = normalize_choice_text(previous_message)
+    joined = normalize_choice_text(list.join(" "))
+    title_prompt = text[/\btitle\b|\btitles\b|honorific|epithet|moniker|memento|mark\b|ribbon/] ||
+                   joined[/\btitle\b|\btitles\b|honorific|epithet|moniker|memento|mark\b|ribbon/]
+    return nil if !title_prompt
+    choice = decades_cancel_choice_index(list)
+    if !choice.nil?
+      record_release_shim_hit("decades_title_menu", "menu_settings", "cancelled_unsupported_menu") if respond_to?(:record_release_shim_hit)
+      log("[decades] cancelled unsupported title menu #{list.inspect}") if respond_to?(:log)
+    end
+    return choice
+  rescue => e
+    log("[decades] title menu auto choice failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def decades_startup_map?(map_id = nil)
+    map = integer(map_id, 0)
+    map = $game_map.map_id if map <= 0 && defined?($game_map) && $game_map
+    expansion = active_project_expansion_id(decades_expansion_ids, map)
+    return false if expansion.nil?
+    local_map = local_map_id_for(expansion, map) rescue map
+    return [DECADES_INTRO_LOCAL_MAP_ID, 32].include?(integer(local_map, 0))
+  rescue
+    return false
+  end
+
+  def decades_startup_auto_choice_index(previous_message, commands, map_id = nil, _event_id = nil)
+    list = Array(commands)
+    return nil if list.empty?
+    text = normalize_choice_text(previous_message)
+    joined = normalize_choice_text(list.join(" "))
+    battle_choice = decades_battle_mode_choice_index(previous_message, list, map_id)
+    return battle_choice if !battle_choice.nil?
+    title_choice = decades_title_menu_choice_index(previous_message, list, map_id)
+    return title_choice if !title_choice.nil?
+    return nil if !decades_startup_map?(map_id)
+    if text[/game mode/] && joined[/story mode/] && joined[/battle mode/]
+      record_release_shim_hit("decades_battle_mode", "startup", "forced_story_mode") if respond_to?(:record_release_shim_hit)
+      log("[decades] forced Story Mode from intro game-mode prompt") if respond_to?(:log)
+      return choice_index_matching(list, /story mode/i) || 0
+    end
+    if joined[/begin story mode/] && joined[/begin battle mode/]
+      record_release_shim_hit("decades_battle_mode", "startup", "forced_story_mode_npc") if respond_to?(:record_release_shim_hit)
+      log("[decades] routed startup NPC to Story Mode instead of unsupported Battle Mode") if respond_to?(:log)
+      return choice_index_matching(list, /begin story mode/i) || choice_index_matching(list, /story mode/i) || 0
+    end
+    if text[/emulator speed up|delta speed up/]
+      decades_clear_speedup_punishment!(:auto_choice) if respond_to?(:decades_clear_speedup_punishment!)
+      return choice_index_matching(list, /i decide/i) || 0
+    end
+    if text[/spamming speed up|speed up.*fun/]
+      decades_clear_speedup_punishment!(:auto_choice) if respond_to?(:decades_clear_speedup_punishment!)
+      return choice_index_matching(list, /not all the time/i) || [list.length - 1, 0].max
+    end
+    if (text[/starter/] && joined[/starter/]) ||
+       joined[/random starters.*mono|all starters.*vgc starters.*random starters/]
+      record_release_shim_hit("decades_starter_setup", "startup", "random_single_story") if respond_to?(:record_release_shim_hit)
+      return choice_index_matching(list, /random starters/i) ||
+             choice_index_matching(list, /vgc starters/i) ||
+             choice_index_matching(list, /all starters/i) ||
+             0
+    end
+    if text[/how many.*starter/] || joined[/singles.*doubles.*triples.*full team/]
+      record_release_shim_hit("decades_starter_count", "startup", "single") if respond_to?(:record_release_shim_hit)
+      return choice_index_matching(list, /(?:\A1\b|singles)/i) || 0
+    end
+    if text[/type.*specialize|specialize.*type/] ||
+       joined[/mono bug|mono dark|mono dragon|mono electric|bug.*dark.*dragon.*electric|fairy.*fighting.*fire.*flying|ghost.*grass.*ground.*ice|normal.*poison.*psychic.*rock|steel.*water/]
+      record_release_shim_hit("decades_monotype_setup", "startup", "first_type") if respond_to?(:record_release_shim_hit)
+      return 0
+    end
+    if text[/pss|storage.*clear|clear.*storage|cleared/] && joined[/\byes\b/] && joined[/\bno\b/]
+      record_release_shim_hit("decades_storage_cleanup", "startup", "preserve_host_storage") if respond_to?(:record_release_shim_hit)
+      return choice_index_matching(list, /\Ano\b/i) || 1
+    end
+    if text[/where.*beatha region|where.*quoak region|where.*region/] ||
+       joined[/mantic city|martic city|boulevard city|penumbra city|cherryhill city|shimmer coast|obsidian peak|apterygota city|bulwark city|virga city|lucid city|circuit city|noxious city|sylph city|revenant city|draco|iron city|crystal city|stratos city/]
+      record_release_shim_hit("decades_region_start", "startup", "first_route") if respond_to?(:record_release_shim_hit)
+      return 0
+    end
+    return nil
+  rescue => e
+    log("[decades] startup auto choice failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
   def new_project_auto_choice_index(previous_message, commands, map_id = nil, _event_id = nil)
     return nil if !new_project_identity_active_now?(map_id)
     list = Array(commands)
@@ -2534,6 +3401,8 @@ module TravelExpansionFramework
       hollow_woods_apply_game_mode_defaults!(:intro_prompt)
       return choice_index_matching(list, /\Ano\z/i) || 1
     end
+    decades_choice = decades_startup_auto_choice_index(previous_message, list, map_id, _event_id)
+    return decades_choice if !decades_choice.nil?
     if text[/difficulty|dificultad/] || joined[/standard.*adept.*unfair|normal.*hard|easy.*normal/]
       return choice_index_matching(list, /standard|normal/i) || 0
     end
@@ -2999,6 +3868,8 @@ if defined?(Scene_Map)
                                                                             TravelExpansionFramework.respond_to?(:gadir_deluxe_intro_recovery_update!)
       TravelExpansionFramework.gadir_deluxe_home_recovery_update!(self) if defined?(TravelExpansionFramework) &&
                                                                            TravelExpansionFramework.respond_to?(:gadir_deluxe_home_recovery_update!)
+      TravelExpansionFramework.infinity_runtime_watchdog_update!(self) if defined?(TravelExpansionFramework) &&
+                                                                          TravelExpansionFramework.respond_to?(:infinity_runtime_watchdog_update!)
       return result
     end
   end
@@ -3186,6 +4057,23 @@ if defined?(Player)
     rescue
       return 0
     end unless method_defined?(:pokemon_count)
+
+    if method_defined?(:outfit=)
+      alias tef_infinity_original_outfit_set outfit= unless method_defined?(:tef_infinity_original_outfit_set)
+
+      def outfit=(value)
+        if defined?(TravelExpansionFramework) &&
+           TravelExpansionFramework.respond_to?(:infinity_suppress_player_visual_assignment?) &&
+           TravelExpansionFramework.infinity_suppress_player_visual_assignment?(:outfit, value)
+          TravelExpansionFramework.infinity_note_suppressed_player_visual_assignment!(:outfit, value) if TravelExpansionFramework.respond_to?(:infinity_note_suppressed_player_visual_assignment!)
+          return @outfit
+        end
+        return tef_infinity_original_outfit_set(value) if respond_to?(:tef_infinity_original_outfit_set, true)
+        @outfit = value
+      rescue
+        @outfit = value
+      end
+    end
   end
 end
 
@@ -3324,10 +4212,25 @@ def pbShuffleDexTrainers(*_args)
 end unless defined?(pbShuffleDexTrainers)
 
 def pbWatchTV(*args)
-  return TravelExpansionFramework.hollow_woods_watch_tv!(*args) if defined?(TravelExpansionFramework) &&
-                                                                   TravelExpansionFramework.respond_to?(:hollow_woods_watch_tv!)
+  if defined?(TravelExpansionFramework)
+    return TravelExpansionFramework.watch_imported_tv!(*args) if TravelExpansionFramework.respond_to?(:imported_tv_event?) &&
+                                                                 TravelExpansionFramework.imported_tv_event?
+    return TravelExpansionFramework.hollow_woods_watch_tv!(*args) if TravelExpansionFramework.respond_to?(:hollow_woods_active_now?) &&
+                                                                     TravelExpansionFramework.hollow_woods_active_now? &&
+                                                                     TravelExpansionFramework.respond_to?(:hollow_woods_watch_tv!)
+  end
   return true
 end unless defined?(pbWatchTV)
+
+alias tef_decades_original_pbHeadbutt pbHeadbutt if defined?(pbHeadbutt) && !defined?(tef_decades_original_pbHeadbutt)
+def pbHeadbutt(event = nil, *args)
+  if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:decades_headbutt!)
+    handled = TravelExpansionFramework.decades_headbutt!(event, *args)
+    return handled if !handled.nil?
+  end
+  return tef_decades_original_pbHeadbutt(event, *args) if defined?(tef_decades_original_pbHeadbutt)
+  return false
+end
 
 def pbCheckRoaming(*args)
   return TravelExpansionFramework.infinity_check_roaming!(nil, *args) if defined?(TravelExpansionFramework) &&
@@ -3595,6 +4498,555 @@ module PBDayNight
   end
 end
 
+module TravelExpansionFramework
+  unless const_defined?(:SafeStatsProxy)
+    class SafeStatsProxy
+      def initialize(source = nil)
+        @source = source
+        @values = {}
+      end
+
+      def method_missing(name, *args, &block)
+        return @source.__send__(name, *args, &block) if @source && @source.respond_to?(name)
+        text = name.to_s
+        if text[-1, 1] == "="
+          key = text[0...-1]
+          @values[key] = args[0]
+          return args[0]
+        end
+        if text.start_with?("set_")
+          @values[text] = args
+          return true
+        end
+        return @values[text] if @values.key?(text)
+        return 0
+      end
+
+      def respond_to_missing?(_name, _include_private = false)
+        return true
+      end
+    end
+  end
+
+  def self.ensure_stats_proxy!
+    return $stats if defined?($stats) && $stats
+    $stats = SafeStatsProxy.new
+    record_release_shim_hit("$stats", "save_load", "safe_proxy") if respond_to?(:record_release_shim_hit)
+    log("[stats] created safe stats proxy for imported counter calls") if respond_to?(:log)
+    return $stats
+  rescue => e
+    log("[stats] safe stats proxy failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def self.followers_bridge_call(method_name, *args)
+    name = method_name.to_s
+    record_release_shim_hit("Followers.#{name}", "follower_system", "safe_noop") if respond_to?(:record_release_shim_hit)
+    if defined?(FollowingPkmn) && FollowingPkmn.respond_to?(method_name)
+      return FollowingPkmn.public_send(method_name, *args)
+    end
+    if defined?($PokemonTemp) && $PokemonTemp && $PokemonTemp.respond_to?(:dependentEvents) &&
+       $PokemonTemp.dependentEvents && $PokemonTemp.dependentEvents.respond_to?(:refresh_sprite)
+      $PokemonTemp.dependentEvents.refresh_sprite(false) rescue nil
+    end
+    return true
+  rescue => e
+    log("[followers] #{name} skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def self.decades_scaling_party
+    party = nil
+    party = $player.party if defined?($player) && $player && $player.respond_to?(:party)
+    party = $Trainer.party if (party.nil? || party.empty?) && defined?($Trainer) && $Trainer && $Trainer.respond_to?(:party)
+    return Array(party).compact.reject { |pkmn| pkmn.respond_to?(:egg?) && pkmn.egg? }
+  rescue
+    return []
+  end
+
+  def self.decades_max_level
+    max_level = GameData::GrowthRate.max_level if defined?(GameData) && GameData.const_defined?(:GrowthRate)
+    max_level = 100 if max_level.nil? || max_level.to_i <= 0
+    return max_level.to_i
+  rescue
+    return 100
+  end
+
+  def self.decades_clamp_level(level, minimum = 1)
+    value = integer(level, minimum)
+    value = minimum if value < minimum
+    max_level = decades_max_level
+    value = max_level if value > max_level
+    return value
+  rescue
+    return minimum
+  end
+
+  def self.decades_badge_count
+    badges = nil
+    badges = $player.badges if defined?($player) && $player && $player.respond_to?(:badges)
+    badges = $Trainer.badges if badges.nil? && defined?($Trainer) && $Trainer && $Trainer.respond_to?(:badges)
+    return badges.count(true) if badges.is_a?(Array)
+    return badges.to_i if badges.respond_to?(:to_i)
+    return 0
+  rescue
+    return 0
+  end
+
+  def self.decades_base_scaled_level
+    party = decades_scaling_party
+    level = nil
+    if !party.empty?
+      level = Object.new.send(:pbBalancedLevel, party) - 2 if Object.private_method_defined?(:pbBalancedLevel) ||
+                                                              Object.method_defined?(:pbBalancedLevel)
+      if level.nil?
+        total = party.inject(0) { |sum, pkmn| sum + (pkmn.respond_to?(:level) ? pkmn.level.to_i : 1) }
+        level = (total.to_f / party.length.to_f).round
+      end
+    end
+    level ||= 5 + (decades_badge_count * 5)
+    return decades_clamp_level(level, 5)
+  rescue => e
+    log("[decades] level scaling fallback used: #{e.class}: #{e.message}") if respond_to?(:log)
+    return 5
+  end
+
+  def self.decades_effective_battle_level(original_level = nil)
+    original = integer(original_level, 0)
+    scaled = defined?(::AutomaticLevelScaling) && ::AutomaticLevelScaling.respond_to?(:getScaledLevel) ? ::AutomaticLevelScaling.getScaledLevel : decades_base_scaled_level
+    return decades_clamp_level([original, scaled].max, 1) if original > 0
+    return decades_clamp_level(scaled, 1)
+  rescue
+    return [integer(original_level, 5), 5].max
+  end
+
+  def self.decades_scale_pokemon_object!(pokemon, target_level = nil)
+    return pokemon if pokemon.nil? || !pokemon.respond_to?(:level)
+    new_level = decades_effective_battle_level(target_level || pokemon.level)
+    return pokemon if pokemon.level.to_i >= new_level
+    pokemon.level = new_level if pokemon.respond_to?(:level=)
+    pokemon.calc_stats if pokemon.respond_to?(:calc_stats)
+    return pokemon
+  rescue => e
+    log("[decades] pokemon level scale skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return pokemon
+  end
+
+  def self.decades_scale_trainer_party!(trainer)
+    return trainer if !decades_active_now?
+    party = trainer.party if trainer && trainer.respond_to?(:party)
+    party = Array(party).compact
+    return trainer if party.empty?
+    original_average = party.inject(0) { |sum, pkmn| sum + (pkmn.respond_to?(:level) ? pkmn.level.to_i : 1) }
+    original_average = (original_average.to_f / party.length.to_f).round
+    base_level = decades_base_scaled_level
+    party.each do |pkmn|
+      next if pkmn.nil? || !pkmn.respond_to?(:level)
+      difference = pkmn.level.to_i - original_average
+      decades_scale_pokemon_object!(pkmn, base_level + difference)
+    end
+    record_release_shim_hit("AutomaticLevelScaling.trainer_party", "trainer_battle", "party_scaled") if respond_to?(:record_release_shim_hit)
+    return trainer
+  rescue => e
+    log("[decades] trainer party scaling skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return trainer
+  end
+
+  def self.decades_scale_trainer_battle_args!(args)
+    return args if !decades_active_now?
+    scaled_args = Array(args)
+    scaled_args.each do |arg|
+      decades_scale_trainer_party!(arg) if arg && arg.respond_to?(:party)
+    end
+    return scaled_args
+  rescue => e
+    log("[decades] trainer battle arg scaling skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return args
+  end
+
+  def self.scale_imported_trainer_battle_args!(args)
+    scaled_args = args
+    scaled_args = decades_scale_trainer_battle_args!(scaled_args) if respond_to?(:decades_scale_trainer_battle_args!)
+    return scaled_args
+  rescue => e
+    log("[trainer] imported trainer battle arg scaling skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return args
+  end
+
+  def self.decades_wild_battle_pairs(args)
+    raw = Array(args).dup
+    raw.pop if raw.last.is_a?(Hash)
+    return [[raw[0], nil], 1] if raw.length == 1
+    if raw.all? { |entry| entry.respond_to?(:species) && entry.respond_to?(:level) }
+      return [raw.map { |entry| [entry, nil] }, 1]
+    end
+    outcome_var = 1
+    if raw.length >= 7 && raw[2].is_a?(Numeric) && !raw[3].is_a?(Numeric)
+      outcome_var = integer(raw[2], 1)
+      raw = [raw[0], raw[1], raw[3], raw[4], raw[5], raw[6]]
+    end
+    pairs = []
+    raw.each_slice(2) do |species, level|
+      next if species.nil?
+      pairs << [species, level]
+    end
+    return [pairs, outcome_var]
+  rescue
+    return [[], 1]
+  end
+
+  def self.call_overworld_battle_method(method_name, *args)
+    return Object.new.send(method_name, *args) if Object.private_method_defined?(method_name) ||
+                                                 Object.method_defined?(method_name)
+    return Kernel.send(method_name, *args) if defined?(Kernel) && Kernel.respond_to?(method_name)
+    return true
+  rescue => e
+    log("[decades] #{method_name} failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def self.start_host_wild_battle(*args)
+    pairs, outcome_var = decades_wild_battle_pairs(args)
+    return true if pairs.empty?
+    case pairs.length
+    when 1
+      species, level = pairs[0]
+      return call_overworld_battle_method(:pbWildBattleCore, species) if species.respond_to?(:species) && species.respond_to?(:level)
+      return call_overworld_battle_method(:pbWildBattle, species, integer(level, 5), outcome_var)
+    when 2
+      return call_overworld_battle_method(:pbDoubleWildBattle, pairs[0][0], integer(pairs[0][1], 5),
+                                          pairs[1][0], integer(pairs[1][1], 5), outcome_var)
+    else
+      return call_overworld_battle_method(:pbTripleWildBattle, pairs[0][0], integer(pairs[0][1], 5),
+                                          pairs[1][0], integer(pairs[1][1], 5),
+                                          pairs[2][0], integer(pairs[2][1], 5), outcome_var)
+    end
+  rescue => e
+    log("[wild_battle] host fallback skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def self.start_decades_wild_battle(*args)
+    pairs, outcome_var = decades_wild_battle_pairs(args)
+    return true if pairs.empty?
+    scaled = pairs.map do |species, level|
+      if species.respond_to?(:species) && species.respond_to?(:level)
+        [decades_scale_pokemon_object!(species, level), nil]
+      else
+        [species, decades_effective_battle_level(level)]
+      end
+    end
+    record_release_shim_hit("WildBattle.start", "encounters", "decades_scaled") if respond_to?(:record_release_shim_hit)
+    case scaled.length
+    when 1
+      species, level = scaled[0]
+      return call_overworld_battle_method(:pbWildBattleCore, species) if level.nil?
+      return call_overworld_battle_method(:pbWildBattle, species, level, outcome_var)
+    when 2
+      return call_overworld_battle_method(:pbDoubleWildBattle, scaled[0][0], scaled[0][1] || scaled[0][0].level,
+                                          scaled[1][0], scaled[1][1] || scaled[1][0].level, outcome_var)
+    else
+      return call_overworld_battle_method(:pbTripleWildBattle, scaled[0][0], scaled[0][1] || scaled[0][0].level,
+                                          scaled[1][0], scaled[1][1] || scaled[1][0].level,
+                                          scaled[2][0], scaled[2][1] || scaled[2][0].level, outcome_var)
+    end
+  rescue => e
+    log("[decades] WildBattle.start skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+end
+
+Object.const_set(:Followers, Module.new) unless Object.const_defined?(:Followers, false)
+
+class << Followers
+  def follow_into_door(*args)
+    return TravelExpansionFramework.followers_bridge_call(:follow_into_door, *args) if defined?(TravelExpansionFramework) &&
+                                                                                       TravelExpansionFramework.respond_to?(:followers_bridge_call)
+    return true
+  end unless method_defined?(:follow_into_door)
+
+  def follow_out_door(*args)
+    return TravelExpansionFramework.followers_bridge_call(:follow_out_door, *args) if defined?(TravelExpansionFramework) &&
+                                                                                     TravelExpansionFramework.respond_to?(:followers_bridge_call)
+    return true
+  end unless method_defined?(:follow_out_door)
+
+  def refresh(*args)
+    return TravelExpansionFramework.followers_bridge_call(:refresh, *args) if defined?(TravelExpansionFramework) &&
+                                                                             TravelExpansionFramework.respond_to?(:followers_bridge_call)
+    return true
+  end unless method_defined?(:refresh)
+
+  def hide(*args)
+    return TravelExpansionFramework.followers_bridge_call(:hide, *args) if defined?(TravelExpansionFramework) &&
+                                                                          TravelExpansionFramework.respond_to?(:followers_bridge_call)
+    return true
+  end unless method_defined?(:hide)
+
+  def show(*args)
+    return TravelExpansionFramework.followers_bridge_call(:show, *args) if defined?(TravelExpansionFramework) &&
+                                                                          TravelExpansionFramework.respond_to?(:followers_bridge_call)
+    return true
+  end unless method_defined?(:show)
+
+  def method_missing(name, *args, &block)
+    return TravelExpansionFramework.followers_bridge_call(name, *args) if defined?(TravelExpansionFramework) &&
+                                                                         TravelExpansionFramework.respond_to?(:followers_bridge_call)
+    return true
+  end
+
+  def respond_to_missing?(_name, _include_private = false)
+    return true
+  end
+end
+
+Object.const_set(:TrashCans, Module.new) unless Object.const_defined?(:TrashCans, false)
+
+class << TrashCans
+  def pbTrashEncounter(*args)
+    if defined?(TravelExpansionFramework) &&
+       TravelExpansionFramework.respond_to?(:decades_trash_encounter!) &&
+       TravelExpansionFramework.decades_gatehouse_trash_event?
+      return TravelExpansionFramework.decades_trash_encounter!(*args)
+    elsif defined?(TravelExpansionFramework)
+      TravelExpansionFramework.record_release_shim_hit("TrashCans.pbTrashEncounter", "encounters", "safe_empty") if TravelExpansionFramework.respond_to?(:record_release_shim_hit)
+      pbMessage(_INTL("There's nothing interesting inside.")) if defined?(pbMessage)
+    end
+    return false
+  rescue
+    return false
+  end unless method_defined?(:pbTrashEncounter)
+
+  def method_missing(name, *_args, &_block)
+    if defined?(TravelExpansionFramework)
+      TravelExpansionFramework.record_release_shim_hit("TrashCans.#{name}", "encounters", "safe_noop") if TravelExpansionFramework.respond_to?(:record_release_shim_hit)
+    end
+    return false
+  end
+
+  def respond_to_missing?(_name, _include_private = false)
+    return true
+  end
+end
+
+unless defined?(Difficulty)
+  class Difficulty
+    attr_accessor :fixed_increase, :random_increase
+
+    def initialize(fixed_increase: 0, random_increase: 0)
+      @fixed_increase = fixed_increase.to_i
+      @random_increase = random_increase.to_i
+    end
+  end
+end
+
+unless defined?(LevelScalingSettings)
+  module LevelScalingSettings
+    TRAINER_VARIABLE = 98 unless const_defined?(:TRAINER_VARIABLE)
+    WILD_VARIABLE = 98 unless const_defined?(:WILD_VARIABLE)
+    PROPORTIONAL_SCALING = true unless const_defined?(:PROPORTIONAL_SCALING)
+    ONLY_SCALE_IF_HIGHER = true unless const_defined?(:ONLY_SCALE_IF_HIGHER)
+    ONLY_SCALE_IF_LOWER = false unless const_defined?(:ONLY_SCALE_IF_LOWER)
+    SAVE_TRAINER_PARTIES = false unless const_defined?(:SAVE_TRAINER_PARTIES)
+    USE_MAP_LEVEL_FOR_WILD_POKEMON = false unless const_defined?(:USE_MAP_LEVEL_FOR_WILD_POKEMON)
+    AUTOMATIC_EVOLUTIONS = false unless const_defined?(:AUTOMATIC_EVOLUTIONS)
+    INCLUDE_NON_NATURAL_EVOLUTIONS = true unless const_defined?(:INCLUDE_NON_NATURAL_EVOLUTIONS)
+    INCLUDE_PREVIOUS_STAGES = true unless const_defined?(:INCLUDE_PREVIOUS_STAGES)
+    INCLUDE_NEXT_STAGES = true unless const_defined?(:INCLUDE_NEXT_STAGES)
+    DEFAULT_FIRST_EVOLUTION_LEVEL = 30 unless const_defined?(:DEFAULT_FIRST_EVOLUTION_LEVEL)
+    DEFAULT_SECOND_EVOLUTION_LEVEL = 50 unless const_defined?(:DEFAULT_SECOND_EVOLUTION_LEVEL)
+    NATURAL_EVOLUTION_METHODS = [:Level, :LevelMale, :LevelFemale, :LevelDay, :LevelNight].freeze unless const_defined?(:NATURAL_EVOLUTION_METHODS)
+    DIFFICULTIES = {
+      1 => Difficulty.new(fixed_increase: -3, random_increase: 3),
+      2 => Difficulty.new(random_increase: 2),
+      3 => Difficulty.new(fixed_increase: 3, random_increase: 3),
+      4 => Difficulty.new,
+      5 => Difficulty.new(fixed_increase: -2, random_increase: 5),
+      6 => Difficulty.new,
+      7 => Difficulty.new(fixed_increase: -100)
+    }.freeze unless const_defined?(:DIFFICULTIES)
+  end
+end
+
+unless defined?(AutomaticLevelScaling)
+  class AutomaticLevelScaling
+    @selected_difficulty = LevelScalingSettings::DIFFICULTIES[4]
+    @settings = {
+      :temporary => false,
+      :automatic_evolutions => LevelScalingSettings::AUTOMATIC_EVOLUTIONS,
+      :include_non_natural_evolutions => LevelScalingSettings::INCLUDE_NON_NATURAL_EVOLUTIONS,
+      :include_previous_stages => LevelScalingSettings::INCLUDE_PREVIOUS_STAGES,
+      :include_next_stages => LevelScalingSettings::INCLUDE_NEXT_STAGES,
+      :first_evolution_level => LevelScalingSettings::DEFAULT_FIRST_EVOLUTION_LEVEL,
+      :second_evolution_level => LevelScalingSettings::DEFAULT_SECOND_EVOLUTION_LEVEL,
+      :proportional_scaling => LevelScalingSettings::PROPORTIONAL_SCALING,
+      :only_scale_if_higher => LevelScalingSettings::ONLY_SCALE_IF_HIGHER,
+      :only_scale_if_lower => LevelScalingSettings::ONLY_SCALE_IF_LOWER,
+      :save_trainer_parties => LevelScalingSettings::SAVE_TRAINER_PARTIES,
+      :use_map_level_for_wild_pokemon => LevelScalingSettings::USE_MAP_LEVEL_FOR_WILD_POKEMON,
+      :update_moves => false
+    }
+    @previous_trainer_parties = {}
+
+    class << self
+      def difficulty=(id)
+        @selected_difficulty = LevelScalingSettings::DIFFICULTIES[id.to_i] || LevelScalingSettings::DIFFICULTIES[4] || Difficulty.new
+        return @selected_difficulty
+      rescue
+        @selected_difficulty = Difficulty.new
+      end
+
+      def settings
+        return @settings ||= {}
+      end
+
+      def getScaledLevel
+        level = TravelExpansionFramework.decades_base_scaled_level
+        difficulty = @selected_difficulty || Difficulty.new
+        level += difficulty.fixed_increase.to_i
+        random = difficulty.random_increase.to_i
+        level += random < 0 ? rand(random..0) : rand(random + 1) if random != 0
+        level = TravelExpansionFramework.decades_clamp_level(level, 1)
+        @last_scaled_level = level
+        TravelExpansionFramework.record_release_shim_hit("AutomaticLevelScaling.getScaledLevel", "trainer_battle", level.to_s) if defined?(TravelExpansionFramework) &&
+                                                                                                                                  TravelExpansionFramework.respond_to?(:record_release_shim_hit)
+        return level
+      rescue => e
+        TravelExpansionFramework.log("[decades] AutomaticLevelScaling.getScaledLevel failed safely: #{e.class}: #{e.message}") if defined?(TravelExpansionFramework) &&
+                                                                                                                                 TravelExpansionFramework.respond_to?(:log)
+        return 5
+      end
+
+      def getMapLevel(map_id)
+        if defined?($PokemonGlobal) && $PokemonGlobal
+          $PokemonGlobal.map_levels = {} if $PokemonGlobal.respond_to?(:map_levels=) && !$PokemonGlobal.respond_to?(:map_levels)
+          map_levels = $PokemonGlobal.map_levels if $PokemonGlobal.respond_to?(:map_levels)
+          if map_levels.respond_to?(:[])
+            map_levels[map_id] = getScaledLevel if !map_levels.key?(map_id)
+            return map_levels[map_id]
+          end
+        end
+        return getScaledLevel
+      rescue
+        return getScaledLevel
+      end
+
+      def shouldScaleLevel?(previous_level, new_level)
+        return false if settings[:only_scale_if_higher] && previous_level.to_i > new_level.to_i
+        return false if settings[:only_scale_if_lower] && previous_level.to_i < new_level.to_i
+        return true
+      rescue
+        return true
+      end
+
+      def battledTrainer?(trainer_id)
+        return @previous_trainer_parties.key?(trainer_id)
+      rescue
+        return false
+      end
+
+      def scaleToPreviousTrainerParty(trainer)
+        trainer.party = @previous_trainer_parties[trainer.key] if trainer && trainer.respond_to?(:party=) && @previous_trainer_parties.key?(trainer.key)
+        return trainer
+      rescue
+        return trainer
+      end
+
+      def savePreviousTrainerParty(trainer_key, party)
+        @previous_trainer_parties[trainer_key] = party
+        return true
+      rescue
+        return true
+      end
+
+      def setTemporarySetting(setting, value)
+        settings[:temporary] = true
+        normalized = setting.to_s.gsub(/([a-z])([A-Z])/, "\\1_\\2").downcase.to_sym
+        settings[normalized] = value
+        return true
+      rescue
+        return true
+      end
+
+      def setSettings(values = nil, **kwargs)
+        merged = values.is_a?(Hash) ? values : kwargs
+        merged.each { |key, value| settings[key.to_sym] = value } if merged
+        settings[:temporary] = false if merged.nil? || !merged.key?(:temporary)
+        return true
+      rescue
+        return true
+      end
+
+      def setNewLevel(pokemon, difference_from_average = 0)
+        return TravelExpansionFramework.decades_scale_pokemon_object!(pokemon, getScaledLevel + difference_from_average.to_i)
+      end
+
+      def setNewStage(pokemon)
+        return pokemon.scaleEvolutionStage if pokemon && pokemon.respond_to?(:scaleEvolutionStage)
+        return pokemon
+      rescue
+        return pokemon
+      end
+
+      def getPossibleEvolutions(pokemon)
+        return pokemon.getPossibleEvolutions if pokemon && pokemon.respond_to?(:getPossibleEvolutions)
+        return []
+      rescue
+        return []
+      end
+
+      def getEvolutionLevel(pokemon, possible_evolutions = nil, evolution_stage = 0)
+        return pokemon.getEvolutionLevel(evolution_stage.to_i > 0) if pokemon && pokemon.respond_to?(:getEvolutionLevel)
+        return evolution_stage.to_i > 0 ? settings[:second_evolution_level] : settings[:first_evolution_level]
+      rescue
+        return 30
+      end
+    end
+  end
+end
+
+Object.const_set(:WildBattle, Module.new) unless Object.const_defined?(:WildBattle, false)
+
+class << WildBattle
+  alias tef_new_projects_original_start start if method_defined?(:start) && !method_defined?(:tef_new_projects_original_start)
+
+  def start(*args)
+    if defined?(TravelExpansionFramework) &&
+       TravelExpansionFramework.respond_to?(:decades_active_now?) &&
+       TravelExpansionFramework.decades_active_now?
+      return TravelExpansionFramework.start_decades_wild_battle(*args)
+    end
+    return tef_new_projects_original_start(*args) if respond_to?(:tef_new_projects_original_start, true)
+    return TravelExpansionFramework.start_host_wild_battle(*args) if defined?(TravelExpansionFramework) &&
+                                                                    TravelExpansionFramework.respond_to?(:start_host_wild_battle)
+    return true
+  rescue => e
+    TravelExpansionFramework.log("[wild_battle] start skipped safely: #{e.class}: #{e.message}") if defined?(TravelExpansionFramework) &&
+                                                                                                   TravelExpansionFramework.respond_to?(:log)
+    return true
+  end
+end
+
+if defined?(Events) && Events.respond_to?(:onWildPokemonCreate) && Events.respond_to?(:onTrainerPartyLoad) &&
+   !$tef_decades_level_scaling_hooks_installed
+  Events.onWildPokemonCreate += proc { |_sender, event_args|
+    next if !defined?(TravelExpansionFramework) ||
+            !TravelExpansionFramework.respond_to?(:decades_active_now?) ||
+            !TravelExpansionFramework.decades_active_now?
+    pokemon = Array(event_args)[0]
+    TravelExpansionFramework.decades_scale_pokemon_object!(pokemon) if TravelExpansionFramework.respond_to?(:decades_scale_pokemon_object!)
+  }
+
+  Events.onTrainerPartyLoad += proc { |_sender, trainer|
+    next if !defined?(TravelExpansionFramework) ||
+            !TravelExpansionFramework.respond_to?(:decades_active_now?) ||
+            !TravelExpansionFramework.decades_active_now?
+    TravelExpansionFramework.decades_scale_trainer_party!(trainer) if TravelExpansionFramework.respond_to?(:decades_scale_trainer_party!)
+  }
+
+  $tef_decades_level_scaling_hooks_installed = true
+end
+
 class << Object
   alias tef_new_projects_original_const_missing const_missing unless method_defined?(:tef_new_projects_original_const_missing)
 
@@ -3610,6 +5062,17 @@ class << Object
   end
 end
 
+if defined?(pbSetPokemonCenter) && !defined?(tef_new_projects_original_pbSetPokemonCenter)
+  alias tef_new_projects_original_pbSetPokemonCenter pbSetPokemonCenter
+end
+
+def pbSetPokemonCenter(*args)
+  TravelExpansionFramework.ensure_stats_proxy! if defined?(TravelExpansionFramework) &&
+                                                  TravelExpansionFramework.respond_to?(:ensure_stats_proxy!)
+  return send(:tef_new_projects_original_pbSetPokemonCenter, *args) if respond_to?(:tef_new_projects_original_pbSetPokemonCenter, true)
+  return true
+end
+
 if defined?(pbChangePlayer) && !defined?(tef_new_projects_original_pbChangePlayer)
   alias tef_new_projects_original_pbChangePlayer pbChangePlayer
 end
@@ -3617,7 +5080,12 @@ end
 def pbChangePlayer(id, *args)
   if TravelExpansionFramework.new_project_identity_active_now?
     TravelExpansionFramework.apply_new_project_gender_selection!
-    TravelExpansionFramework.apply_host_player_visuals!(TravelExpansionFramework.current_new_project_expansion_id || "new_project")
+    expansion = TravelExpansionFramework.current_new_project_expansion_id || "new_project"
+    if expansion.to_s == TravelExpansionFramework::INFINITY_EXPANSION_ID && TravelExpansionFramework.respond_to?(:infinity_restore_host_player_visuals!)
+      TravelExpansionFramework.infinity_restore_host_player_visuals!("pbChangePlayer")
+    else
+      TravelExpansionFramework.apply_host_player_visuals!(expansion)
+    end
     TravelExpansionFramework.empyrean_log_once(:change_player, "[travel] ignored expansion intro pbChangePlayer(#{id.inspect}) to preserve host player identity")
     return true
   end
@@ -3828,7 +5296,7 @@ def pbMessage(message, commands = nil, cmdIfCancel = 0, skin = nil, defaultCmd =
     message = TravelExpansionFramework.prepare_new_project_text(message, map_id)
     commands = TravelExpansionFramework.prepare_new_project_commands(commands, map_id) if commands
   end
-  if commands && TravelExpansionFramework.new_project_identity_active_now?
+  if commands && TravelExpansionFramework.new_project_active_now?
     auto_choice = TravelExpansionFramework.new_project_auto_choice_index(message, commands, ($game_map.map_id rescue nil), nil)
     if !auto_choice.nil?
       TravelExpansionFramework.log("[travel] auto-selected intro choice #{auto_choice} for #{Array(commands).inspect}") if TravelExpansionFramework.respond_to?(:log)
@@ -3881,6 +5349,13 @@ end
 
 def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0, x_offset = nil, y_offset = nil, &block)
   commands = TravelExpansionFramework.prepare_new_project_commands(commands, ($game_map.map_id rescue nil)) if TravelExpansionFramework.new_project_active_now? && commands
+  if commands && TravelExpansionFramework.new_project_active_now?
+    auto_choice = TravelExpansionFramework.new_project_auto_choice_index(nil, commands, ($game_map.map_id rescue nil), nil)
+    if !auto_choice.nil?
+      TravelExpansionFramework.log("[travel] auto-selected command list choice #{auto_choice} for #{Array(commands).inspect}") if TravelExpansionFramework.respond_to?(:log)
+      return auto_choice
+    end
+  end
   return TravelExpansionFramework.pb_show_commands_compatible(
     self,
     :tef_new_projects_original_pbShowCommands,
@@ -4038,10 +5513,17 @@ if defined?(Interpreter) && defined?(DiegoWTsStarterSelection)
 end
 
 class Interpreter
+  Followers = ::Followers if defined?(::Followers) && !const_defined?(:Followers)
+  TrashCans = ::TrashCans if defined?(::TrashCans) && !const_defined?(:TrashCans)
+  AutomaticLevelScaling = ::AutomaticLevelScaling if defined?(::AutomaticLevelScaling) && !const_defined?(:AutomaticLevelScaling)
+  WildBattle = ::WildBattle if defined?(::WildBattle) && !const_defined?(:WildBattle)
   GameMode_Scene = ::GameMode_Scene if defined?(::GameMode_Scene) && !const_defined?(:GameMode_Scene)
   GameModeScreen = ::GameModeScreen if defined?(::GameModeScreen) && !const_defined?(:GameModeScreen)
 
   alias tef_new_projects_original_command_102 command_102 unless method_defined?(:tef_new_projects_original_command_102)
+  alias tef_new_projects_original_command_111 command_111 unless method_defined?(:tef_new_projects_original_command_111)
+  alias tef_new_projects_original_command_121 command_121 if method_defined?(:command_121) &&
+                                                             !method_defined?(:tef_new_projects_original_command_121)
   alias tef_new_projects_original_command_223 command_223 if method_defined?(:command_223) &&
                                                              !method_defined?(:tef_new_projects_original_command_223)
   alias tef_new_projects_original_execute_script execute_script unless method_defined?(:tef_new_projects_original_execute_script)
@@ -4062,25 +5544,86 @@ class Interpreter
   end
 
   def command_102
-    if TravelExpansionFramework.new_project_identity_active_now?((@map_id rescue nil))
-      TravelExpansionFramework.ensure_player_global!
-      commands = @list[@index].parameters[0] rescue nil
-      auto_choice = TravelExpansionFramework.new_project_auto_choice_index(
+    @branch ||= {}
+    map_id = (@map_id rescue ($game_map.map_id rescue nil))
+    if TravelExpansionFramework.new_project_active_now?(map_id)
+      TravelExpansionFramework.ensure_player_global! if TravelExpansionFramework.respond_to?(:ensure_player_global!)
+      command_record = (@list[@index] rescue nil)
+      params = command_record.parameters rescue (command_record.instance_variable_get(:@parameters) rescue nil)
+      commands = Array(params)[0]
+      cmd_if_cancel = Array(params)[1] || 0
+      indent = command_record.indent rescue (command_record.instance_variable_get(:@indent) rescue 0)
+      commands = TravelExpansionFramework.prepare_new_project_commands(commands, map_id) if commands &&
+                                                                                            TravelExpansionFramework.respond_to?(:prepare_new_project_commands)
+      selected = TravelExpansionFramework.new_project_auto_choice_index(
         tef_new_projects_previous_message,
         commands,
-        (@map_id rescue ($game_map.map_id rescue nil)),
+        map_id,
         (@event_id rescue nil)
       )
-      if !auto_choice.nil?
+      auto_selected = !selected.nil?
+      if selected.nil?
+        if Array(commands).empty?
+          selected = cmd_if_cancel.to_i rescue 0
+        else
+          @message_waiting = true
+          selected = pbShowCommands(nil, commands, cmd_if_cancel)
+        end
+      end
+      @message_waiting = false
+      @branch[indent] = selected
+      Input.update rescue nil
+      if auto_selected
+        TravelExpansionFramework.log("[travel] auto-selected command_102 choice #{selected} for #{Array(commands).inspect}") if TravelExpansionFramework.respond_to?(:log)
+      end
+      return true
+    end
+    return tef_new_projects_original_command_102
+  rescue NoMethodError => e
+    if e.message.to_s[/undefined method `\[\]'|undefined method \[\]/]
+      begin
+        @branch ||= {}
+        command_record = (@list[@index] rescue nil)
+        indent = command_record.indent rescue (command_record.instance_variable_get(:@indent) rescue 0)
         @message_waiting = false
-        @branch[@list[@index].indent] = auto_choice if @branch
+        @branch[indent] = 0
         Input.update rescue nil
-        TravelExpansionFramework.log("[travel] auto-selected command_102 choice #{auto_choice} for #{Array(commands).inspect}") if TravelExpansionFramework.respond_to?(:log)
+        TravelExpansionFramework.log("[travel] recovered command_102 from missing branch/list on imported map: #{e.message}") if TravelExpansionFramework.respond_to?(:log)
         return true
       end
     end
-    return tef_new_projects_original_command_102
+    raise
   end
+
+  def command_111
+    params = @parameters rescue nil
+    params = @list[@index].parameters rescue params
+    if defined?(TravelExpansionFramework) &&
+       TravelExpansionFramework.respond_to?(:decades_speedup_punishment_branch?) &&
+       TravelExpansionFramework.decades_speedup_punishment_branch?(
+         params,
+         (@map_id rescue ($game_map.map_id rescue nil)),
+         (@event_id rescue nil)
+       )
+      TravelExpansionFramework.decades_clear_speedup_punishment!(:conditional_branch)
+    end
+    return tef_new_projects_original_command_111
+  end
+
+  def command_121
+    params = @parameters rescue nil
+    params = @list[@index].parameters rescue params
+    result = tef_new_projects_original_command_121
+    if defined?(TravelExpansionFramework) &&
+       TravelExpansionFramework.respond_to?(:decades_speedup_punishment_assignment?) &&
+       TravelExpansionFramework.decades_speedup_punishment_assignment?(
+         params,
+         (@map_id rescue ($game_map.map_id rescue nil))
+       )
+      TravelExpansionFramework.decades_clear_speedup_punishment!(:switch_assignment)
+    end
+    return result
+  end if method_defined?(:tef_new_projects_original_command_121)
 
   def command_223
     params = @parameters rescue nil
@@ -4104,8 +5647,19 @@ class Interpreter
   end
 
   def execute_script(script)
-    TravelExpansionFramework.ensure_player_global! if TravelExpansionFramework.new_project_identity_active_now?((@map_id rescue nil))
-    return tef_new_projects_original_execute_script(script)
+    if TravelExpansionFramework.new_project_identity_active_now?((@map_id rescue nil))
+      TravelExpansionFramework.ensure_player_global!
+      TravelExpansionFramework.ensure_stats_proxy! if TravelExpansionFramework.respond_to?(:ensure_stats_proxy!)
+    end
+    prepared_script = script
+    if TravelExpansionFramework.respond_to?(:decades_prepare_event_script)
+      prepared_script = TravelExpansionFramework.decades_prepare_event_script(
+        prepared_script,
+        (@map_id rescue nil),
+        (@event_id rescue nil)
+      )
+    end
+    return tef_new_projects_original_execute_script(prepared_script)
   end
 
   def activar(event, swtch = "A", value = true)
@@ -4180,8 +5734,13 @@ class Interpreter
   end
 
   def pbWatchTV(*args)
-    return TravelExpansionFramework.hollow_woods_watch_tv!(*args) if defined?(TravelExpansionFramework) &&
-                                                                     TravelExpansionFramework.respond_to?(:hollow_woods_watch_tv!)
+    if defined?(TravelExpansionFramework)
+      return TravelExpansionFramework.watch_imported_tv!(*args) if TravelExpansionFramework.respond_to?(:imported_tv_event?) &&
+                                                                   TravelExpansionFramework.imported_tv_event?(nil, @event_id)
+      return TravelExpansionFramework.hollow_woods_watch_tv!(*args) if TravelExpansionFramework.respond_to?(:hollow_woods_active_now?) &&
+                                                                       TravelExpansionFramework.hollow_woods_active_now? &&
+                                                                       TravelExpansionFramework.respond_to?(:hollow_woods_watch_tv!)
+    end
     return true
   end
 
@@ -4280,7 +5839,12 @@ class Interpreter
   def pbChangePlayer(id, *args)
     if TravelExpansionFramework.new_project_identity_active_now?((@map_id rescue nil))
       TravelExpansionFramework.apply_new_project_gender_selection!((@map_id rescue nil))
-      TravelExpansionFramework.apply_host_player_visuals!(TravelExpansionFramework.current_new_project_expansion_id(@map_id) || "new_project")
+      expansion = TravelExpansionFramework.current_new_project_expansion_id(@map_id) || "new_project"
+      if expansion.to_s == TravelExpansionFramework::INFINITY_EXPANSION_ID && TravelExpansionFramework.respond_to?(:infinity_restore_host_player_visuals!)
+        TravelExpansionFramework.infinity_restore_host_player_visuals!("interpreter pbChangePlayer")
+      else
+        TravelExpansionFramework.apply_host_player_visuals!(expansion)
+      end
       return true
     end
     return send(:tef_new_projects_original_pbChangePlayer, id, *args) if respond_to?(:tef_new_projects_original_pbChangePlayer, true)
@@ -4298,6 +5862,22 @@ class Interpreter
     end
     return send(:tef_new_projects_original_pbTrainerName, name, outfit) if respond_to?(:tef_new_projects_original_pbTrainerName, true)
     return name.to_s
+  end
+
+  def startCharacterSelection(*_args)
+    TravelExpansionFramework.record_release_shim_hit("startCharacterSelection", "startup", "zero") if defined?(TravelExpansionFramework) &&
+                                                                                                      TravelExpansionFramework.respond_to?(:record_release_shim_hit)
+    return 0
+  rescue
+    return 0
+  end
+
+  def pbCharacterSelect(*args)
+    return TravelExpansionFramework.decades_character_select!(*args) if defined?(TravelExpansionFramework) &&
+                                                                       TravelExpansionFramework.respond_to?(:decades_character_select!)
+    return true
+  rescue
+    return true
   end
 
   def setSkintone(value)

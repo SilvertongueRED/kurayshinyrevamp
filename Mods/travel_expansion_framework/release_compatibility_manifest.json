@@ -69,7 +69,8 @@
     },
     "vanguard": {
       "status": "release_candidate",
-      "required_categories": ["startup", "story_transfer", "trainer_battle", "save_load_recovery"]
+      "required_categories": ["startup", "story_transfer", "trainer_battle", "menu_settings", "save_load_recovery"],
+      "known_risks": ["early Destiny intro switch handoff and stale battle-state cleanup"]
     },
     "pokemon_z": {
       "status": "release_candidate",
@@ -100,6 +101,11 @@
     "unbreakable_ties": {
       "status": "release_candidate",
       "required_categories": ["startup", "story_transfer", "trainer_battle", "menu_settings", "save_load_recovery"]
+    },
+    "decades": {
+      "status": "release_candidate",
+      "required_categories": ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "follower_system", "encounters", "menu_settings", "save_load_recovery"],
+      "known_risks": ["Deluxe Battle Kit rules", "form trader screens", "battle-mode bag helpers", "follower setup", "tip cards"]
     }
   }
 }

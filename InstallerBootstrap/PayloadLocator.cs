@@ -24,9 +24,15 @@ internal static class PayloadLocator
 
             if (TryReadEmbeddedPayload(executableStream, out var payloadOffset, out var payloadLength))
             {
-                return new PayloadSource(
+                var embeddedArchivePath = MaterializeEmbeddedPayloadArchive(
+                    package,
                     executableStream,
-                    () => new SubStream(executableStream, payloadOffset, payloadLength));
+                    payloadOffset,
+                    payloadLength,
+                    progress,
+                    cancellationToken);
+                executableStream.Dispose();
+                return CreateFilePayloadSource(package, embeddedArchivePath, deleteOnDispose: true);
             }
 
             executableStream.Dispose();
@@ -163,6 +169,65 @@ internal static class PayloadLocator
     private static string GetReleaseTempRoot(PayloadPackageManifest package)
     {
         return Path.Combine(Path.GetTempPath(), TempRootFolderName, package.PackageId);
+    }
+
+    private static string MaterializeEmbeddedPayloadArchive(
+        PayloadPackageManifest package,
+        FileStream executableStream,
+        long payloadOffset,
+        long payloadLength,
+        IProgress<InstallProgress>? progress,
+        CancellationToken cancellationToken)
+    {
+        var tempRoot = GetReleaseTempRoot(package);
+        Directory.CreateDirectory(tempRoot);
+
+        var tempArchivePath = Path.Combine(tempRoot, package.PayloadArchiveName);
+        if (File.Exists(tempArchivePath) && new FileInfo(tempArchivePath).Length == payloadLength)
+        {
+            progress?.Report(new InstallProgress("Preparing game files...", $"Reusing bundled {package.DisplayName}", payloadLength, payloadLength));
+            return tempArchivePath;
+        }
+
+        InstallerCleanup.TryDeleteFile(tempArchivePath);
+        var tempPartialPath = tempArchivePath + ".partial";
+        InstallerCleanup.TryDeleteFile(tempPartialPath);
+
+        progress?.Report(new InstallProgress("Preparing game files...", $"Extracting bundled {package.DisplayName}", 0, payloadLength));
+
+        executableStream.Seek(payloadOffset, SeekOrigin.Begin);
+        long copiedBytes = 0;
+        using (var payloadStream = new SubStream(executableStream, payloadOffset, payloadLength))
+        using (var outputStream = new FileStream(tempPartialPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        {
+            var buffer = new byte[1024 * 1024];
+            long nextProgressBytes = DownloadProgressStepBytes;
+
+            int bytesRead;
+            while ((bytesRead = payloadStream.Read(buffer, 0, buffer.Length)) > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                outputStream.Write(buffer, 0, bytesRead);
+                copiedBytes += bytesRead;
+                if (copiedBytes >= nextProgressBytes || copiedBytes == payloadLength)
+                {
+                    progress?.Report(new InstallProgress("Preparing game files...", $"Extracting bundled {package.DisplayName}", copiedBytes, payloadLength));
+                    nextProgressBytes = copiedBytes + DownloadProgressStepBytes;
+                }
+            }
+
+            outputStream.Flush();
+        }
+
+        if (copiedBytes != payloadLength)
+        {
+            InstallerCleanup.TryDeleteFile(tempPartialPath);
+            throw new InvalidOperationException(
+                $"Embedded payload size mismatch for '{package.DisplayName}'. Expected {payloadLength} bytes, got {copiedBytes} bytes.");
+        }
+
+        File.Move(tempPartialPath, tempArchivePath, overwrite: true);
+        return tempArchivePath;
     }
 
     private static void CleanupStaleInstallerArtifacts(PayloadPackageManifest package)

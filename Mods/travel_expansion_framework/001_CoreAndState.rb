@@ -434,6 +434,63 @@ if !defined?($travel_expansion_framework_loaded)
       return File.expand_path(normalized)
     end
 
+    def linked_project_asset_alias_roots(expansion_id, info = nil)
+      expansion = expansion_id.to_s
+      candidate_ids = []
+      candidate_ids << expansion
+      info ||= external_projects[expansion] if respond_to?(:external_projects)
+      if info.is_a?(Hash)
+        root = info[:root] || info["root"]
+        display_name = info[:display_name] || info["display_name"]
+        basename = File.basename(root.to_s) if root && !root.to_s.empty?
+        candidate_ids << basename if basename && !basename.empty?
+        candidate_ids << display_name if display_name && !display_name.to_s.empty?
+        if display_name && display_name.to_s =~ /\Apokemon[\s_-]+(.+)\z/i
+          candidate_ids << $1
+        end
+      end
+      candidate_ids << $1 if expansion =~ /\Apokemon_(.+)\z/i
+      roots = []
+      candidate_ids.compact.each do |candidate_id|
+        normalized_id = slugify(candidate_id)
+        next if normalized_id.empty?
+        path = linked_project_bridge_path(normalized_id)
+        roots << path if path && File.directory?(path)
+      end
+      return roots.uniq
+    rescue
+      return []
+    end
+
+    def linked_runtime_path_for_external_absolute(path, expansion_id = nil)
+      return nil if path.nil? || path.to_s.empty?
+      absolute = File.expand_path(path.to_s).gsub("\\", "/")
+      pairs = []
+      if !expansion_id.to_s.empty?
+        info = external_projects[expansion_id.to_s] if respond_to?(:external_projects)
+        pairs << [expansion_id.to_s, info] if info.is_a?(Hash)
+      elsif respond_to?(:external_projects)
+        external_projects.each { |id, info| pairs << [id.to_s, info] if info.is_a?(Hash) }
+      end
+      pairs.each do |id, info|
+        root = info[:root] || info["root"]
+        next if root.nil? || root.to_s.empty?
+        root_path = File.expand_path(root.to_s).gsub("\\", "/")
+        prefix = root_path.end_with?("/") ? root_path : "#{root_path}/"
+        next if !absolute.downcase.start_with?(prefix.downcase)
+        suffix = absolute[prefix.length..-1]
+        next if suffix.nil? || suffix.empty?
+        linked_project_asset_alias_roots(id, info).each do |linked_root|
+          candidate = runtime_path_join(linked_root, suffix)
+          existing = runtime_existing_path(candidate)
+          return existing if existing
+        end
+      end
+      return nil
+    rescue
+      return nil
+    end
+
     def runtime_asset_roots_for_expansion(expansion_id)
       expansion = expansion_id.to_s
       return [] if expansion.empty?
@@ -441,9 +498,12 @@ if !defined?($travel_expansion_framework_loaded)
       info = external_projects[expansion] if respond_to?(:external_projects)
       if info.is_a?(Hash)
         roots << info[:prepared_project_root]
+        roots.concat(linked_project_asset_alias_roots(expansion, info))
         roots << info[:filesystem_bridge_root]
         roots << info[:source_mount_root]
         roots << info[:archive_mount_root]
+      else
+        roots.concat(linked_project_asset_alias_roots(expansion, info))
       end
       roots.concat(Array(registry(:assets)[expansion])) if respond_to?(:registry)
       manifest = manifest_for(expansion) if respond_to?(:manifest_for)
@@ -463,6 +523,8 @@ if !defined?($travel_expansion_framework_loaded)
       exts = extensions.is_a?(Array) ? extensions : [extensions]
       exts = [""] if exts.empty?
       if absolute_path?(normalized)
+        linked_existing = linked_runtime_path_for_external_absolute(normalized, expansion_id)
+        return linked_existing if linked_existing
         existing = runtime_existing_path(normalized)
         return existing if existing
       elsif normalized !~ %r{\A(?:Graphics|Audio|Data)/}i
@@ -843,8 +905,64 @@ if !defined?($travel_expansion_framework_loaded)
       return @save_root
     end
 
+    def hash_value_present(hash, *keys)
+      return [false, nil] if !hash.is_a?(Hash)
+      keys.each do |key|
+        return [true, hash[key]] if hash.has_key?(key)
+        string_key = key.to_s
+        return [true, hash[string_key]] if hash.has_key?(string_key)
+        symbol_key = key.to_sym rescue nil
+        return [true, hash[symbol_key]] if symbol_key && hash.has_key?(symbol_key)
+      end
+      return [false, nil]
+    rescue
+      return [false, nil]
+    end
+
+    def hash_value(hash, *keys)
+      found, value = hash_value_present(hash, *keys)
+      return found ? value : nil
+    end
+
+    def object_save_value(object, field)
+      return hash_value(object, field) if object.is_a?(Hash)
+      return object.send(field) if object.respond_to?(field)
+      return object.instance_variable_get("@#{field}") if object.instance_variable_defined?("@#{field}")
+      return nil
+    rescue
+      return nil
+    end
+
+    def assign_hash_value!(object, hash, field)
+      found, value = hash_value_present(hash, field)
+      object.send("#{field}=", value) if found && object.respond_to?("#{field}=")
+    rescue
+    end
+
+    def save_root_from_hash(hash)
+      root = SaveRoot.new
+      [
+        :schema_version, :framework_version, :enabled_signature,
+        :missing_expansions, :dormant_references, :player_relocation_log,
+        :migration_history, :last_host_anchor, :canonical_location,
+        :last_good_host_anchor, :last_good_expansion_anchors,
+        :last_completed_transition, :failed_transition_log,
+        :release_manifest_version, :release_last_safe_load_at,
+        :release_shim_hits, :host_dex_shadow
+      ].each { |field| assign_hash_value!(root, hash, field) }
+      expansions = hash_value(hash, :expansions)
+      root.expansions = expansions.is_a?(Hash) ? expansions : {}
+      return root
+    end
+
     def load_save_root(value)
-      @save_root = value.is_a?(SaveRoot) ? value : SaveRoot.new
+      @save_root = if value.is_a?(SaveRoot)
+                     value
+                   elsif value.is_a?(Hash)
+                     save_root_from_hash(value)
+                   else
+                     SaveRoot.new
+                   end
       @after_load_prepared = false
       normalize_save_root!
       return @save_root
@@ -888,6 +1006,14 @@ if !defined?($travel_expansion_framework_loaded)
 
     def normalize_expansion_state(state, expansion_id)
       normalized = state.is_a?(ExpansionState) ? state : ExpansionState.new(expansion_id)
+      if state.is_a?(Hash)
+        [
+          :version, :enabled, :installed, :last_mode, :shared_world,
+          :isolated_mode, :badges, :quests, :regional_dex,
+          :fly_destinations, :dormant_references, :travel_count,
+          :last_entry_at, :last_anchor, :last_good_anchor, :metadata
+        ].each { |field| assign_hash_value!(normalized, state, field) }
+      end
       normalized.id                 = expansion_id.to_s
       normalized.badges            ||= {}
       normalized.quests            ||= {}
@@ -904,6 +1030,44 @@ if !defined?($travel_expansion_framework_loaded)
       normalized.isolated_mode     = false
       normalized.travel_count      ||= 0
       return normalized
+    end
+
+    def save_root_to_hash(root)
+      return {} if root.nil?
+      hash = {}
+      [
+        :schema_version, :framework_version, :enabled_signature,
+        :missing_expansions, :dormant_references, :player_relocation_log,
+        :migration_history, :last_host_anchor, :canonical_location,
+        :last_good_host_anchor, :last_good_expansion_anchors,
+        :last_completed_transition, :failed_transition_log,
+        :release_manifest_version, :release_last_safe_load_at,
+        :release_shim_hits, :host_dex_shadow
+      ].each { |field| hash[field.to_s] = object_save_value(root, field) }
+      expansions = object_save_value(root, :expansions)
+      hash["expansions"] = {}
+      if expansions.is_a?(Hash)
+        expansions.each do |expansion_id, state|
+          hash["expansions"][expansion_id.to_s] = expansion_state_to_hash(state)
+        end
+      end
+      return hash
+    rescue
+      return {}
+    end
+
+    def expansion_state_to_hash(state)
+      return {} if state.nil?
+      hash = {}
+      [
+        :id, :version, :enabled, :installed, :last_mode, :shared_world,
+        :isolated_mode, :badges, :quests, :regional_dex,
+        :fly_destinations, :dormant_references, :travel_count,
+        :last_entry_at, :last_anchor, :last_good_anchor, :metadata
+      ].each { |field| hash[field.to_s] = object_save_value(state, field) }
+      return hash
+    rescue
+      return {}
     end
 
     def normalize_canonical_location(record)
@@ -1685,7 +1849,7 @@ if !defined?($travel_expansion_framework_loaded)
 
   SaveData.register(:travel_expansion_root) do
     optional
-    save_value { TravelExpansionFramework.capture_canonical_location_for_save!("save") }
+    save_value { TravelExpansionFramework.save_root_to_hash(TravelExpansionFramework.capture_canonical_location_for_save!("save")) }
     load_value { |value| TravelExpansionFramework.load_save_root(value) }
     new_game_value { TravelExpansionFramework::SaveRoot.new }
   end

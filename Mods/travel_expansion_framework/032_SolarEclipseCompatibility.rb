@@ -6,8 +6,21 @@ module TravelExpansionFramework
   }.freeze unless const_defined?(:SOLAR_ECLIPSE_TERRAIN_TAG_TRANSLATIONS)
 
   class SolarEclipseTerrainTagProxy
+    attr_reader :source
+
     def initialize(source)
       @source = source
+    end
+
+    def _dump(_depth = -1)
+      return Marshal.dump(@source)
+    rescue
+      return Marshal.dump([])
+    end
+
+    def self._load(payload)
+      source = Marshal.load(payload) rescue []
+      return new(source)
     end
 
     def [](index)

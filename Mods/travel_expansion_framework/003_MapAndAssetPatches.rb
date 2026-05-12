@@ -119,7 +119,12 @@ module TravelExpansionFramework
   def asset_roots
     current_expansion = current_asset_expansion_id
     return [] if current_expansion.nil? || current_expansion.to_s.empty?
-    return Array(registry(:assets)[current_expansion]).uniq
+    roots = Array(registry(:assets)[current_expansion])
+    if respond_to?(:linked_project_asset_alias_roots)
+      info = external_projects[current_expansion] if respond_to?(:external_projects)
+      roots.concat(linked_project_asset_alias_roots(current_expansion, info))
+    end
+    return roots.compact.map { |root| root.to_s }.reject { |root| root.empty? }.uniq
   end
 
   def host_ui_bitmap_path(logical_path, extensions = [])
@@ -383,6 +388,7 @@ module TravelExpansionFramework
     new_project_handle_boundary_party_session!(previous_expansion, current_expansion) if respond_to?(:new_project_handle_boundary_party_session!)
     insurgence_force_player_solid_after_transfer!(previous_map_id) if respond_to?(:insurgence_force_player_solid_after_transfer!)
     reborn_force_player_safe_after_transfer!(previous_map_id) if respond_to?(:reborn_force_player_safe_after_transfer!)
+    darkhorizon_release_doorway_transfer!(previous_map_id) if respond_to?(:darkhorizon_release_doorway_transfer!)
     touched_expansion = !previous_expansion.to_s.empty? || !current_expansion.to_s.empty?
     prepare_expansion_scene_visual_state! if touched_expansion
     remember_expansion_anchor_from_current_location(current_expansion) if current_expansion && respond_to?(:remember_expansion_anchor_from_current_location)
@@ -598,7 +604,17 @@ module TravelExpansionFramework
   def normalized_audio_logical_path(name, folder = nil)
     raw = name.to_s.gsub("\\", "/").sub(/\A\.\//, "")
     return nil if raw.empty?
+    audio_marker_offsets = []
+    raw.scan(%r{(?:\A|/)Audio/(?:BGM|BGS|ME|SE)/}i) do
+      audio_marker_offsets << Regexp.last_match.begin(0)
+    end
+    if !audio_marker_offsets.empty?
+      offset = audio_marker_offsets.last
+      offset += 1 if raw[offset, 1] == "/"
+      return raw[offset..-1]
+    end
     return raw if raw =~ %r{\AAudio/(?:BGM|BGS|ME|SE)/}i
+    return raw if absolute_path?(raw)
     audio_folder = folder.to_s.strip
     audio_folder = "BGM" if audio_folder.empty?
     return "Audio/#{audio_folder}/#{raw}"
@@ -606,24 +622,150 @@ module TravelExpansionFramework
     return nil
   end
 
+  def audio_folder_name(folder = nil)
+    audio_folder = folder.to_s.strip.upcase
+    return %w[BGM BGS ME SE].include?(audio_folder) ? audio_folder : "BGM"
+  rescue
+    return "BGM"
+  end
+
+  def host_audio_exists?(name, folder = nil)
+    raw = name.to_s.gsub("\\", "/").sub(/\A\.\//, "")
+    return false if raw.empty?
+    relative = game_relative_path(raw) if absolute_path?(raw) && respond_to?(:game_relative_path)
+    raw = relative if relative && !relative.empty?
+    return false if absolute_path?(raw)
+    logical = normalized_audio_logical_path(raw, folder)
+    return false if logical.nil? || logical.empty? || absolute_path?(logical)
+    if defined?(FileTest) && FileTest.respond_to?(:tef_original_audio_exist?)
+      return true if FileTest.send(:tef_original_audio_exist?, logical)
+      return true if raw != logical && FileTest.send(:tef_original_audio_exist?, raw)
+    end
+    return !runtime_existing_path(logical).nil? if respond_to?(:runtime_existing_path)
+    return false
+  rescue
+    return false
+  end
+
+  def audio_logical_path_candidates(logical_path)
+    normalized = logical_path.to_s.gsub("\\", "/").sub(/\A\.\//, "")
+    return [] if normalized.empty?
+    candidates = [normalized]
+    ext = File.extname(normalized)
+    if !ext.empty?
+      stem = normalized[0...-ext.length]
+      candidates << stem if !stem.to_s.empty?
+      AUDIO_EXTENSIONS.each do |candidate_ext|
+        candidate_ext = candidate_ext.to_s
+        next if candidate_ext.empty?
+        candidates << "#{stem}#{candidate_ext}" if !stem.to_s.empty?
+      end
+    end
+    return candidates.uniq
+  rescue
+    return [logical_path.to_s].reject { |entry| entry.empty? }
+  end
+
+  def imported_audio_reference?(name, folder = nil)
+    raw = name.to_s.gsub("\\", "/").sub(/\A\.\//, "")
+    return false if raw.empty?
+    return false if host_audio_exists?(raw, folder)
+    return true if absolute_path?(raw)
+    return false if current_audio_expansion_id.to_s.empty?
+    return true if raw =~ %r{(?:\A|/)Audio/(?:BGM|BGS|ME|SE)/}i
+    return true if normalized_audio_logical_path(raw, folder).to_s =~ %r{\AAudio/(?:BGM|BGS|ME|SE)/}i
+    return false
+  rescue
+    return false
+  end
+
+  def imported_audio_error_reference?(error, name = nil, folder = nil, target = nil)
+    return true if imported_audio_reference?(name, folder)
+    return true if imported_audio_reference?(target, folder)
+    [error.respond_to?(:message) ? error.message : error, name, target].each do |entry|
+      normalized = entry.to_s.gsub("\\", "/")
+      next if normalized.empty?
+      return true if normalized =~ %r{[A-Za-z]:/.*/Audio/(?:BGM|BGS|ME|SE)/}i
+      return true if normalized =~ %r{(?:\A|/)Audio/(?:BGM|BGS|ME|SE)/}i
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def log_missing_expansion_audio_once(name, folder = nil)
+    audio_folder = audio_folder_name(folder)
+    logical = normalized_audio_logical_path(name, audio_folder)
+    expansion_id = current_audio_expansion_id.to_s
+    key = ["missing_audio", expansion_id, audio_folder, logical.to_s, name.to_s].join("|")
+    return if runtime_asset_log_cache[key]
+    runtime_asset_log_cache[key] = true
+    if expansion_id.empty?
+      log("[audio] missing imported #{audio_folder}: #{logical || name}") if respond_to?(:log)
+    else
+      log("[#{expansion_id}] missing imported #{audio_folder}: #{logical || name}") if respond_to?(:log)
+    end
+  rescue
+  end
+
+  def audio_expansion_search_ids(preferred_expansion_id = nil)
+    ids = []
+    preferred = preferred_expansion_id.to_s
+    ids << preferred if !preferred.empty?
+    ids << current_audio_expansion_id
+    ids << current_asset_expansion_id
+    ids << current_runtime_expansion_id if respond_to?(:current_runtime_expansion_id)
+    ids << current_map_expansion_id if respond_to?(:current_map_expansion_id)
+    ids << current_expansion_id if respond_to?(:current_expansion_id)
+    ids.concat(expansion_ids) if respond_to?(:expansion_ids)
+    ids.concat(external_projects.keys) if respond_to?(:external_projects) && external_projects.respond_to?(:keys)
+    return ids.compact.map { |entry| entry.to_s }.reject { |entry| entry.empty? }.uniq
+  rescue
+    return []
+  end
+
   def resolve_expansion_audio_path(name, folder = nil, preferred_expansion_id = nil)
     logical = normalized_audio_logical_path(name, folder)
     return nil if logical.nil? || logical.empty?
-    expansion_id = preferred_expansion_id.to_s
-    expansion_id = current_audio_expansion_id if expansion_id.empty?
-    if !expansion_id.to_s.empty? && respond_to?(:resolve_runtime_path_for_expansion)
-      resolved = resolve_runtime_path_for_expansion(expansion_id, logical, AUDIO_EXTENSIONS)
-      if resolved
-        log_runtime_asset_once(expansion_id, :audio, logical, resolved) if respond_to?(:log_runtime_asset_once)
-        return resolved
+    candidates = audio_logical_path_candidates(logical)
+    candidates = [logical] if candidates.empty?
+    if respond_to?(:resolve_runtime_path_for_expansion)
+      audio_expansion_search_ids(preferred_expansion_id).each do |expansion_id|
+        candidates.each do |candidate|
+          resolved = resolve_runtime_path_for_expansion(expansion_id, candidate, AUDIO_EXTENSIONS)
+          if resolved
+            log_runtime_asset_once(expansion_id, :audio, logical, resolved) if respond_to?(:log_runtime_asset_once)
+            return resolved
+          end
+        end
       end
     end
-    resolved = resolve_runtime_path(logical, AUDIO_EXTENSIONS) if respond_to?(:resolve_runtime_path)
-    return resolved if resolved
+    if respond_to?(:resolve_runtime_path)
+      candidates.each do |candidate|
+        resolved = resolve_runtime_path(candidate, AUDIO_EXTENSIONS)
+        return resolved if resolved
+      end
+    end
+    candidates.each do |candidate|
+      resolved = runtime_existing_path(candidate) if respond_to?(:runtime_existing_path)
+      return resolved if resolved
+    end
     return nil
   rescue => e
     log("[audio] resolve failed for #{name}: #{e.class}: #{e.message}") if respond_to?(:log)
     return nil
+  end
+
+  def expansion_audio_playback_target(name, folder = nil, preferred_expansion_id = nil)
+    return name if host_audio_exists?(name, folder) && !absolute_path?(name.to_s)
+    resolved = resolve_expansion_audio_path(name, folder, preferred_expansion_id)
+    return resolved if resolved
+    return name if !imported_audio_reference?(name, folder)
+    log_missing_expansion_audio_once(name, folder)
+    return nil
+  rescue => e
+    log("[audio] playback resolve failed for #{name}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return imported_audio_reference?(name, folder) ? nil : name
   end
 
   def suspicious_expansion_bitmap?(bitmap)
@@ -655,6 +797,8 @@ module TravelExpansionFramework
     end
     if absolute_path?(normalized)
       absolute = File.expand_path(normalized)
+      linked_existing = linked_runtime_path_for_external_absolute(absolute, current_asset_expansion_id) if respond_to?(:linked_runtime_path_for_external_absolute)
+      return linked_existing if linked_existing
       existing = runtime_existing_path(absolute)
       return existing if existing
       exts.each do |ext|
@@ -1070,8 +1214,10 @@ module FileTest
     alias tef_original_audio_exist? audio_exist? if method_defined?(:audio_exist?) && !method_defined?(:tef_original_audio_exist?)
 
     def audio_exist?(filename)
+      return true if defined?(tef_original_audio_exist?) && tef_original_audio_exist?(filename)
       resolved = TravelExpansionFramework.resolve_expansion_audio_path(filename)
       return true if resolved
+      return false if TravelExpansionFramework.imported_audio_reference?(filename)
       return tef_original_audio_exist?(filename) if defined?(tef_original_audio_exist?)
       return false
     end
@@ -1082,8 +1228,16 @@ class Game_System
   alias tef_original_bgm_play_internal2 bgm_play_internal2 unless method_defined?(:tef_original_bgm_play_internal2)
 
   def bgm_play_internal2(name, volume, pitch, position)
-    resolved = TravelExpansionFramework.resolve_expansion_audio_path(name, "BGM")
-    return tef_original_bgm_play_internal2(resolved || name, volume, pitch, position)
+    target = TravelExpansionFramework.expansion_audio_playback_target(name, "BGM")
+    return false if target.nil?
+    return false if target.to_s == name.to_s && TravelExpansionFramework.imported_audio_reference?(name, "BGM")
+    return tef_original_bgm_play_internal2(target, volume, pitch, position)
+  rescue Errno::ENOENT => e
+    if TravelExpansionFramework.imported_audio_error_reference?(e, name, "BGM", target)
+      TravelExpansionFramework.log_missing_expansion_audio_once(name, "BGM")
+      return false
+    end
+    raise e
   end
 end
 
@@ -1095,23 +1249,55 @@ if defined?(Audio)
     alias tef_original_se_play se_play if method_defined?(:se_play) && !method_defined?(:tef_original_se_play)
 
     def bgm_play(name, *args)
-      resolved = TravelExpansionFramework.resolve_expansion_audio_path(name, "BGM")
-      return tef_original_bgm_play(resolved || name, *args)
+      target = TravelExpansionFramework.expansion_audio_playback_target(name, "BGM")
+      return nil if target.nil?
+      return nil if target.to_s == name.to_s && TravelExpansionFramework.imported_audio_reference?(name, "BGM")
+      return tef_original_bgm_play(target, *args)
+    rescue Errno::ENOENT => e
+      if TravelExpansionFramework.imported_audio_error_reference?(e, name, "BGM", target)
+        TravelExpansionFramework.log_missing_expansion_audio_once(name, "BGM")
+        return nil
+      end
+      raise e
     end
 
     def bgs_play(name, *args)
-      resolved = TravelExpansionFramework.resolve_expansion_audio_path(name, "BGS")
-      return tef_original_bgs_play(resolved || name, *args)
+      target = TravelExpansionFramework.expansion_audio_playback_target(name, "BGS")
+      return nil if target.nil?
+      return nil if target.to_s == name.to_s && TravelExpansionFramework.imported_audio_reference?(name, "BGS")
+      return tef_original_bgs_play(target, *args)
+    rescue Errno::ENOENT => e
+      if TravelExpansionFramework.imported_audio_error_reference?(e, name, "BGS", target)
+        TravelExpansionFramework.log_missing_expansion_audio_once(name, "BGS")
+        return nil
+      end
+      raise e
     end
 
     def me_play(name, *args)
-      resolved = TravelExpansionFramework.resolve_expansion_audio_path(name, "ME")
-      return tef_original_me_play(resolved || name, *args)
+      target = TravelExpansionFramework.expansion_audio_playback_target(name, "ME")
+      return nil if target.nil?
+      return nil if target.to_s == name.to_s && TravelExpansionFramework.imported_audio_reference?(name, "ME")
+      return tef_original_me_play(target, *args)
+    rescue Errno::ENOENT => e
+      if TravelExpansionFramework.imported_audio_error_reference?(e, name, "ME", target)
+        TravelExpansionFramework.log_missing_expansion_audio_once(name, "ME")
+        return nil
+      end
+      raise e
     end
 
     def se_play(name, *args)
-      resolved = TravelExpansionFramework.resolve_expansion_audio_path(name, "SE")
-      return tef_original_se_play(resolved || name, *args)
+      target = TravelExpansionFramework.expansion_audio_playback_target(name, "SE")
+      return nil if target.nil?
+      return nil if target.to_s == name.to_s && TravelExpansionFramework.imported_audio_reference?(name, "SE")
+      return tef_original_se_play(target, *args)
+    rescue Errno::ENOENT => e
+      if TravelExpansionFramework.imported_audio_error_reference?(e, name, "SE", target)
+        TravelExpansionFramework.log_missing_expansion_audio_once(name, "SE")
+        return nil
+      end
+      raise e
     end
   end
 end
@@ -1420,6 +1606,8 @@ class Scene_Map
     if TravelExpansionFramework.current_map_expansion_id(previous_map_id) || TravelExpansionFramework.current_map_expansion_id(target_map_id)
       TravelExpansionFramework.after_expansion_transfer(previous_map_id)
     end
+    TravelExpansionFramework.finish_infinity_lab_stair_transfer_rewrite!("scene_transfer") if TravelExpansionFramework.respond_to?(:finish_infinity_lab_stair_transfer_rewrite!)
+    TravelExpansionFramework.infinity_after_transfer_repair!(previous_map_id, "scene_transfer") if TravelExpansionFramework.respond_to?(:infinity_after_transfer_repair!)
     if pending_transfer && TravelExpansionFramework.respond_to?(:complete_pending_safe_transfer!)
       TravelExpansionFramework.complete_pending_safe_transfer!(TravelExpansionFramework.current_anchor)
     end

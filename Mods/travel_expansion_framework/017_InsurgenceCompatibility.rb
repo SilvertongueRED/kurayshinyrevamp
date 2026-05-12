@@ -107,11 +107,19 @@ module TravelExpansionFramework
   end
 
   def insurgence_expansion_id?(expansion_id = nil)
-    expansion = expansion_id
-    expansion = current_runtime_expansion_id if (expansion.nil? || expansion.to_s.empty?) && respond_to?(:current_runtime_expansion_id)
-    expansion = current_map_expansion_id if (expansion.nil? || expansion.to_s.empty?) && respond_to?(:current_map_expansion_id)
-    expansion = current_expansion_id if (expansion.nil? || expansion.to_s.empty?) && respond_to?(:current_expansion_id)
-    return expansion.to_s == INSURGENCE_EXPANSION_ID
+    if !expansion_id.nil? && !expansion_id.to_s.empty?
+      return expansion_id.to_s == INSURGENCE_EXPANSION_ID
+    end
+    runtime = current_runtime_expansion_id if respond_to?(:current_runtime_expansion_id)
+    return true if runtime.to_s == INSURGENCE_EXPANSION_ID
+    map_id = ($game_map.map_id rescue nil)
+    if map_id && respond_to?(:current_map_expansion_id)
+      map_expansion = current_map_expansion_id(map_id)
+      return map_expansion.to_s == INSURGENCE_EXPANSION_ID
+    end
+    marker = current_expansion_marker if respond_to?(:current_expansion_marker)
+    return marker.to_s == INSURGENCE_EXPANSION_ID if !defined?($game_map) || !$game_map
+    return false
   end
 
   def primary_dependent_event(dependent_events)

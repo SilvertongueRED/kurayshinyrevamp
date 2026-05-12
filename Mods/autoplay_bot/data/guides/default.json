@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "name": "Default Hybrid Route",
+  "notes": [
+    "This guide pack is intentionally sparse. Add walkthrough-derived objectives here as JSON while the bot also scans maps and encounters dynamically.",
+    "The dynamic planner explores transfers, records events, and pauses when it needs a human to resolve an unknown gate."
+  ],
+  "quest_disguises": [
+    {
+      "id": "team_rocket_uniform",
+      "required_outfit": "team_rocket",
+      "preferred_labels": ["Team Rocket Uniform", "Rocket Outfit", "Team Rocket Outfit"],
+      "objective_keywords": ["rocket", "disguise", "uniform", "hideout", "silph", "infiltrate"]
+    }
+  ],
+  "objectives": [
+    {
+      "id": "title_start",
+      "type": "story",
+      "title_action": "continue_or_new"
+    },
+    {
+      "id": "starter_bedroom_pc_potion",
+      "type": "story",
+      "map_id": 71,
+      "target": "bedroom_pc_optional_potion"
+    },
+    {
+      "id": "starter_leave_bedroom",
+      "type": "travel",
+      "map_id": 71,
+      "target": "bedroom_stairs"
+    },
+    {
+      "id": "starter_get_clothes",
+      "type": "story",
+      "map_id": 43,
+      "target_event_id": 4
+    },
+    {
+      "id": "starter_exit_house",
+      "type": "travel",
+      "map_id": 43,
+      "target": "downstairs_exit"
+    },
+    {
+      "id": "starter_meet_rival",
+      "type": "story",
+      "map_id": 42,
+      "target": "rival_outside"
+    },
+    {
+      "id": "starter_find_professor",
+      "type": "story",
+      "map_id": 42,
+      "target": "north_grass_trigger"
+    },
+    {
+      "id": "starter_choose_pokemon",
+      "type": "story",
+      "map_id": 77,
+      "target": "starter_ball"
+    },
+    {
+      "id": "starter_rival_battle",
+      "type": "battle",
+      "map_id": 77,
+      "target": "rival_battle"
+    },
+    {
+      "id": "oak_parcel_go_viridian",
+      "type": "travel",
+      "target": "viridian_mart"
+    },
+    {
+      "id": "oak_parcel_deliver",
+      "type": "story",
+      "target": "professor_oak"
+    },
+    {
+      "id": "story_cross_viridian_forest",
+      "type": "travel",
+      "target": "pewter_city"
+    },
+    {
+      "id": "story_battle_brock",
+      "type": "battle",
+      "map_id": 386,
+      "target": "brock"
+    },
+    {
+      "id": "dynamic_exploration",
+      "type": "travel",
+      "mode": "scan_and_explore"
+    },
+    {
+      "id": "dex_backtrack",
+      "type": "dex_backtrack",
+      "mode": "deferred_targets"
+    }
+  ]
+}

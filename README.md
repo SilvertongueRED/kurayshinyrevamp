@@ -1,61 +1,39 @@
-# Kuray Infinite Fusion (KIF) Experimental Upgrade Build
+# Kuray Infinite Fusion (KIF)
 
-This GitHub currently presents an experimental upgraded version of the game. It is best understood as a human-directed, AI-assisted merge experiment that combines the Pokemon Infinite Fusion (PIF) base, Kuray Infinite Fusion (KIF) systems, extra local content, and additional bundled mods into one playable branch and installer.
+Kuray Infinite Fusion (KIF) is a fork of Infinite Fusion, which adds countless new features, including infinite colors for shinies, mods support (people can create mods and load them from a "Mods" folder), a powerful AI (thanks to DemICE), and more!
 
-## Warning
+Kuray Infinite Fusion (KIF) is community-based and community-focused, it's made by the community, for the community, allowing anyone to easily create new features for Infinite Fusion and to have a better experience overall.
 
-- This is not an official stable upstream for either PIF or KIF.
-- This is not a guaranteed-stable build.
-- It may break features, create weird interactions, or corrupt saves.
-- Back up your saves before testing. Save data is normally stored in `%APPDATA%\kurayinfinitefusion`.
-- A separate install folder does not fully protect old saves by itself, because this build can still read and write the same save location.
-- Do not install this over a stable PIF or KIF folder you care about.
-- Prefer a separate install and a fresh save.
-- `player_identity_bedroom` is included in this build and changes player identity and bedroom-related behavior.
-- This build was compared, merged, packaged, and documented with AI assistance, which means the work is easier to browse on GitHub but not every path has been manually regression-tested end to end.
+The original Pokemon Infinite Fusion (PIF) has been created by Chardub/Frogman, using Pokemon Essential.
 
-## What This Repo Is
+Kuray Infinite Fusion (KIF) is standalone, which means, you do not need Pokemon Infinite Fusion (PIF), and you should NOT install KIF on top of a PIF game.
 
-- A playable experimental upgrade build built on top of the original PIF codebase.
-- A showcase of what a heavier PIF + KIF + extra-mod merge can look like in practice.
-- A GitHub record of the actual file-level changes, so people can inspect the upgrade like a normal source diff instead of only reading release notes.
+Please remember that the backbone of KIF (which is PIF) is still being developed and maintained by Chardub/Frogman, if PIF dies, KIF is very likely to die as well.
 
-## What "PIF + KIF + AI Merge" Means Here
+This Github allows you to see the game (open-source), but also to contribute to the development of this project with pull-requests, and download the latest release to stay up-to-date.
 
-- PIF is the original Pokemon Infinite Fusion base game created by Chardub/Frogman.
-- KIF-style systems bring in Kuray-focused gameplay, shiny systems, quality-of-life changes, mod support, and expanded scripting ideas.
-- Extra local additions bring in more mods, multiplayer/client-server work, Hoenn content, rematch content, installer work, and other experiments.
-- AI was used as a helper for comparing versions, surfacing differences, packaging the build, and preparing the GitHub presentation. The direction and selected changes are still human-driven.
+# Experimental Full Tester Build
 
-## Where Players Should Start
+This branch now reflects the current local merged tester build rather than the older lighter `no-csf` package. It includes the current KIF/PIF merge work, the Custom Species Framework stack, the modded multiplayer files, travel expansion support pieces, and the current packaged mod set from this install.
 
-- Experimental release page: [2026-04-22 Player Build (no CSF yet)](https://github.com/this-is-neat/kurayshinyrevamp/releases/tag/2026-04-22-no-csf)
-- Direct installer: [PIF-player-build-20260422-no-csf-WebSetup.exe](https://github.com/this-is-neat/kurayshinyrevamp/releases/download/2026-04-22-no-csf/PIF-player-build-20260422-no-csf-WebSetup.exe)
-- All releases: [Releases](https://github.com/this-is-neat/kurayshinyrevamp/releases)
+This is a human-directed, AI-assisted experimental upgrade branch. It is meant to help testers inspect the real source/content changes on GitHub and install the current tester build more easily.
 
-## What Is Included In This Experimental Build
+## Important Warnings
 
-- Core gameplay and data changes across common events, encounters, items, map connections, map metadata, and many `Data/Map*.rxdata` files.
-- Large script additions under `Data/Scripts/053_PIF_Hoenn/`, `Data/Scripts/054_PIF_Kanto/EliteFourRematches/`, and `Data/Scripts/659_Multiplayer/`.
-- Added mods such as `counterfeit_shinies`, `diagonal_movement`, `freedom_of_exploration`, `mouse_ui`, `MoveInCircles`, `pc_shopping`, `player_identity_bedroom`, `pokegun_terminal`, and `uncap_trainer_rematch_level`.
-- Multiplayer/server files in `KIFM/`, extra runtime libraries in `Libs/`, and installer/update tooling for packaging this version like a downloadable game.
-- The current public packaged build does not include `custom_species_framework` yet.
+- This is not an official stable upstream build.
+- It may break progression, conflict with future upstream changes, or corrupt saves.
+- Your saves do **not** live inside the game folder. They live under `%APPDATA%\\kurayinfinitefusion`, so using a separate install folder alone does not fully isolate save risk.
+- `player_identity_bedroom`, `custom_species_framework`, imported species content, and the modded multiplayer stack are included in this tester build.
+- The GitHub repo is for source visibility and contribution. The full playable install still comes from the release assets because the sprite payload is too large for normal Git history.
 
-## Browse The Changes On GitHub
+## Current Install Path
 
-- Human-readable comparison note: [`Releases/2026-04-22-no-csf/LOCAL-VS-GITHUB-DIFF.md`](./Releases/2026-04-22-no-csf/LOCAL-VS-GITHUB-DIFF.md)
-- Browseable non-graphics source diff: [PR #1](https://github.com/this-is-neat/kurayshinyrevamp/pull/1)
-- Direct "Files changed" view: [PR #1 Files Changed](https://github.com/this-is-neat/kurayshinyrevamp/pull/1/files)
-- Graphics are intentionally left out of the main GitHub diff presentation to keep the source review readable.
+- Release page: [2026-05-12 Full Current Tester Build](https://github.com/this-is-neat/kurayshinyrevamp/releases/tag/2026-05-12-full-current)
+- Direct installer: [PIF-player-build-20260512-full-current-WebSetup.exe](https://github.com/this-is-neat/kurayshinyrevamp/releases/download/2026-05-12-full-current/PIF-player-build-20260512-full-current-WebSetup.exe)
+- Release notes and checksums in-repo: [`Releases/2026-05-12-full-current/README.md`](./Releases/2026-05-12-full-current/README.md)
+- Previous comparison note: [`Releases/2026-04-22-no-csf/LOCAL-VS-GITHUB-DIFF.md`](./Releases/2026-04-22-no-csf/LOCAL-VS-GITHUB-DIFF.md)
 
-## Upgrade Snapshot
-
-- `673` tracked non-graphics files differ from the older snapshot used for the release comparison notes.
-- `5,653` non-graphics files are local-only additions beyond that older snapshot.
-- The published non-graphics GitHub source upgrade branch is meant to make this merged direction visible in a normal GitHub review flow.
-
-## Official Links
-
+# Official Links
 Website: https://www.kurayinfinitefusion.com/
 
 Discord: https://discord.gg/kuray-hub-1121345297352753243 | https://discord.gg/vZUCRxDTPe
@@ -64,21 +42,32 @@ Twitter: https://twitter.com/kuray_hub
 
 Reddit: https://www.reddit.com/r/kurayhub/
 
-Current experimental GitHub: https://github.com/this-is-neat/kurayshinyrevamp
-
-Original Kuray GitHub reference: https://github.com/kurayamiblackheart/kurayshinyrevamp
+Github: https://github.com/kurayamiblackheart/kurayshinyrevamp *(You are here!)*
 
 YouTube: https://www.youtube.com/@kuraylab
 
 Twitch: https://www.twitch.tv/kurayamiblackheart
 
-Pokemon Infinite Fusion (PIF) GitHub: https://github.com/infinitefusion/infinitefusion-e18
+
+Pokemon Infinite Fusion (PIF) Github: https://github.com/infinitefusion/infinitefusion-e18
 
 Pokemon Infinite Fusion (PIF) Discord: https://discord.gg/infinitefusion
 
-Pokemon Essentials GitHub: https://github.com/Maruno17/pokemon-essentials
+Pokemon Essential Github: https://github.com/Maruno17/pokemon-essentials
 
-**If you've been banned from the Kuray Hub Discord, you can fill this form to ask for an unban or more information about the ban:** https://forms.gle/TPCprf38ANmYNB5T8
+
+**If you've been banned from our Discord (the Kuray Hub), you can fill this form to ask for an unban, or informations about the ban:** https://forms.gle/TPCprf38ANmYNB5T8
+
+-----------------------------------------------
+
+# Installation
+_Do not use `Source Code.zip` as the player install for this experimental branch. Use the release installer instead: [PIF-player-build-20260512-full-current-WebSetup.exe](https://github.com/this-is-neat/kurayshinyrevamp/releases/download/2026-05-12-full-current/PIF-player-build-20260512-full-current-WebSetup.exe)_
+
+_The current one-click install/reinstall notes and checksums are in [`Releases/2026-05-12-full-current/README.md`](./Releases/2026-05-12-full-current/README.md)._
+
+_Text instruction on how to Install KIF are available on our Discord: https://discord.gg/UFxQkUZeyE_
+
+__Google Docs of the game (OBSOLETE, but some informations are still useful):__ https://docs.google.com/document/d/1O6pKKL62dbLcapO0c2zDG2UI-eN6uatYlt_0GSk1dbE/edit
 
 ## Multi-World Travel Framework
 

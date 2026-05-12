@@ -33,7 +33,7 @@ internal sealed class InstallerForm : Form
             Top = 20,
             Width = 680,
             Height = 58,
-            Text = "Install / Repair can set up the full game and fetch the base release if this folder still needs it. Update Only skips the big base download and applies just the latest bundled changed files to an existing install."
+            Text = "Install / Repair sets up the current experimental tester build. If this folder only has the older public base release, the installer fetches that base first and then layers the current full update on top. Update Only skips the big base download and applies just the bundled current update to an existing install."
         };
 
         var pathLabel = new Label
@@ -67,7 +67,7 @@ internal sealed class InstallerForm : Form
             Top = 142,
             Width = 680,
             Height = 34,
-            Text = "Use Update Only when this folder already contains Game.exe plus the Data, Graphics, and Mods folders."
+            Text = "Use Update Only when this folder already contains Game.exe plus the Data, Graphics, and Mods folders and you only want the current tester-build changes."
         };
 
         _statusLabel = new Label
