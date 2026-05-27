@@ -906,7 +906,7 @@ module TravelExpansionFramework
       manifest[:badge_pages] << {
         :id         => normalize_string(raw_page["id"], "#{manifest[:id]}_badges_#{index + 1}"),
         :name       => normalize_string(raw_page["name"], "#{manifest[:name]} Badges"),
-        :slot_count => integer(raw_page["slot_count"] || raw_page["count"], 8)
+        :slot_count => normalized_badge_slot_count(raw_page["slot_count"] || raw_page["count"], 8)
       }
     end
   end
@@ -1009,7 +1009,7 @@ module TravelExpansionFramework
       state.shared_world = true if state.shared_world.nil?
       state.isolated_mode = false if state.isolated_mode.nil?
       manifest[:badge_pages].each do |page|
-        state.badges[page[:id]] ||= Array.new(integer(page[:slot_count], 8), false)
+        state.badges[page[:id]] ||= Array.new(normalized_badge_slot_count(page[:slot_count], 8), false)
       end
     end
     ensure_save_root.enabled_signature ||= current_enabled_signature

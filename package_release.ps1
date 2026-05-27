@@ -84,6 +84,15 @@ $cleanupPaths = @(
     "Mods\custom_species_framework\creator\edge_dom.txt",
     "Mods\custom_species_framework\importer\state\import_state.json",
     "Mods\custom_species_framework\importer\import_output\import.log",
+    "Mods\zzz_gba_player\ROMs",
+    "Mods\zzz_gba_player\Saves",
+    "Mods\zzz_gba_player\mirror_runtime",
+    "Mods\zzz_gba_player\launch.log",
+    "Mods\zzz_gba_player\Emulator\mGBA-0.10.5-win64\qt.ini",
+    "Mods\zzz_gba_player\native\corehost\bin",
+    "Mods\zzz_gba_player\native\corehost\obj",
+    "Mods\zzz_gba_player\native\mirror\bin",
+    "Mods\zzz_gba_player\native\mirror\obj",
     "KIFM\platinum_uuids.txt",
     "KIFM\discord_ids.txt",
     "KIFM\pending_discord_link.txt",
@@ -96,7 +105,17 @@ $excludedPackagePaths = @()
 
 $cleanupWildcardRelativePatterns = @(
     "Mods\autoplay_bot\data\state*.json",
-    "Mods\custom_species_framework\creator\*.log"
+    "Mods\custom_species_framework\creator\*.log",
+    "Mods\zzz_gba_player\native\*\publish\*.pdb",
+    "Mods\zzz_gba_player\ROMs\*.gba",
+    "Mods\zzz_gba_player\ROMs\*.gb",
+    "Mods\zzz_gba_player\ROMs\*.gbc",
+    "Mods\zzz_gba_player\ROMs\*.zip",
+    "Mods\zzz_gba_player\ROMs\*.sav",
+    "Mods\zzz_gba_player\ROMs\*.srm",
+    "Mods\zzz_gba_player\Saves\*.sav",
+    "Mods\zzz_gba_player\Saves\*.srm",
+    "Mods\zzz_gba_player\Saves\*.sa1"
 )
 
 $cleanupRecursiveFileNames = @(
@@ -303,7 +322,7 @@ function Remove-CleanupPaths {
 
 function New-PlayerReadmeContent {
     $lines = @(
-        "Kuray Infinite Fusion Player Build",
+        "Kuray Infinite Fusion Experimental Player Build",
         "",
         "How to use this package",
         "1. Extract the archive into its own folder.",
@@ -314,20 +333,24 @@ function New-PlayerReadmeContent {
         "- Full game client data and graphics, including the packed sprite payload.",
         "- The current local Mods folder, modded multiplayer KIFM folder, Libs, and ExpansionLinks used by this build.",
         "- Custom Species Framework content, browser creator assets, imported species packs, and current travel expansion link definitions.",
+        "- The experimental GBA Player scaffold, including its bundled emulator/runtime pieces needed for public testing.",
         "- Shiny Finder utility files that ship with the client.",
         "",
         "What was intentionally excluded",
         "- Personal configuration, local cache/state files, creator session leftovers, and bot runtime logs.",
         "- Savefile shortcuts, Discord link/account files, and machine-local multiplayer server state.",
+        "- GBA Player ROMs, save files, local mirror frames, runtime logs, and local build/output folders.",
         "- ExpansionLibrary external game archives are not bundled in this package.",
         "",
         "Savefiles and user settings",
         "- Savefiles and some settings are stored outside this folder under %APPDATA%\\kurayinfinitefusion.",
         "- This package does not include personal save data.",
+        "- The GBA Player scaffold also expects you to add your own ROMs and save files after installation.",
         "- This is an experimental merged tester build. Back up saves before using it on a real profile.",
         "",
         "Credits",
         "- Included mod and imported-species credits are summarized in PACKAGED_MOD_CREDITS.txt.",
+        "- Third-party emulator/runtime credits for GBA Player are included in that file and in the bundled license files.",
         "- Base game and project-wide credits are still in PIF_Credits.txt and README.md.",
         "",
         ("Packaged on: {0}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"))
@@ -394,6 +417,11 @@ function New-ModCreditsContent {
             $lines.Add(("- {0} ({1}, v{2}) | Author: {3}{4}" -f $entry.Name, $entry.Id, $entry.Version, $entry.Author, $descriptionText))
         }
     }
+
+    $lines.Add("")
+    $lines.Add("Third-party runtime credits")
+    $lines.Add("- GBA Player bundles the mGBA 0.10.5 Windows runtime for public testing. See Mods\\zzz_gba_player\\Emulator\\mGBA-0.10.5-win64\\LICENSE.txt and the bundled licenses folder for upstream notices.")
+    $lines.Add("- GBA Player also ships the mgba_libretro core and native helper runtime files used by its mirror/native bridge flow.")
 
     $importCreditsPath = Join-Path $projectRoot "Mods\custom_species_framework\importer\import_output\credits_manifest.json"
     if (Test-Path -LiteralPath $importCreditsPath) {
@@ -488,6 +516,89 @@ function Write-MetadataFiles {
     Set-Content -LiteralPath $modCreditsPath -Value (New-ModCreditsContent) -Encoding UTF8
 }
 
+function Get-PublicGbaPlayerConfigContent {
+    return @'
+{
+  "rom_roots": ["Mods/zzz_gba_player/ROMs"],
+  "save_roots": ["Mods/zzz_gba_player/Saves", "Mods/zzz_gba_player/ROMs"],
+  "emulator_path": "",
+  "emulator_search_roots": ["Mods/zzz_gba_player/Emulator"],
+  "emulator_args": "{rom}",
+  "emulator_volume_percent": 25,
+  "bridge_backend": "mirror",
+  "native_core_enabled": false,
+  "libretro_core_path": "Mods/zzz_gba_player/native/corehost/cores/mgba_libretro.dll",
+  "native_frame_fps": 30,
+  "native_audio_buffer_ms": 240,
+  "display_mode": "pip",
+  "mirror_embed": true,
+  "mirror_lock_aspect": true,
+  "mirror_fps": 30,
+  "walkalong_size": "large",
+  "walkalong_screen_width": 180,
+  "walkalong_position": "top_right",
+  "walkalong_x": null,
+  "walkalong_y": null,
+  "walkalong_pocketed": false,
+  "keymap": {
+    "up": "I",
+    "down": "K",
+    "left": "J",
+    "right": "L",
+    "a": "U",
+    "b": "O",
+    "l": "Y",
+    "r": "P",
+    "start": "H",
+    "select": "G",
+    "stop": "F12",
+    "toggle_size": "F11"
+  },
+  "species_overrides": {},
+  "move_overrides": {},
+  "item_overrides": {},
+  "favorites": [],
+  "last_rom": ""
+}
+'@
+}
+
+function Apply-PublicPackageSanitization {
+    param([Parameter(Mandatory = $true)][string]$RootPath)
+
+    $gbaConfigPath = Join-Path $RootPath "Mods\zzz_gba_player\config.json"
+    if (Test-Path -LiteralPath $gbaConfigPath) {
+        Set-Content -LiteralPath $gbaConfigPath -Value (Get-PublicGbaPlayerConfigContent) -Encoding UTF8
+    }
+
+    $runtimeCleanupPaths = @(
+        "Mods\zzz_gba_player\ROMs",
+        "Mods\zzz_gba_player\Saves",
+        "Mods\zzz_gba_player\mirror_runtime",
+        "Mods\zzz_gba_player\launch.log",
+        "Mods\zzz_gba_player\Emulator\mGBA-0.10.5-win64\qt.ini",
+        "Mods\zzz_gba_player\native\corehost\bin",
+        "Mods\zzz_gba_player\native\corehost\obj",
+        "Mods\zzz_gba_player\native\mirror\bin",
+        "Mods\zzz_gba_player\native\mirror\obj",
+        "Mods\zzz_gba_player\native\corehost\publish\GBAPlayerCoreHost.pdb",
+        "Mods\zzz_gba_player\native\mirror\publish\GBAPlayerMirror.pdb"
+    )
+
+    foreach ($relativePath in $runtimeCleanupPaths) {
+        $fullPath = Join-Path $RootPath $relativePath
+        if (Test-Path -LiteralPath $fullPath) {
+            Assert-UnderRoot -Path $fullPath -Root $RootPath
+            $item = Get-Item -LiteralPath $fullPath
+            if ($item.PSIsContainer) {
+                Remove-Item -LiteralPath $fullPath -Recurse -Force
+            } else {
+                Remove-Item -LiteralPath $fullPath -Force
+            }
+        }
+    }
+}
+
 function Remove-TemporaryMetadataFiles {
     param([Parameter(Mandatory = $true)][string]$RootPath)
 
@@ -517,8 +628,9 @@ function Build-StageDirectory {
 
     Write-Host "Copying root files"
     Copy-IncludedFiles -DestinationRoot $PackageRootPath
-    Write-MetadataFiles -RootPath $PackageRootPath -SelectedMode $Mode -IncludedBytes $IncludedBytes
     Remove-CleanupPaths -RootPath $PackageRootPath
+    Apply-PublicPackageSanitization -RootPath $PackageRootPath
+    Write-MetadataFiles -RootPath $PackageRootPath -SelectedMode $Mode -IncludedBytes $IncludedBytes
 }
 
 function Build-ArchiveFromSource {
@@ -696,7 +808,7 @@ function Remove-ArchivePaths {
 
 $includedBytes = Get-DirectorySizeBytes -RelativeDirectories $includeDirectories
 $freeBytes = Get-FreeSpaceBytes -Path $outputRootFull
-$stageRequiresSpace = $Mode -in @("stage", "both")
+$stageRequiresSpace = $true
 $archiveRequiresSevenZip = $Mode -in @("archive", "both")
 
 Write-Host ("Selected mode: {0}" -f $Mode)
@@ -716,7 +828,11 @@ Set-Content -LiteralPath $manifestPath -Value (New-ManifestContent -SelectedMode
 
 switch ($Mode) {
     "archive" {
-        Build-ArchiveFromSource -IncludedBytes $includedBytes
+        Build-StageDirectory -StageRootPath $stageRoot -PackageRootPath $packageRoot -IncludedBytes $includedBytes
+        Build-ArchiveFromStage
+        if (Test-Path -LiteralPath $stageRoot) {
+            Remove-Item -LiteralPath $stageRoot -Recurse -Force
+        }
     }
     "stage" {
         Build-StageDirectory -StageRootPath $stageRoot -PackageRootPath $packageRoot -IncludedBytes $includedBytes

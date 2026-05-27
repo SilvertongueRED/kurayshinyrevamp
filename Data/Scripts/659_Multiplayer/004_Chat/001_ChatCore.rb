@@ -7,6 +7,7 @@
 module ChatState
   @deployed = true            # deployed by default
   @deploy_progress = 1.0      # start fully open
+  @handle_minimized = false
   @active_tab_index = 0
   @unread = {}                # { "Global" => 0, "Trade" => 2, ... }
   @pm_sound_pending = false   # consumed by UI on main thread
@@ -17,14 +18,33 @@ module ChatState
   def self.deployed=(v)
     @deployed = !!v
     clear_collapsed_notice if @deployed
+    @handle_minimized = false if @deployed
   end
 
   def self.toggle_deploy
+    if @handle_minimized
+      @handle_minimized = false
+      self.deployed = true
+      return
+    end
     self.deployed = !@deployed
   end
 
   def self.deploy_progress; @deploy_progress; end
   def self.deploy_progress=(v); @deploy_progress = v; end
+
+  def self.handle_minimized
+    !!@handle_minimized
+  end
+
+  def self.handle_minimized=(v)
+    @handle_minimized = !!v
+    @deployed = false if @handle_minimized
+  end
+
+  def self.toggle_handle_minimized
+    self.handle_minimized = !handle_minimized
+  end
 
   # Backwards compat — old code that checks `visible`
   def self.visible; @deployed || @deploy_progress > 0.0; end
@@ -65,6 +85,7 @@ module ChatState
   def self.reset
     @deployed = false
     @deploy_progress = 0.0
+    @handle_minimized = false
     @active_tab_index = 0
     @unread = {}
     @pm_sound_pending = false

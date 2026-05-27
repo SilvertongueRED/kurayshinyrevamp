@@ -54,6 +54,23 @@ if defined?(TravelExpansionFramework)
       [0, nil, 0, berry_pots_now, 0, 0, 0, nil]
     end
 
+    def berry_pots_clone_state(pots)
+      Marshal.load(Marshal.dump(pots))
+    rescue
+      Array(pots).map { |slot| slot.is_a?(Array) ? slot.dup : slot }
+    end
+
+    def berry_pots_metadata
+      state = state_for(HOST_EXPANSION_ID) if respond_to?(:state_for) && const_defined?(:HOST_EXPANSION_ID)
+      state ||= state_for("host") if respond_to?(:state_for)
+      return nil if !state || !state.respond_to?(:metadata)
+      state.metadata = {} if state.metadata.nil? && state.respond_to?(:metadata=)
+      return state.metadata if state.metadata.is_a?(Hash)
+      return nil
+    rescue
+      return nil
+    end
+
     def berry_pots_normalize_slot(slot)
       now = berry_pots_now
       return berry_pots_empty_slot if slot.nil? || slot == 0 || slot == []
@@ -92,13 +109,120 @@ if defined?(TravelExpansionFramework)
       return berry_pots_empty_slot
     end
 
+    def berry_pots_active_slot?(slot)
+      normalized = berry_pots_normalize_slot(slot)
+      return normalized[0].to_i > 0 && !normalized[1].nil?
+    rescue
+      return false
+    end
+
+    def berry_pots_nonempty_count(pots)
+      last = -1
+      Array(pots).each_with_index do |slot, index|
+        last = index if berry_pots_active_slot?(slot)
+      end
+      return last + 1
+    rescue
+      return 0
+    end
+
+    def berry_pots_storage_candidates
+      candidates = []
+      if defined?($PokemonGlobal) && $PokemonGlobal
+        candidates << $PokemonGlobal.berrypots if $PokemonGlobal.respond_to?(:berrypots)
+        if $PokemonGlobal.respond_to?(:tef_berrypots_shadow)
+          candidates << $PokemonGlobal.tef_berrypots_shadow
+        elsif $PokemonGlobal.instance_variable_defined?(:@tef_berrypots_shadow)
+          candidates << $PokemonGlobal.instance_variable_get(:@tef_berrypots_shadow)
+        end
+      end
+      meta = berry_pots_metadata
+      if meta.is_a?(Hash)
+        candidates << meta["berrypots"]
+        candidates << meta["berrypots_shadow"]
+      end
+      return candidates
+    rescue
+      return []
+    end
+
+    def berry_pots_shadow_count(default_count = nil)
+      count = default_count.to_i
+      if defined?($PokemonGlobal) && $PokemonGlobal
+        count = [count, $PokemonGlobal.berrypot_count.to_i].max if $PokemonGlobal.respond_to?(:berrypot_count)
+        if $PokemonGlobal.respond_to?(:tef_berrypot_count_shadow)
+          count = [count, $PokemonGlobal.tef_berrypot_count_shadow.to_i].max
+        elsif $PokemonGlobal.instance_variable_defined?(:@tef_berrypot_count_shadow)
+          count = [count, $PokemonGlobal.instance_variable_get(:@tef_berrypot_count_shadow).to_i].max
+        end
+      end
+      meta = berry_pots_metadata
+      if meta.is_a?(Hash)
+        count = [count, meta["berrypot_count"].to_i, meta["berrypot_count_shadow"].to_i].max
+      end
+      berry_pots_storage_candidates.each { |pots| count = [count, berry_pots_nonempty_count(pots)].max }
+      count = BERRY_POTS_DEFAULT_COUNT if count <= 0
+      return count.clamp(1, BERRY_POTS_MAX_COUNT)
+    rescue
+      return BERRY_POTS_DEFAULT_COUNT
+    end
+
+    def berry_pots_merge_state(count)
+      count = count.to_i.clamp(1, BERRY_POTS_MAX_COUNT)
+      pots = Array.new(count) { berry_pots_empty_slot }
+      candidates = berry_pots_storage_candidates.find_all { |entry| entry.is_a?(Array) }
+      primary = candidates.shift
+      Array(primary).each_with_index do |slot, index|
+        next if index >= count
+        pots[index] = berry_pots_normalize_slot(slot)
+      end
+      candidates.each do |candidate|
+        Array(candidate).each_with_index do |slot, index|
+          next if index >= count
+          next if berry_pots_active_slot?(pots[index])
+          normalized = berry_pots_normalize_slot(slot)
+          pots[index] = normalized if berry_pots_active_slot?(normalized)
+        end
+      end
+      return pots
+    rescue
+      return Array.new(count.to_i.clamp(1, BERRY_POTS_MAX_COUNT)) { berry_pots_empty_slot }
+    end
+
+    def berry_pots_save_state!(pots, count = nil)
+      return pots if !defined?($PokemonGlobal) || !$PokemonGlobal
+      count = [count.to_i, berry_pots_nonempty_count(pots), BERRY_POTS_DEFAULT_COUNT].max
+      count = count.clamp(1, BERRY_POTS_MAX_COUNT)
+      normalized = Array.new(count) { |i| berry_pots_normalize_slot(Array(pots)[i]) }
+      shadow = berry_pots_clone_state(normalized)
+      $PokemonGlobal.berrypots = normalized if $PokemonGlobal.respond_to?(:berrypots=)
+      $PokemonGlobal.berrypot_count = count if $PokemonGlobal.respond_to?(:berrypot_count=)
+      if $PokemonGlobal.respond_to?(:tef_berrypots_shadow=)
+        $PokemonGlobal.tef_berrypots_shadow = shadow
+      else
+        $PokemonGlobal.instance_variable_set(:@tef_berrypots_shadow, shadow)
+      end
+      if $PokemonGlobal.respond_to?(:tef_berrypot_count_shadow=)
+        $PokemonGlobal.tef_berrypot_count_shadow = count
+      else
+        $PokemonGlobal.instance_variable_set(:@tef_berrypot_count_shadow, count)
+      end
+      meta = berry_pots_metadata
+      if meta.is_a?(Hash)
+        meta["berrypots"] = berry_pots_clone_state(normalized)
+        meta["berrypots_shadow"] = berry_pots_clone_state(normalized)
+        meta["berrypot_count"] = count
+        meta["berrypot_count_shadow"] = count
+      end
+      return normalized
+    rescue => e
+      log("[berrypots] state save failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return pots
+    end
+
     def berry_pots_count(default_count = nil)
       return default_count.to_i.clamp(1, BERRY_POTS_MAX_COUNT) if !defined?($PokemonGlobal) || !$PokemonGlobal
-      current = $PokemonGlobal.berrypot_count if $PokemonGlobal.respond_to?(:berrypot_count)
-      current = current.to_i
-      current = default_count.to_i if current <= 0 && default_count.to_i > 0
-      current = BERRY_POTS_DEFAULT_COUNT if current <= 0
-      current = current.clamp(1, BERRY_POTS_MAX_COUNT)
+      current = berry_pots_shadow_count(default_count)
       $PokemonGlobal.berrypot_count = current if $PokemonGlobal.respond_to?(:berrypot_count=)
       return current
     rescue
@@ -108,14 +232,13 @@ if defined?(TravelExpansionFramework)
     def berry_pots_state(default_count = nil)
       return [] if !defined?($PokemonGlobal) || !$PokemonGlobal
       count = berry_pots_count(default_count)
-      pots = $PokemonGlobal.berrypots if $PokemonGlobal.respond_to?(:berrypots)
-      pots = [] if !pots.is_a?(Array)
+      pots = berry_pots_merge_state(count)
       0.upto(count - 1) do |i|
         pots[i] = berry_pots_normalize_slot(pots[i])
         berry_pots_update_slot!(pots[i])
       end
       pots = pots[0, count]
-      $PokemonGlobal.berrypots = pots if $PokemonGlobal.respond_to?(:berrypots=)
+      pots = berry_pots_save_state!(pots, count)
       return pots
     rescue => e
       log("[berrypots] state recovery failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
@@ -126,6 +249,7 @@ if defined?(TravelExpansionFramework)
       return false if !defined?($PokemonGlobal) || !$PokemonGlobal
       count = count.to_i.clamp(1, BERRY_POTS_MAX_COUNT)
       $PokemonGlobal.berrypot_count = count if $PokemonGlobal.respond_to?(:berrypot_count=)
+      $PokemonGlobal.tef_berrypot_count_shadow = count if $PokemonGlobal.respond_to?(:tef_berrypot_count_shadow=)
       berry_pots_state(count)
       return true
     rescue => e
@@ -421,8 +545,9 @@ if defined?(TravelExpansionFramework)
         choice = pbMessage(_INTL("Berry Pots"), commands, commands.length)
         break if choice.nil? || choice < 0 || choice >= pots.length
         berry_pots_manage_slot!(pots, choice)
-        $PokemonGlobal.berrypots = pots if defined?($PokemonGlobal) && $PokemonGlobal.respond_to?(:berrypots=)
+        berry_pots_save_state!(pots, pots.length)
       end
+      berry_pots_save_state!(pots, pots.length)
       return true
     rescue => e
       log("[berrypots] failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
@@ -528,6 +653,8 @@ if defined?(PokemonGlobalMetadata)
     attr_accessor :berrypots unless method_defined?(:berrypots)
     attr_accessor :berrypot_count unless method_defined?(:berrypot_count)
     attr_accessor :berrypots_can unless method_defined?(:berrypots_can)
+    attr_accessor :tef_berrypots_shadow unless method_defined?(:tef_berrypots_shadow)
+    attr_accessor :tef_berrypot_count_shadow unless method_defined?(:tef_berrypot_count_shadow)
   end
 end
 

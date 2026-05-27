@@ -202,8 +202,6 @@ module ModSaveFallbacks
     global = save_data[:global_metadata] || save_data["global_metadata"] rescue nil
     return true if object_value(global, :csf_framework_signature)
     each_saved_pokemon(save_data) do |pokemon, _location|
-      species = pokemon.instance_variable_get(:@species) rescue nil
-      return true if species && !species_reference_valid?(species)
       return true if pokemon.instance_variable_defined?(:@csf_dormant_species_reference)
     end
     return false
@@ -226,7 +224,9 @@ module ModSaveFallbacks
   def missing_frameworks_for(save_data)
     missing = []
     missing << "Travel Expansion Framework" if travel_root_from(save_data) && !travel_framework_loaded?
-    if !custom_species_framework_loaded? && save_has_custom_species_state?(save_data)
+    if !custom_species_framework_loaded? &&
+       !travel_framework_loaded? &&
+       save_has_custom_species_state?(save_data)
       missing << "Custom Species Framework"
     end
     if !player_identity_bedroom_loaded? && save_has_player_identity_bedroom_state?(save_data)
@@ -258,13 +258,31 @@ module ModSaveFallbacks
     return !missing_frameworks_for(save_data).empty?
   end
 
+  def species_framework_loaded?
+    return true if custom_species_framework_loaded?
+    return true if travel_framework_loaded?
+    return false
+  end
+
+  def should_sanitize_custom_species?(save_data)
+    return false if species_framework_loaded?
+    return save_has_custom_species_state?(save_data)
+  rescue
+    return false
+  end
+
   def after_read_save_hash!(save_data, preview = false)
     return save_data if !save_data.is_a?(Hash)
     root = travel_root_from(save_data)
     @preserved_travel_root = root if root && !preview && !travel_framework_loaded?
     sanitize_save_hash_maps!(save_data) if !preview
+    sanitize_save_hash_player_position!(save_data) if !preview
     sanitize_item_storages!(save_data)
-    sanitize_custom_species!(save_data, preview) if !custom_species_framework_loaded?
+    if should_sanitize_custom_species?(save_data)
+      sanitize_custom_species!(save_data, preview)
+    elsif species_framework_loaded?
+      restore_available_dormant_species!(save_data, preview)
+    end
     return save_data
   end
 
@@ -331,10 +349,10 @@ module ModSaveFallbacks
       }
     end
     anchors.each do |anchor|
-      normalized = normalize_anchor(anchor)
-      return normalized if normalized && host_map_file_exists?(normalized[:map_id])
+      safe = safe_host_anchor(anchor)
+      return safe if safe
     end
-    return { :map_id => 1, :x => 0, :y => 0, :direction => 2 } if host_map_file_exists?(1)
+    return safe_host_anchor({ :map_id => 1, :x => 0, :y => 0, :direction => 2 }) if host_map_file_exists?(1)
     return nil
   end
 
@@ -397,11 +415,161 @@ module ModSaveFallbacks
       }
     end
     anchors.each do |anchor|
-      normalized = normalize_anchor(anchor)
-      return normalized if normalized && host_map_file_exists?(normalized[:map_id])
+      safe = safe_host_anchor(anchor)
+      return safe if safe
     end
-    return { :map_id => 1, :x => 0, :y => 0, :direction => 2 } if host_map_file_exists?(1)
+    return safe_host_anchor({ :map_id => 1, :x => 0, :y => 0, :direction => 2 }) if host_map_file_exists?(1)
     return nil
+  rescue
+    return nil
+  end
+
+  def safe_host_anchor(anchor)
+    normalized = normalize_anchor(anchor)
+    return nil if !normalized || !host_map_file_exists?(normalized[:map_id])
+    map = load_map_for_safety_check(normalized[:map_id])
+    return normalized if !map
+    return nearest_safe_anchor(normalized, map)
+  rescue
+    return nil
+  end
+
+  def sanitize_save_hash_player_position!(save_data)
+    return save_data if !save_data.is_a?(Hash)
+    global = save_data[:global_metadata] || save_data["global_metadata"]
+    return save_data if preserve_current_player_position?(global)
+    factory = save_data[:map_factory] || save_data["map_factory"]
+    game_player = save_data[:game_player] || save_data["game_player"]
+    return save_data if !factory || !game_player
+    map_id = current_map_id_from_factory(factory)
+    return save_data if map_id <= 0 || !current_map_available?(map_id)
+    anchor = {
+      :map_id => map_id,
+      :x => object_value(game_player, :x),
+      :y => object_value(game_player, :y),
+      :direction => object_value(game_player, :direction)
+    }
+    safe = nearest_safe_anchor(anchor)
+    return save_data if !safe || same_tile_anchor?(anchor, safe)
+    move_saved_game_player!(game_player, safe)
+    @last_relocation = {
+      "from_map_id" => map_id,
+      "to" => safe,
+      "reason" => "unsafe_saved_player_tile"
+    }
+    return save_data
+  rescue
+    return save_data
+  end
+
+  def sanitize_loaded_player_position!
+    return false if !$game_map || !$game_player
+    return false if preserve_current_player_position?($PokemonGlobal)
+    map_id = integer($game_map.map_id, 0)
+    anchor = {
+      :map_id => map_id,
+      :x => $game_player.x,
+      :y => $game_player.y,
+      :direction => ($game_player.direction rescue 2)
+    }
+    safe = nearest_safe_anchor(anchor, $game_map)
+    return false if !safe || same_tile_anchor?(anchor, safe)
+    $game_player.moveto(safe[:x], safe[:y])
+    $game_player.direction = safe[:direction] if $game_player.respond_to?(:direction=)
+    @last_relocation = {
+      "from_map_id" => map_id,
+      "to" => safe,
+      "reason" => "unsafe_loaded_player_tile"
+    }
+    return true
+  rescue
+    return false
+  end
+
+  def preserve_current_player_position?(global)
+    return true if object_value(global, :surfing)
+    return true if object_value(global, :diving)
+    return true if object_value(global, :sliding)
+    return true if integer(object_value(global, :bridge), 0) > 0
+    return false
+  rescue
+    return false
+  end
+
+  def same_tile_anchor?(left, right)
+    return false if !left || !right
+    return integer(left[:map_id] || left["map_id"], 0) == integer(right[:map_id] || right["map_id"], 0) &&
+           integer(left[:x] || left["x"], 0) == integer(right[:x] || right["x"], 0) &&
+           integer(left[:y] || left["y"], 0) == integer(right[:y] || right["y"], 0)
+  rescue
+    return false
+  end
+
+  def nearest_safe_anchor(anchor, map = nil)
+    normalized = normalize_anchor(anchor)
+    return nil if !normalized || !current_map_available?(normalized[:map_id])
+    check_map = map || load_map_for_safety_check(normalized[:map_id])
+    return normalized if !check_map
+    start_x = integer(normalized[:x], 0)
+    start_y = integer(normalized[:y], 0)
+    search_offsets(16).each do |offset|
+      x = start_x + offset[0]
+      y = start_y + offset[1]
+      next if !safe_landing_tile?(check_map, x, y)
+      return {
+        :map_id => normalized[:map_id],
+        :x => x,
+        :y => y,
+        :direction => normalized[:direction]
+      }
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def search_offsets(radius)
+    offsets = [[0, 0]]
+    (1..radius).each do |distance|
+      (-distance..distance).each do |dx|
+        dy = distance - dx.abs
+        offsets << [dx, dy]
+        offsets << [dx, -dy] if dy != 0
+      end
+    end
+    offsets.sort_by { |offset| [offset[0].abs + offset[1].abs, offset[1] < 0 ? 1 : 0, offset[0].abs] }
+  end
+
+  def safe_landing_tile?(map, x, y)
+    return false if !map || !map.respond_to?(:valid?) || !map.valid?(x, y)
+    if map.respond_to?(:passableStrict?)
+      return false if !map.passableStrict?(x, y, 2, nil)
+    end
+    return can_leave_tile?(map, x, y)
+  rescue
+    return false
+  end
+
+  def can_leave_tile?(map, x, y)
+    [[2, 0, 1], [4, -1, 0], [6, 1, 0], [8, 0, -1]].any? do |entry|
+      direction, dx, dy = entry
+      next false if !map.valid?(x + dx, y + dy)
+      next false if map.respond_to?(:passableStrict?) && !map.passableStrict?(x + dx, y + dy, 2, nil)
+      next false if map.respond_to?(:passable?) && !map.passable?(x, y, direction, nil)
+      next false if map.respond_to?(:passable?) && !map.passable?(x + dx, y + dy, 10 - direction, nil)
+      true
+    end
+  rescue
+    return false
+  end
+
+  def load_map_for_safety_check(map_id)
+    id = integer(map_id, 0)
+    return $game_map if defined?($game_map) && $game_map && integer($game_map.map_id, 0) == id
+    return nil if !defined?(Game_Map)
+    map = Game_Map.new
+    map.setup(id)
+    return map
   rescue
     return nil
   end
@@ -688,8 +856,24 @@ module ModSaveFallbacks
   def current_map_available?(map_id)
     id = integer(map_id, 0)
     return false if id <= 0
+    return true if map_file_exists?(id)
     return false if id >= RESERVED_EXPANSION_MAP_START && !travel_framework_loaded?
-    return map_file_exists?(id)
+    return true if travel_framework_map_available?(id)
+    return false
+  end
+
+  def travel_framework_map_available?(map_id)
+    return false if !travel_framework_loaded?
+    framework = TravelExpansionFramework
+    id = integer(map_id, 0)
+    return framework.valid_map_id?(id) if framework.respond_to?(:valid_map_id?)
+    return framework.expansion_map_active?(id) if framework.respond_to?(:expansion_map_active?)
+    if framework.respond_to?(:expansion_map_entry)
+      return !framework.expansion_map_entry(id).nil?
+    end
+    return false
+  rescue
+    return false
   end
 
   def missing_map_relocation_reason(map_id)
@@ -718,17 +902,47 @@ module ModSaveFallbacks
     return save_data
   end
 
+  def restore_available_dormant_species!(save_data, preview)
+    each_saved_pokemon(save_data) do |pokemon, _location|
+      restore_pokemon_species_if_available!(pokemon, preview)
+    end
+    return save_data
+  rescue
+    return save_data
+  end
+
   def sanitize_pokemon_species!(pokemon, location, placeholder, preview)
+    restore_pokemon_species_if_available!(pokemon, preview)
     species = pokemon.instance_variable_get(:@species) rescue nil
     return if species.nil? || species_reference_valid?(species)
     if !pokemon.instance_variable_defined?(:@csf_dormant_species_reference)
       pokemon.instance_variable_set(:@csf_dormant_species_reference, pokemon_snapshot(pokemon, location, species))
     end
     pokemon.instance_variable_set(:@species, placeholder)
-    pokemon.instance_variable_set(:@species_data, GameData::Species.get(placeholder)) if defined?(GameData::Species)
+    species_data = safe_species_data(placeholder)
+    pokemon.instance_variable_set(:@species_data, species_data) if species_data
     pokemon.instance_variable_set(:@form, 0) if preview
     pokemon.calc_stats if !preview && pokemon.respond_to?(:calc_stats)
   rescue
+  end
+
+  def restore_pokemon_species_if_available!(pokemon, preview)
+    return false if !pokemon.instance_variable_defined?(:@csf_dormant_species_reference)
+    reference = pokemon.instance_variable_get(:@csf_dormant_species_reference)
+    original_species = reference["species"] if reference.is_a?(Hash)
+    original_species ||= reference[:species] if reference.is_a?(Hash)
+    return false if original_species.nil?
+    species_data = safe_species_data(original_species)
+    return false if !species_data
+    restored_species = species_data.respond_to?(:species) ? species_data.species : original_species
+    pokemon.instance_variable_set(:@species, restored_species)
+    pokemon.instance_variable_set(:@species_data, species_data)
+    pokemon.instance_variable_set(:@form, species_data.form) if species_data.respond_to?(:form)
+    pokemon.remove_instance_variable(:@csf_dormant_species_reference) if pokemon.instance_variable_defined?(:@csf_dormant_species_reference)
+    pokemon.calc_stats if !preview && pokemon.respond_to?(:calc_stats)
+    return true
+  rescue
+    return false
   end
 
   def sanitize_pokemon_held_item!(pokemon, location)
@@ -795,11 +1009,19 @@ module ModSaveFallbacks
   end
 
   def species_reference_valid?(species)
-    return false if species.nil?
-    return GameData::Species.exists?(species) if defined?(GameData::Species)
-    return true
+    return !safe_species_data(species).nil?
   rescue
     return false
+  end
+
+  def safe_species_data(species)
+    return nil if species.nil?
+    return nil if !defined?(GameData::Species)
+    return GameData::Species.try_get(species) if GameData::Species.respond_to?(:try_get)
+    return nil if !GameData::Species::DATA.has_key?(species) && !GameData::Species::DATA.has_key?(species.to_s.to_sym)
+    return GameData::Species::DATA[species] || GameData::Species::DATA[species.to_s.to_sym]
+  rescue
+    return nil
   end
 
   def item_reference_valid?(item)
@@ -991,6 +1213,7 @@ if defined?(Game)
         if defined?(ModSaveFallbacks)
           ModSaveFallbacks.sanitize_runtime_items!
           ModSaveFallbacks.sanitize_loaded_globals!
+          ModSaveFallbacks.sanitize_loaded_player_position!
         end
         return result
       end

@@ -11,6 +11,7 @@ Included mods
 - Counterfeit Shinies (counterfeit_shinies, v1.0.0) | Author: Probably | Adds Team Infinite Cannon's counterfeit shiny racket: forged palettes, buyer NPC APIs, enforcer pressure, prestige, and black-market sales.
 - Custom Species Framework (custom_species_framework, v1.1.0) | Author: OpenAI Codex | Production-quality framework for custom Fakemon, regional variants, browser-based species creation, starter integration, fusion rules, and future content hooks.
 - Diagonal Movement (diagonal_movement, v1.0.0) | Author: Probably | Enables 8-direction movement and a diagonal movement option.
+- GBA Player (zzz_gba_player, v0.2.0) | Author: Codex | Adds a GBA Player key item, Pokegear/mobile and PC entry points, a native mGBA core bridge, and Gen 3 save import tools.
 - Mouse UI (mouse_ui, v1.0.0) | Author: Probably | Adds mouse-driven UI interaction, battle button clicks, and edge-walk map controls.
 - PC Shopping (pc_shopping, v1.0.0) | Author: Unknown | Adds Infinitely Instant Delivery PC shopping and battle betting features.
 - PC Storage Sorter (pc_storage_sorter, v1.0.0) | Author: Codex | Adds focused PC storage sorting options for the current box or all boxes, leaving Box 1 open when sorting the full collection.
@@ -19,6 +20,10 @@ Included mods
 - Safe Save Fallbacks (safe_save_fallbacks, v0.1.0) | Author: KIF | Adds compatibility shims and safe relocation for saves that still reference removable framework or map-content mods. Keep this mod installed when testing uninstall/reinstall flows for custom species, travel expansions, player identity bedroom, or other removable map content.
 - Travel Expansion Framework (travel_expansion_framework, v0.2.0-rc.1) | Author: OpenAI Codex | Mounts expansion-pack regions as managed mods instead of hard-merging them into the host game. Provides manifest scanning, namespaced registries, expansion save state, virtual map IDs, bedroom-PC travel, trainer-card progress pages, and modder tooling.
 - Uncap Trainer Rematch Level (uncap_trainer_rematch_level, v1.0.0) | Author: An Unsocial Pigeon | Removes the level cap applied to trainer rematch scaling. Converted to the folder-based KIF mod loader format.
+
+Third-party runtime credits
+- GBA Player bundles the mGBA 0.10.5 Windows runtime for public testing. See Mods\\zzz_gba_player\\Emulator\\mGBA-0.10.5-win64\\LICENSE.txt and the bundled licenses folder for upstream notices.
+- GBA Player also ships the mgba_libretro core and native helper runtime files used by its mirror/native bridge flow.
 
 Imported species pack credits
 - Pythonova | Creator: Princess-Phoenix | Source pack: Mongratis | Permission: Free to use with credit

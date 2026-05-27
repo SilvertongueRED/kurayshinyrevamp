@@ -113,7 +113,14 @@ module TravelExpansionFramework
     key = [expansion, kind.to_s, name.to_s, detail.to_s].join("|")
     return if runtime_asset_log_cache[key]
     runtime_asset_log_cache[key] = true
-    log("[#{expansion}] #{kind}: #{name} => #{detail}")
+    return if @runtime_asset_log_active
+    @runtime_asset_log_active = true
+    begin
+      log("[#{expansion}] #{kind}: #{name} => #{detail}")
+    rescue
+    ensure
+      @runtime_asset_log_active = false
+    end
   end
 
   def asset_roots
@@ -784,7 +791,7 @@ module TravelExpansionFramework
 
   def resolve_runtime_path(logical_path, extensions = [])
     return nil if logical_path.nil?
-    raw_path = logical_path.to_s
+    raw_path = respond_to?(:normalize_string) ? normalize_string(logical_path, "") : logical_path.to_s
     return nil if raw_path.empty?
     normalized = raw_path.gsub("\\", "/").sub(/\A\.\//, "")
     return nil if normalized.empty?
@@ -815,8 +822,9 @@ module TravelExpansionFramework
     basename = File.basename(normalized)
     return nil if basename.nil? || basename.empty? || basename == "." || basename == ".."
     asset_roots.reverse_each do |root|
-      next if !root || root.to_s.empty?
-      candidate = runtime_path_join(root, normalized)
+      root_text = respond_to?(:normalize_string) ? normalize_string(root, "") : root.to_s
+      next if root_text.empty?
+      candidate = runtime_path_join(root_text, normalized)
       existing = runtime_existing_path(candidate)
       return existing if existing
       exts.each do |ext|
@@ -826,6 +834,14 @@ module TravelExpansionFramework
         existing = runtime_existing_path(with_extension)
         return existing if existing
       end
+    end
+    return nil
+  rescue Exception => e
+    label = defined?(raw_path) && raw_path ? raw_path : "<unsafe>"
+    begin
+      key = ["runtime_path_error", label.to_s, e.class.to_s, e.message.to_s].join("|")
+      runtime_asset_log_cache[key] = true if respond_to?(:runtime_asset_log_cache)
+    rescue
     end
     return nil
   end
@@ -921,6 +937,71 @@ module TravelExpansionFramework
     return edge
   end
 
+  def numeric_map_connection_value?(value)
+    return true if value.is_a?(Numeric)
+    return value.to_s.strip =~ /\A-?\d+\z/
+  rescue
+    return false
+  end
+
+  def numeric_map_connection_format?(entry)
+    return false if !entry.respond_to?(:[]) || !entry.respond_to?(:length) || entry.length < 6
+    return numeric_map_connection_value?(entry[0]) &&
+           numeric_map_connection_value?(entry[1]) &&
+           numeric_map_connection_value?(entry[2]) &&
+           numeric_map_connection_value?(entry[3]) &&
+           numeric_map_connection_value?(entry[4]) &&
+           numeric_map_connection_value?(entry[5])
+  rescue
+    return false
+  end
+
+  def numeric_map_connection_record(entry)
+    return nil if !numeric_map_connection_format?(entry)
+    return {
+      :format => :numeric,
+      :values => [
+        integer(entry[0], 0),
+        integer(entry[1], 0),
+        integer(entry[2], 0),
+        integer(entry[3], 0),
+        integer(entry[4], 0),
+        integer(entry[5], 0)
+      ]
+    }
+  rescue
+    return nil
+  end
+
+  def extract_embedded_numeric_map_connections(value)
+    rows = []
+    if value.is_a?(Hash)
+      payload = value[:connections] || value["connections"]
+      Array(payload).each do |entry|
+        record = numeric_map_connection_record(entry)
+        rows << record if record
+      end
+    end
+    text = value.to_s
+    return rows if text.empty? || text !~ /connections/i
+    text.scan(/\[\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\]/) do |a, b, c, d, e, f|
+      rows << {
+        :format => :numeric,
+        :values => [
+          integer(a, 0),
+          integer(b, 0),
+          integer(c, 0),
+          integer(d, 0),
+          integer(e, 0),
+          integer(f, 0)
+        ]
+      }
+    end
+    return rows
+  rescue
+    return []
+  end
+
   def expansion_map_connection_candidate_paths(expansion_id)
     expansion = expansion_id.to_s
     return [] if expansion.empty?
@@ -986,9 +1067,22 @@ module TravelExpansionFramework
     end
     raw = load_marshaled_runtime(path)
     return [] if !raw.respond_to?(:map)
-    raw.map do |entry|
+    connections = []
+    raw.each do |entry|
       next nil if !entry.respond_to?(:[])
-      [
+      embedded = []
+      embedded.concat(extract_embedded_numeric_map_connections(entry))
+      embedded.concat(extract_embedded_numeric_map_connections(entry[1])) if embedded.empty? && entry.respond_to?(:[])
+      if !embedded.empty?
+        connections.concat(embedded)
+        next
+      end
+      numeric = numeric_map_connection_record(entry)
+      if numeric
+        connections << numeric
+        next
+      end
+      connections << [
         integer(entry[0], 0),
         normalize_map_connection_edge(entry[1]),
         integer(entry[2], 0),
@@ -996,7 +1090,8 @@ module TravelExpansionFramework
         normalize_map_connection_edge(entry[4]),
         integer(entry[5], 0)
       ]
-    end.compact
+    end
+    return connections.compact
   rescue => e
     log("[map] failed to load map connections #{path}: #{e.class}: #{e.message}") if respond_to?(:log)
     return []
@@ -1029,8 +1124,38 @@ module TravelExpansionFramework
     return []
   end
 
+  def normalize_numeric_expansion_map_connection(expansion_id, values)
+    return nil if !values.respond_to?(:[])
+    first_map = expansion_virtual_map_id(expansion_id, values[0])
+    second_map = expansion_virtual_map_id(expansion_id, values[3])
+    return nil if first_map <= 0 || second_map <= 0
+    return nil if !expansion_map_active?(first_map) || !expansion_map_active?(second_map)
+    conn = [
+      first_map,
+      integer(values[1], 0),
+      integer(values[2], 0),
+      second_map,
+      integer(values[4], 0),
+      integer(values[5], 0)
+    ]
+    dimensions = MapFactoryHelper.getMapDims(conn[0])
+    return nil if dimensions[0].to_i == 0 || dimensions[1].to_i == 0
+    dimensions = MapFactoryHelper.getMapDims(conn[3])
+    return nil if dimensions[0].to_i == 0 || dimensions[1].to_i == 0
+    return conn
+  rescue => e
+    log("[map] failed to normalize #{expansion_id} numeric map connection #{values.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
   def normalized_expansion_map_connection(expansion_id, raw_connection)
     return nil if !raw_connection.respond_to?(:[])
+    if raw_connection.is_a?(Hash) && raw_connection[:format] == :numeric
+      return normalize_numeric_expansion_map_connection(expansion_id, raw_connection[:values])
+    end
+    if numeric_map_connection_format?(raw_connection)
+      return normalize_numeric_expansion_map_connection(expansion_id, raw_connection)
+    end
     first_map = expansion_virtual_map_id(expansion_id, raw_connection[0])
     second_map = expansion_virtual_map_id(expansion_id, raw_connection[3])
     return nil if first_map <= 0 || second_map <= 0
@@ -1043,6 +1168,8 @@ module TravelExpansionFramework
       normalize_map_connection_edge(raw_connection[4]),
       integer(raw_connection[5], 0)
     ]
+    return nil if !["N", "S", "E", "W"].include?(conn[1]) ||
+                  !["N", "S", "E", "W"].include?(conn[4])
     dimensions = MapFactoryHelper.getMapDims(conn[0])
     return nil if dimensions[0].to_i == 0 || dimensions[1].to_i == 0
     dimensions = MapFactoryHelper.getMapDims(conn[3])

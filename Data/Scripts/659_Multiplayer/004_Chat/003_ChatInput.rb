@@ -540,6 +540,8 @@ module Input
     py = cw.panel_y
     hx = cw.handle_x
     hy = cw.handle_y
+    hw = (cw.respond_to?(:handle_w) ? cw.handle_w : ChatWindow::HANDLE_W)
+    hh = (cw.respond_to?(:handle_h) ? cw.handle_h : ChatWindow::HANDLE_H)
 
     # ── Context menu interaction (highest priority) ────
     if cw.ctx_open?
@@ -579,14 +581,30 @@ module Input
     end
 
     # ── Handle hover/click ─────────────────────────────
-    over_handle = mx >= hx && mx < hx + ChatWindow::HANDLE_W &&
-                  my >= hy && my < hy + ChatWindow::HANDLE_H
+    over_handle = mx >= hx && mx < hx + hw &&
+                  my >= hy && my < hy + hh
     cw.mouse_over_handle = over_handle
 
     if clicked && over_handle
       _consume_chat_mouse_click!
       if cw.input_mode
         close_chat_input
+      end
+      if defined?(ChatState) && (ChatState.handle_minimized rescue false)
+        ChatState.handle_minimized = false
+        ChatState.deployed = true
+        cw.mark_tabs_dirty if cw.respond_to?(:mark_tabs_dirty)
+        cw.mark_messages_dirty if cw.respond_to?(:mark_messages_dirty)
+        cw.mark_input_dirty if cw.respond_to?(:mark_input_dirty)
+        return
+      end
+      if defined?(ChatState) &&
+         mx < hx + ChatWindow::HANDLE_MINIMIZE_STRIP_W
+        ChatState.handle_minimized = true
+        cw.mark_tabs_dirty if cw.respond_to?(:mark_tabs_dirty)
+        cw.mark_messages_dirty if cw.respond_to?(:mark_messages_dirty)
+        cw.mark_input_dirty if cw.respond_to?(:mark_input_dirty)
+        return
       end
       ChatState.toggle_deploy
       return

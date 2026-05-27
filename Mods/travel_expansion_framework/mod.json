@@ -49,6 +49,8 @@
     "035_SaveCorruptionSafety.rb",
     "036_VanguardCompatibility.rb",
     "037_WaterEffectPerformance.rb",
-    "038_BerryPotsCompatibility.rb"
+    "038_BerryPotsCompatibility.rb",
+    "039_PokegearRematchCompatibility.rb",
+    "040_SpeechBubbleSafety.rb"
   ]
 }

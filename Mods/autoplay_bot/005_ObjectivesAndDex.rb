@@ -685,6 +685,7 @@ module AutoplayBot
     def tick
       return unless defined?(AutoplayBot::Config) && AutoplayBot::Config.team_strategy?
       frame = (Graphics.frame_count rescue 0).to_i
+      return if flush_pending_roster_plan!
       @last_team_tick_frame = -9999 if @last_team_tick_frame.nil?
       return if frame - @last_team_tick_frame.to_i < 900
       @last_team_tick_frame = frame
@@ -697,6 +698,50 @@ module AutoplayBot
       @training_rotation_requested = reason.to_s
     rescue
       nil
+    end
+
+    def request_roster_plan_refresh!(reason = "update", delay_frames = 90)
+      @pending_roster_plan_reason = reason.to_s
+      frame = (Graphics.frame_count rescue 0).to_i
+      delay = [[delay_frames.to_i, 30].max, 360].min
+      @pending_roster_plan_due_frame = frame + delay
+      AutoplayBot.log("team plan deferred #{reason}") if defined?(AutoplayBot) &&
+                                                         AutoplayBot.respond_to?(:log)
+      true
+    rescue
+      false
+    end
+
+    def flush_pending_roster_plan!
+      return false unless @pending_roster_plan_reason
+      return false if map_message_or_battle_busy?
+      frame = (Graphics.frame_count rescue 0).to_i
+      return false if frame < @pending_roster_plan_due_frame.to_i
+      reason = @pending_roster_plan_reason
+      @pending_roster_plan_reason = nil
+      @pending_roster_plan_due_frame = nil
+      record_roster_plan!(reason)
+      true
+    rescue => e
+      @pending_roster_plan_reason = nil
+      @pending_roster_plan_due_frame = nil
+      AutoplayBot.log("deferred team plan failed: #{e.class}: #{e.message}") if defined?(AutoplayBot) &&
+                                                                               AutoplayBot.respond_to?(:log)
+      false
+    end
+
+    def map_message_or_battle_busy?
+      return true if defined?($game_temp) && $game_temp &&
+                     (($game_temp.in_battle rescue false) ||
+                      ($game_temp.message_window_showing rescue false) ||
+                      ($game_temp.player_transferring rescue false) ||
+                      ($game_temp.transition_processing rescue false))
+      return true if defined?(AutoplayBot::Runtime) &&
+                     AutoplayBot::Runtime.respond_to?(:capture_storage_active?) &&
+                     AutoplayBot::Runtime.capture_storage_active?
+      false
+    rescue
+      false
     end
 
     def maybe_rotate_training_lead!(reason = "overworld")
@@ -1735,14 +1780,13 @@ module AutoplayBot
         next false if battler.respond_to?(:fainted?) && battler.fainted?
         next false unless battler.respond_to?(:pokemon) && battler.pokemon
         next false if focus_wild && !shiny_target?(battler) && AutoplayBot::DexTracker.overstocked_for?(battler.pokemon)
-        AutoplayBot::DexTracker.needed_for?(battler.pokemon) ||
-          (focus_wild && wild_capture_candidate?(battler.pokemon)) ||
-          (focus_trainer && trainer_capture_candidate?(battler.pokemon))
+        needed = focus_wild ? wild_capture_candidate?(battler.pokemon) : AutoplayBot::DexTracker.needed_for?(battler.pokemon)
+        needed || (focus_trainer && trainer_capture_candidate?(battler.pokemon))
       end
       targets.sort_by do |battler|
         shiny = shiny_target?(battler)
         hard_needed = AutoplayBot::DexTracker.hard_needed_for?(battler.pokemon)
-        needed = AutoplayBot::DexTracker.needed_for?(battler.pokemon)
+        needed = focus_wild ? wild_capture_candidate?(battler.pokemon) : AutoplayBot::DexTracker.needed_for?(battler.pokemon)
         trainer_bonus = focus_trainer && trainer_capture_candidate?(battler.pokemon) ? 0 : 1
         [shiny ? 0 : (hard_needed ? 1 : (needed ? 2 : 3)), trainer_bonus, hp_ratio(battler)]
       end.first
@@ -1770,9 +1814,10 @@ module AutoplayBot
 
     def wild_capture_candidate?(pokemon)
       return false unless defined?(AutoplayBot::DexTracker)
-      return true if AutoplayBot::DexTracker.shiny_pokemon?(pokemon)
+      # In wild-focus mode, prefer true first-time Dex catches over duplicate farming.
+      return true if AutoplayBot::DexTracker.hard_needed_for?(pokemon)
       return false if AutoplayBot::DexTracker.overstocked_for?(pokemon)
-      AutoplayBot::DexTracker.duplicate_needed_for?(pokemon)
+      false
     rescue
       false
     end
@@ -5738,7 +5783,7 @@ module AutoplayBot
       @trying_to_move = true
       AutoplayBot::InputQueue.hold_dir(dir, movement_hold_frames([dir, dir, dir, dir], 12))
     rescue
-      AutoplayBot::InputQueue.hold_dir(4, 10) if defined?(AutoplayBot::InputQueue)
+      AutoplayBot::InputQueue.hold_dir(4, 4) if defined?(AutoplayBot::InputQueue)
     end
 
     def party_max_level
@@ -10727,7 +10772,14 @@ module AutoplayBot
     end
 
     def movement_hold_frames(path, minimum = nil)
-      return [minimum.to_i, 12].max if !path || !path.respond_to?(:each)
+      speed = movement_speedup_multiplier
+      minimum_value = minimum.nil? ? nil : minimum.to_i
+      if speed >= 7
+        minimum_value = [minimum_value || 4, 4].min
+      elsif speed >= 3 && minimum_value
+        minimum_value = [minimum_value, 6].min
+      end
+      return [minimum_value || 4, 4].max if !path || !path.respond_to?(:each)
       first = path[0].to_i
       straight = 0
       path.each do |dir|
@@ -10737,19 +10789,18 @@ module AutoplayBot
       end
       tiles = [[straight, 1].max, smooth_movement_tile_cap].min
       frames = (estimated_tile_frames * tiles) + (tiles > 1 ? 1 : 0)
-      frames = [frames, minimum.to_i].max if minimum
+      frames = [frames, minimum_value].max if minimum_value
       soft_min = tiles > 1 ? 8 : [estimated_tile_frames, 3].max
-      [[frames, soft_min].max, 96].min
+      max_frames = speed >= 7 ? 12 : 96
+      [[frames, soft_min].max, max_frames].min
     rescue
-      [minimum.to_i, 12].max
+      [minimum.nil? ? 4 : minimum.to_i, 12].max
     end
 
     def smooth_movement_tile_cap
       speed = movement_speedup_multiplier
       if speed >= 7
-        return 1 if BUILDING_CLEANUP_MAP_IDS.include?(current_map_id.to_i)
-        return 1 if small_current_map?
-        return 2
+        return 1
       elsif speed >= 3
         return 2 if BUILDING_CLEANUP_MAP_IDS.include?(current_map_id.to_i)
         return 2 if small_current_map?

@@ -5,6 +5,7 @@ module TravelExpansionFramework
     anil pokemon_anil pokemon_indigo indigo
     opalo pokemon_opalo
     realidea
+    pokemon_void void
   ].freeze unless const_defined?(:GENERIC_ENGLISH_TRANSLATION_SKIP_IDS)
 
   def generic_english_translation_cache
@@ -640,6 +641,12 @@ class Interpreter
     return true
   end if !method_defined?(:activateQuest)
 
+  def activateQuestSilent(quest_id, color = nil, *_args)
+    return activateQuest(quest_id, color, true)
+  rescue
+    return true
+  end if !method_defined?(:activateQuestSilent)
+
   def completeQuest(quest_id, *_args)
     store = tef_batch_quest_store
     entry = tef_batch_quest_entry(store, quest_id)
@@ -650,6 +657,12 @@ class Interpreter
   rescue
     return true
   end if !method_defined?(:completeQuest)
+
+  def completeQuestSilent(quest_id, *_args)
+    return completeQuest(quest_id)
+  rescue
+    return true
+  end if !method_defined?(:completeQuestSilent)
 
   def advanceQuestToStage(quest_id, stage = 1, *_args)
     store = tef_batch_quest_store
@@ -663,12 +676,24 @@ class Interpreter
     return true
   end if !method_defined?(:advanceQuestToStage)
 
+  def advanceQuestSilent(quest_id, stage = nil, *_args)
+    return stage.nil? ? advanceQuestToStage(quest_id, getCurrentStage(quest_id) + 1) : advanceQuestToStage(quest_id, stage)
+  rescue
+    return true
+  end if !method_defined?(:advanceQuestSilent)
+
   def getCurrentStage(quest_id)
     store = tef_batch_quest_store
     return (tef_batch_quest_entry(store, quest_id) || {})["stage"].to_i
   rescue
     return 0
   end if !method_defined?(:getCurrentStage)
+
+  def getQuestStage(quest_id)
+    return getCurrentStage(quest_id)
+  rescue
+    return 0
+  end if !method_defined?(:getQuestStage)
 
   def getActiveQuests
     store = tef_batch_quest_store

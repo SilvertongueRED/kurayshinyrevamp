@@ -71,6 +71,114 @@ module TravelExpansionFramework
     "GOURMETTREAT"  => "level up"
   }.freeze if !const_defined?(:REBORN_HAPPINESS_ONLY_ITEMS)
 
+  EXTERNAL_NATURE_MINTS = {
+    "HARDYMINT"   => :HARDY,
+    "LONELYMINT"  => :LONELY,
+    "BRAVEMINT"   => :BRAVE,
+    "ADAMANTMINT" => :ADAMANT,
+    "NAUGHTYMINT" => :NAUGHTY,
+    "BOLDMINT"    => :BOLD,
+    "DOCILEMINT"  => :DOCILE,
+    "RELAXEDMINT" => :RELAXED,
+    "IMPISHMINT"  => :IMPISH,
+    "LAXMINT"     => :LAX,
+    "TIMIDMINT"   => :TIMID,
+    "HASTYMINT"   => :HASTY,
+    "SERIOUSMINT" => :SERIOUS,
+    "JOLLYMINT"   => :JOLLY,
+    "NAIVEMINT"   => :NAIVE,
+    "MODESTMINT"  => :MODEST,
+    "MILDMINT"    => :MILD,
+    "QUIETMINT"   => :QUIET,
+    "BASHFULMINT" => :BASHFUL,
+    "RASHMINT"    => :RASH,
+    "CALMMINT"    => :CALM,
+    "GENTLEMINT"  => :GENTLE,
+    "SASSYMINT"   => :SASSY,
+    "CAREFULMINT" => :CAREFUL,
+    "QUIRKYMINT"  => :QUIRKY
+  }.freeze if !const_defined?(:EXTERNAL_NATURE_MINTS)
+
+  EXTERNAL_IV_CAPSULE_STATS = {
+    "SCAPSULA"              => :HP,
+    "HCAPSULA"              => :HP,
+    "HPCAPSULA"             => :HP,
+    "HPCAPSULE"             => :HP,
+    "HEALTHCAPSULE"         => :HP,
+    "VIGORCAPSULE"          => :HP,
+    "VITALCAPSULE"          => :HP,
+    "ACAPSULA"              => :ATTACK,
+    "ATTACKCAPSULE"         => :ATTACK,
+    "MUSCLECAPSULE"         => :ATTACK,
+    "POWERCAPSULE"          => :ATTACK,
+    "STRONGCAPSULE"         => :ATTACK,
+    "DCAPSULA"              => :DEFENSE,
+    "DEFENSECAPSULE"        => :DEFENSE,
+    "RESISTCAPSULE"         => :DEFENSE,
+    "ROBUSTCAPSULE"         => :DEFENSE,
+    "AECAPSULA"             => :SPECIAL_ATTACK,
+    "SPATKCAPSULE"          => :SPECIAL_ATTACK,
+    "SPECIALATTACKCAPSULE"  => :SPECIAL_ATTACK,
+    "GENIUSCAPSULE"         => :SPECIAL_ATTACK,
+    "WISECAPSULE"           => :SPECIAL_ATTACK,
+    "DECAPSULA"             => :SPECIAL_DEFENSE,
+    "SPDEFCAPSULE"          => :SPECIAL_DEFENSE,
+    "SPECIALDEFENSECAPSULE" => :SPECIAL_DEFENSE,
+    "CLEVERCAPSULE"         => :SPECIAL_DEFENSE,
+    "SPIRITCAPSULE"         => :SPECIAL_DEFENSE,
+    "VCAPSULA"              => :SPEED,
+    "SPEEDCAPSULE"          => :SPEED,
+    "SWIFTCAPSULE"          => :SPEED,
+    "IMPETUCAPSULE"         => :SPEED
+  }.freeze if !const_defined?(:EXTERNAL_IV_CAPSULE_STATS)
+
+  EXTERNAL_NATIVE_ITEM_DELEGATES = {
+    "POTION"         => :POTION,
+    "SUPERPOTION"    => :SUPERPOTION,
+    "HYPERPOTION"    => :HYPERPOTION,
+    "MAXPOTION"      => :MAXPOTION,
+    "FULLRESTORE"    => :FULLRESTORE,
+    "REVIVE"         => :REVIVE,
+    "MAXREVIVE"      => :MAXREVIVE,
+    "ANTIDOTE"       => :ANTIDOTE,
+    "AWAKENING"      => :AWAKENING,
+    "BURNHEAL"       => :BURNHEAL,
+    "ICEHEAL"        => :ICEHEAL,
+    "PARALYZEHEAL"   => :PARLYZHEAL,
+    "PARLYZHEAL"     => :PARLYZHEAL,
+    "FULLHEAL"       => :FULLHEAL,
+    "FRESHWATER"     => :FRESHWATER,
+    "SODAPOP"        => :SODAPOP,
+    "LEMONADE"       => :LEMONADE,
+    "MOOMOOMILK"     => :MOOMOOMILK,
+    "ENERGYPOWDER"   => :ENERGYPOWDER,
+    "ENERGYROOT"     => :ENERGYROOT,
+    "HEALPOWDER"     => :HEALPOWDER,
+    "REVIVALHERB"    => :REVIVALHERB,
+    "ETHER"          => :ETHER,
+    "MAXETHER"       => :MAXETHER,
+    "ELIXIR"         => :ELIXIR,
+    "MAXELIXIR"      => :MAXELIXIR,
+    "RARECANDY"      => :RARECANDY,
+    "HPUP"           => :HPUP,
+    "PROTEIN"        => :PROTEIN,
+    "IRON"           => :IRON,
+    "CALCIUM"        => :CALCIUM,
+    "ZINC"           => :ZINC,
+    "CARBOS"         => :CARBOS,
+    "HEALTHWING"     => :HEALTHWING,
+    "MUSCLEWING"     => :MUSCLEWING,
+    "RESISTWING"     => :RESISTWING,
+    "GENIUSWING"     => :GENIUSWING,
+    "CLEVERWING"     => :CLEVERWING,
+    "SWIFTWING"      => :SWIFTWING,
+    "PPUP"           => :PPUP,
+    "PPMAX"          => :PPMAX,
+    "ABILITYCAPSULE" => :ABILITYCAPSULE,
+    "ABILITYPATCH"   => :SECRETCAPSULE,
+    "SECRETCAPSULE"  => :SECRETCAPSULE
+  }.freeze if !const_defined?(:EXTERNAL_NATIVE_ITEM_DELEGATES)
+
   module_function
 
   def active_item_lookup_expansion_id
@@ -301,7 +409,10 @@ module TravelExpansionFramework
     raw = item_identifier.to_s.strip.gsub(/\A:/, "")
     canonical = canonical_imported_item_reference(raw)
     if canonical && canonical[0].to_s == expansion
-      return canonical[1].to_s
+      canonical_raw = canonical[1].to_s
+      alias_raw = canonical_imported_item_numeric_raw_alias(expansion, canonical_raw)
+      return alias_raw if alias_raw
+      return canonical_raw
     end
     prefix = imported_item_prefix(expansion_id)
     return raw if raw.empty? || prefix.nil? || prefix.empty?
@@ -309,12 +420,14 @@ module TravelExpansionFramework
       break if !raw.upcase.start_with?(prefix.upcase)
       raw = raw[prefix.length..-1].to_s
     end
+    alias_raw = canonical_imported_item_numeric_raw_alias(expansion, raw)
+    return alias_raw if alias_raw
     return raw
   end
 
-  def imported_item_id_number(expansion_id, item_name)
+  def imported_item_id_number_for_raw_name(expansion_id, raw_name)
     expansion = expansion_id.to_s
-    raw = imported_item_raw_name(expansion, item_name)
+    raw = raw_name.to_s.strip.gsub(/\A:/, "")
     signature = "#{expansion}:#{raw}"
     hash_value = 0
     signature.each_byte { |byte| hash_value = ((hash_value * 131) + byte) % IMPORTED_ITEM_ID_RANGE_SIZE }
@@ -322,9 +435,69 @@ module TravelExpansionFramework
     0.upto(IMPORTED_ITEM_ID_RANGE_SIZE - 1) do |offset|
       id_number = IMPORTED_ITEM_ID_RANGE_START + ((candidate - IMPORTED_ITEM_ID_RANGE_START + offset) % IMPORTED_ITEM_ID_RANGE_SIZE)
       existing = base_item_try_get(id_number)
-      return id_number if existing.nil?
+      return id_number if existing.nil? || imported_item_id_belongs_to_raw?(existing, expansion, raw)
     end
     return IMPORTED_ITEM_ID_RANGE_START + hash_value
+  end
+
+  def imported_item_id_number(expansion_id, item_name)
+    expansion = expansion_id.to_s
+    raw = imported_item_raw_name(expansion, item_name)
+    return imported_item_id_number_for_raw_name(expansion, raw)
+  end
+
+  def imported_item_id_belongs_to_raw?(item_data, expansion_id, raw_name)
+    return false if item_data.nil?
+    expansion = expansion_id.to_s
+    raw = raw_name.to_s
+    item_id = item_data.id rescue nil
+    runtime_symbol = imported_item_runtime_symbol(expansion, raw)
+    return true if item_id && runtime_symbol && item_id == runtime_symbol
+    metadata = item_data.instance_variable_get(:@travel_expansion_item_metadata) rescue nil
+    return false if !metadata.is_a?(Hash)
+    metadata_expansion = imported_item_metadata_value(metadata, :expansion_id).to_s
+    metadata_raw = imported_item_metadata_value(metadata, :raw_name).to_s
+    return metadata_expansion == expansion && normalized_imported_item_name(metadata_raw) == normalized_imported_item_name(raw)
+  rescue
+    return false
+  end
+
+  def imported_item_numeric_alias_cache
+    @imported_item_numeric_alias_cache ||= {}
+  end
+
+  def canonical_imported_item_numeric_raw_alias(expansion_id, raw_name)
+    expansion = expansion_id.to_s
+    text = raw_name.to_s.strip.gsub(/\A:/, "")
+    return nil if expansion.empty? || text !~ /\A\d+\z/
+    target = text.to_i
+    return nil if target <= 0
+    cache_key = "#{expansion}:#{target}"
+    cached = imported_item_numeric_alias_cache[cache_key]
+    return nil if cached == false
+    return cached if cached
+
+    catalog = generic_pbs_item_catalog(expansion)
+    if catalog.is_a?(Hash) && !catalog.empty?
+      catalog.each_value do |entry|
+        next if !entry.is_a?(Hash)
+        candidate_raw = (entry[:raw_name] || entry["raw_name"]).to_s
+        next if candidate_raw.empty? || candidate_raw == text
+        native_id = integer(entry[:native_id_number] || entry["native_id_number"] || entry[:id_number] || entry["id_number"], 0)
+        id_number = imported_item_id_number_for_raw_name(expansion, candidate_raw)
+        if native_id.to_i == target || id_number.to_i == target
+          imported_item_numeric_alias_cache[cache_key] = candidate_raw
+          return candidate_raw
+        end
+      end
+    end
+
+    imported_item_numeric_alias_cache[cache_key] = false
+    return nil
+  rescue => e
+    log("Imported numeric item alias lookup failed for #{expansion_id}/#{raw_name}: #{e.class}: #{e.message}") if respond_to?(:log)
+    imported_item_numeric_alias_cache[cache_key] = false if defined?(cache_key) && cache_key
+    return nil
   end
 
   def imported_item_handler_registry
@@ -438,6 +611,8 @@ module TravelExpansionFramework
 
       canonical_expansion = canonical[0].to_s
       canonical_raw = canonical[1].to_s
+      alias_raw = canonical_imported_item_numeric_raw_alias(canonical_expansion, canonical_raw)
+      canonical_raw = alias_raw if alias_raw
       return metadata if canonical_expansion.empty? || canonical_raw.empty?
 
       current_expansion = imported_item_metadata_value(metadata, :expansion_id).to_s
@@ -477,6 +652,109 @@ module TravelExpansionFramework
   rescue => e
     log("Imported item metadata canonicalization failed: #{e.class}: #{e.message}") if respond_to?(:log)
     return metadata
+  end
+
+  def canonical_imported_item_alias_target(item)
+    item_data = raw_item_data(item)
+    metadata = direct_imported_item_metadata(item_data || item, false)
+    expansion = imported_item_metadata_value(metadata, :expansion_id).to_s if metadata
+    raw = imported_item_metadata_value(metadata, :raw_name).to_s if metadata
+    if expansion.to_s.empty?
+      canonical = canonical_imported_item_reference(item_data ? (item_data.id rescue nil) : item)
+      expansion = canonical[0].to_s if canonical
+      raw = canonical[1].to_s if canonical && raw.to_s.empty?
+    end
+    alias_raw = canonical_imported_item_numeric_raw_alias(expansion, raw)
+    return nil if alias_raw.nil? || alias_raw.empty?
+    resolved = ensure_external_item_registered(expansion, alias_raw)
+    return nil if resolved.nil?
+    current_id = item_data ? (item_data.id rescue nil) : item
+    return nil if current_id == resolved
+    return resolved
+  rescue => e
+    log("Imported item alias target lookup failed for #{item.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def repair_imported_item_pocket_layout!
+    return false if !defined?($PokemonBag) || !$PokemonBag
+    pockets = $PokemonBag.instance_variable_get(:@pockets) rescue nil
+    return false if !pockets.respond_to?(:each_with_index)
+    new_pockets = []
+    0.upto(PokemonBag.numPockets) { |index| new_pockets[index] = [] } if defined?(PokemonBag)
+    return false if new_pockets.empty?
+    moved = false
+    pockets.each_with_index do |pocket, pocket_index|
+      next if !pocket.respond_to?(:each)
+      pocket.each do |slot|
+        next if !slot || !slot.respond_to?(:[])
+        item_data = GameData::Item.try_get(slot[0]) rescue nil
+        target_pocket = item_data && item_data.respond_to?(:pocket) ? item_data.pocket.to_i : pocket_index
+        target_pocket = pocket_index if target_pocket <= 0 || target_pocket >= new_pockets.length
+        moved = true if target_pocket != pocket_index
+        existing = new_pockets[target_pocket].find { |entry| entry && entry[0] == slot[0] }
+        if existing
+          existing[1] = existing[1].to_i + slot[1].to_i
+          moved = true
+        else
+          new_pockets[target_pocket] << slot
+        end
+      end
+    end
+    $PokemonBag.instance_variable_set(:@pockets, new_pockets) if moved
+    return moved
+  rescue => e
+    log("Imported item pocket layout repair failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def repair_imported_item_aliases!
+    return false if @repair_imported_item_aliases_guard
+    @repair_imported_item_aliases_guard = true
+    changed = false
+
+    if respond_to?(:each_raw_bag_item_slot)
+      each_raw_bag_item_slot do |_pocket, _pocket_index, _slot_index, slot|
+        target = canonical_imported_item_alias_target(slot[0])
+        next if target.nil?
+        old = slot[0]
+        slot[0] = target
+        changed = true
+        log("[items] repaired imported bag item #{old.inspect} -> #{target.inspect}") if respond_to?(:log)
+      end
+    end
+
+    if defined?($PokemonBag) && $PokemonBag
+      registered = $PokemonBag.instance_variable_get(:@registeredItems) rescue nil
+      if registered.respond_to?(:each_with_index)
+        registered.each_with_index do |item, index|
+          target = canonical_imported_item_alias_target(item)
+          next if target.nil?
+          registered[index] = target
+          changed = true
+        end
+        registered.compact! if registered.respond_to?(:compact!)
+      end
+      changed = true if repair_imported_item_pocket_layout!
+    end
+
+    if respond_to?(:each_pc_item_slot)
+      each_pc_item_slot do |_items, _slot_index, slot|
+        target = canonical_imported_item_alias_target(slot[0])
+        next if target.nil?
+        old = slot[0]
+        slot[0] = target
+        changed = true
+        log("[items] repaired imported PC item #{old.inspect} -> #{target.inspect}") if respond_to?(:log)
+      end
+    end
+
+    return changed
+  rescue => e
+    log("Imported item alias repair failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  ensure
+    @repair_imported_item_aliases_guard = false
   end
 
   def imported_item_lookup_key(item)
@@ -1081,6 +1359,106 @@ module TravelExpansionFramework
     return 0
   end
 
+  def external_mint_nature_for(normalized_name)
+    nature_id = EXTERNAL_NATURE_MINTS[normalized_name.to_s]
+    return nil if nature_id.nil?
+    return nil if defined?(GameData::Nature) && !GameData::Nature.exists?(nature_id)
+    return nature_id
+  rescue
+    return nil
+  end
+
+  def external_iv_capsule_stat_for(normalized_name, display_name = nil, description = nil)
+    normalized = normalized_name.to_s
+    stat_id = EXTERNAL_IV_CAPSULE_STATS[normalized]
+    return stat_id if stat_id
+
+    text = "#{normalized} #{display_name} #{description}".downcase
+    return nil if text !~ /(capsule|capsula|chapa|iv)/
+    return :SPECIAL_ATTACK if text =~ /(special attack|sp\.?\s*attack|spatk|at\.?\s*esp|ataque especial)/
+    return :SPECIAL_DEFENSE if text =~ /(special defense|sp\.?\s*defense|spdef|def\.?\s*esp|defensa especial)/
+    return :HP if text =~ /(\bhp\b|\bps\b|health|vigor|vital)/
+    return :ATTACK if text =~ /(\battack\b|ataque|muscle|power|strong|fuerte)/
+    return :DEFENSE if text =~ /(\bdefense\b|defensa|resist|robust|robusta)/
+    return :SPEED if text =~ /(\bspeed\b|velocidad|swift|impetu)/
+    return nil
+  rescue
+    return nil
+  end
+
+  def external_native_delegate_for(normalized_name)
+    native_item = EXTERNAL_NATIVE_ITEM_DELEGATES[normalized_name.to_s]
+    return nil if native_item.nil?
+    native_data = base_item_try_get(native_item)
+    return native_data ? native_data.id : nil
+  rescue
+    return nil
+  end
+
+  def imported_item_expansion_matches?(expansion_id, candidates)
+    values = [expansion_id.to_s]
+    values << canonical_new_project_id(expansion_id) if respond_to?(:canonical_new_project_id)
+    values.compact.map { |value| value.to_s }.any? { |value| candidates.include?(value) }
+  rescue
+    return candidates.include?(expansion_id.to_s)
+  end
+
+  def anil_item_metadata_definition(raw_name)
+    normalized = normalized_imported_item_name(raw_name)
+    return nil if !["ROCKSMASHITEM", "ROCKSMASH", "ROCKSMASHKEY", "PICO", "PICKAXE"].include?(normalized)
+    return {
+      :name              => "Pickaxe",
+      :name_plural       => "Pickaxes",
+      :description       => "A sturdy tool that breaks small cracked rocks.",
+      :price             => 0,
+      :pocket            => 8,
+      :type              => 6,
+      :field_use         => 2,
+      :battle_use        => 0,
+      :handler_kind      => :external_rock_smash,
+      :use_message       => "This can break small cracked rocks.",
+      :native_id_number  => 0,
+      :icon_logical_path => "Graphics/Items/ROCKSMASHITEM"
+    }
+  end
+
+  def rejuvenation_item_metadata_definition(raw_name)
+    normalized = normalized_imported_item_name(raw_name)
+    return nil if normalized != "STEAMBALL"
+    return {
+      :name              => "Steam Ball",
+      :name_plural       => "Steam Balls",
+      :description       => "A somewhat different Poke Ball that works especially well on Water- and Fire-type Pokemon.",
+      :price             => 1200,
+      :pocket            => 3,
+      :type              => 3,
+      :field_use         => 0,
+      :battle_use        => 3,
+      :handler_kind      => :external_steam_ball,
+      :native_id_number  => 665,
+      :icon_logical_path => "Graphics/Icons/steamball"
+    }
+  end
+
+  def insurgence_item_metadata_definition(raw_name)
+    normalized = normalized_imported_item_name(raw_name)
+    return nil if normalized != "QUARTZFLUTE"
+    return {
+      :name              => "Quartz Flute",
+      :name_plural       => "Quartz Flutes",
+      :description       => "A clear flute that calls Mew while exploring.",
+      :price             => 0,
+      :pocket            => 8,
+      :type              => 6,
+      :field_use         => 2,
+      :battle_use        => 0,
+      :handler_kind      => :external_quartz_flute,
+      :use_message       => "A clear note rings out.",
+      :native_id_number  => 0,
+      :icon_logical_path => "Graphics/Icons/item858"
+    }
+  end
+
   def generic_pbs_item_definition(expansion_id, raw_name)
     catalog = generic_pbs_item_catalog(expansion_id)
     normalized = normalized_imported_item_name(raw_name)
@@ -1103,6 +1481,9 @@ module TravelExpansionFramework
     item_type = integer(entry[:type], 0)
     field_use = generic_pbs_item_field_use(entry[:fielduse] || entry[:field_use])
     battle_use = generic_pbs_item_battle_use(entry[:battleuse] || entry[:battle_use])
+    move = entry[:move].to_s.strip
+    move = nil if move.empty?
+    move = move.to_sym if move
 
     is_ball = flags.include?("pokeball") || normalized.end_with?("BALL")
     is_berry = flags.include?("berry") || normalized.end_with?("BERRY")
@@ -1129,9 +1510,69 @@ module TravelExpansionFramework
 
     handler_kind = nil
     use_message = nil
+    native_item = nil
+    battle_delegate = nil
+    nature_id = nil
+    stat_id = nil
+    iv_amount = nil
+    allow_hidden_abilities = false
+    ability_scope = nil
     if field_use == 2 && is_key_item
       handler_kind = :generic_item_info
       use_message = description
+    end
+
+    detected_nature = external_mint_nature_for(normalized)
+    if detected_nature
+      pocket = 2
+      field_use = 1
+      handler_kind = :external_mint
+      nature_id = detected_nature
+    end
+
+    detected_stat = external_iv_capsule_stat_for(normalized, display_name, description)
+    if detected_stat
+      pocket = 2
+      field_use = 1
+      handler_kind = :external_iv_capsule
+      stat_id = detected_stat
+      iv_amount = 10
+    end
+
+    detected_native = external_native_delegate_for(normalized)
+    if detected_native
+      native_data = base_item_try_get(detected_native)
+      handler_kind = :delegate_native_item
+      native_item = detected_native
+      native_battle_use = native_data && native_data.respond_to?(:battle_use) ? integer(native_data.battle_use, 0) : 0
+      native_field_use = native_data && native_data.respond_to?(:field_use) ? integer(native_data.field_use, field_use) : field_use
+      battle_delegate = detected_native if native_battle_use > 0
+      field_use = native_field_use
+      field_use = 1 if field_use == 0
+      battle_use = native_battle_use if native_battle_use > 0
+    elsif ["ABILITYPATCH", "SECRETCAPSULE"].include?(normalized)
+      pocket = 2
+      field_use = 1
+      handler_kind = :external_ability_capsule
+      allow_hidden_abilities = true
+      ability_scope = :hidden
+    elsif normalized == "SUPERCAPSULE"
+      pocket = 2
+      field_use = 1
+      handler_kind = :external_ability_capsule
+      allow_hidden_abilities = true
+      ability_scope = :all
+    elsif normalized == "RANDOMABILITYCAPSULE"
+      pocket = 2
+      field_use = 1
+      handler_kind = :external_ability_capsule
+      allow_hidden_abilities = true
+      ability_scope = :random
+    elsif normalized == "ABILITYCAPSULE"
+      pocket = 2
+      field_use = 1
+      handler_kind = :external_ability_capsule
+      ability_scope = :regular
     end
 
     icon_logical_path = entry[:icon_logical_path].to_s
@@ -1146,13 +1587,19 @@ module TravelExpansionFramework
       :type              => item_type,
       :field_use         => field_use,
       :battle_use        => battle_use,
+      :move              => move,
       :handler_kind      => handler_kind,
       :use_message       => use_message,
-      :native_item       => nil,
-      :battle_delegate   => nil,
+      :native_item       => native_item,
+      :battle_delegate   => battle_delegate,
       :happiness_method  => nil,
       :heal_amount       => nil,
       :exp_value         => nil,
+      :nature_id         => nature_id,
+      :stat_id           => stat_id,
+      :iv_amount         => iv_amount,
+      :allow_hidden_abilities => allow_hidden_abilities,
+      :ability_scope     => ability_scope,
       :native_id_number  => native_id,
       :icon_logical_path => icon_logical_path
     }
@@ -1364,11 +1811,49 @@ module TravelExpansionFramework
       :happiness_method  => nil,
       :heal_amount       => nil,
       :exp_value         => nil,
+      :nature_id         => nil,
+      :stat_id           => nil,
+      :iv_amount         => nil,
+      :allow_hidden_abilities => false,
+      :ability_scope     => nil,
       :icon_logical_path => nil
     }
 
     icon_name = imported_item_icon_name("reborn", normalized)
     definition[:icon_logical_path] = "Graphics/Icons/#{icon_name}" if icon_name
+
+    detected_nature = external_mint_nature_for(normalized)
+    if detected_nature
+      definition[:field_use] = 1
+      definition[:pocket] = 2
+      definition[:handler_kind] = :external_mint
+      definition[:nature_id] = detected_nature
+      return definition
+    end
+
+    detected_stat = external_iv_capsule_stat_for(normalized, display_name, description)
+    if detected_stat
+      definition[:field_use] = 1
+      definition[:pocket] = 2
+      definition[:handler_kind] = :external_iv_capsule
+      definition[:stat_id] = detected_stat
+      definition[:iv_amount] = 10
+      return definition
+    end
+
+    detected_native = external_native_delegate_for(normalized)
+    if detected_native
+      native_data = base_item_try_get(detected_native)
+      native_battle_use = native_data && native_data.respond_to?(:battle_use) ? integer(native_data.battle_use, 0) : 0
+      native_field_use = native_data && native_data.respond_to?(:field_use) ? integer(native_data.field_use, definition[:field_use]) : definition[:field_use]
+      definition[:handler_kind] = :delegate_native_item
+      definition[:native_item] = detected_native
+      definition[:battle_delegate] = detected_native if native_battle_use > 0
+      definition[:field_use] = native_field_use
+      definition[:field_use] = 1 if definition[:field_use] == 0
+      definition[:battle_use] = native_battle_use if native_battle_use > 0
+      return definition
+    end
 
     if ["COMMONCANDY", "REVERSECANDY"].include?(normalized)
       definition[:field_use] = 1
@@ -1427,6 +1912,18 @@ module TravelExpansionFramework
     normalized = raw_name.to_s.strip.gsub(/\A:/, "")
     return nil if expansion.empty? || normalized.empty?
     return reborn_imported_item_definition(normalized) if expansion == "reborn"
+    if imported_item_expansion_matches?(expansion, ["anil", "pokemon_anil", "indigo", "pokemon_indigo"])
+      anil = anil_item_metadata_definition(normalized)
+      return anil if anil.is_a?(Hash)
+    end
+    if imported_item_expansion_matches?(expansion, ["rejuvenation", "pokemon_rejuvenation"])
+      rejuvenation = rejuvenation_item_metadata_definition(normalized)
+      return rejuvenation if rejuvenation.is_a?(Hash)
+    end
+    if imported_item_expansion_matches?(expansion, ["insurgence", "pokemon_insurgence"])
+      insurgence = insurgence_item_metadata_definition(normalized)
+      return insurgence if insurgence.is_a?(Hash)
+    end
     if ["keishou", "pokemon_keishou"].include?(expansion) && respond_to?(:keishou_item_metadata_definition)
       keishou = keishou_item_metadata_definition(normalized)
       return keishou if keishou.is_a?(Hash)
@@ -1441,6 +1938,251 @@ module TravelExpansionFramework
     pkmn.changeHappiness(method)
   rescue => e
     log("Imported item happiness change failed for #{pkmn.name}: #{e.class}: #{e.message}")
+  end
+
+  def external_item_no_effect(scene)
+    scene.pbDisplay(_INTL("It won't have any effect.")) if scene && scene.respond_to?(:pbDisplay)
+    return false
+  end
+
+  def external_item_valid_pokemon_target?(pkmn)
+    return false if pkmn.nil?
+    return false if pkmn.respond_to?(:egg?) && pkmn.egg?
+    return false if pkmn.respond_to?(:shadowPokemon?) && pkmn.shadowPokemon?
+    return false if pkmn.respond_to?(:isShadow?) && pkmn.isShadow?
+    return true
+  rescue
+    return false
+  end
+
+  def imported_stat_display_name(stat_id)
+    stat_data = GameData::Stat.try_get(stat_id) if defined?(GameData::Stat)
+    return stat_data.name if stat_data && stat_data.respond_to?(:name)
+    return stat_id.to_s.split("_").map { |part| part.capitalize }.join(" ")
+  rescue
+    return stat_id.to_s
+  end
+
+  def apply_external_mint_item(pkmn, scene, nature_id)
+    return external_item_no_effect(scene) if !external_item_valid_pokemon_target?(pkmn)
+    nature_data = GameData::Nature.try_get(nature_id) if defined?(GameData::Nature)
+    return external_item_no_effect(scene) if nature_data.nil?
+    current_id = nil
+    current_id = pkmn.nature_for_stats_id if pkmn.respond_to?(:nature_for_stats_id)
+    current_id = pkmn.nature_id if current_id.nil? && pkmn.respond_to?(:nature_id)
+    current_id = pkmn.nature.id if current_id.nil? && pkmn.respond_to?(:nature) && pkmn.nature
+    return external_item_no_effect(scene) if current_id == nature_data.id
+    if pkmn.respond_to?(:nature_for_stats=)
+      pkmn.nature_for_stats = nature_data.id
+    elsif pkmn.respond_to?(:nature=)
+      pkmn.nature = nature_data.id
+    else
+      return external_item_no_effect(scene)
+    end
+    scene.pbHardRefresh if scene && scene.respond_to?(:pbHardRefresh)
+    scene.pbRefresh if scene && scene.respond_to?(:pbRefresh)
+    scene.pbDisplay(_INTL("{1}'s stats now reflect a {2} nature.", pkmn.name, nature_data.name)) if scene && scene.respond_to?(:pbDisplay)
+    return true
+  rescue => e
+    log("Imported mint failed for #{pkmn ? pkmn.name : "nil"}: #{e.class}: #{e.message}")
+    return external_item_no_effect(scene)
+  end
+
+  def apply_external_iv_capsule_item(pkmn, scene, stat_id, amount)
+    return external_item_no_effect(scene) if !external_item_valid_pokemon_target?(pkmn)
+    return external_item_no_effect(scene) if !pkmn.respond_to?(:iv) || pkmn.iv.nil?
+    stat_data = GameData::Stat.try_get(stat_id) if defined?(GameData::Stat)
+    return external_item_no_effect(scene) if stat_data.nil?
+    limit = defined?(Pokemon::IV_STAT_LIMIT) ? Pokemon::IV_STAT_LIMIT : 31
+    iv_maxed = pkmn.respond_to?(:ivMaxed) && pkmn.ivMaxed && pkmn.ivMaxed[stat_data.id]
+    current = pkmn.iv[stat_data.id].to_i
+    return external_item_no_effect(scene) if iv_maxed || current >= limit
+    pkmn.iv[stat_data.id] = [current + [amount.to_i, 1].max, limit].min
+    pkmn.calc_stats if pkmn.respond_to?(:calc_stats)
+    scene.pbHardRefresh if scene && scene.respond_to?(:pbHardRefresh)
+    scene.pbRefresh if scene && scene.respond_to?(:pbRefresh)
+    scene.pbDisplay(_INTL("{1}'s {2} IV rose!", pkmn.name, imported_stat_display_name(stat_data.id))) if scene && scene.respond_to?(:pbDisplay)
+    return true
+  rescue => e
+    log("Imported IV capsule failed for #{pkmn ? pkmn.name : "nil"}: #{e.class}: #{e.message}")
+    return external_item_no_effect(scene)
+  end
+
+  def external_ability_capsule_choices(pkmn, scope)
+    return [] if pkmn.nil? || !pkmn.respond_to?(:getAbilityList)
+    scope = scope || :regular
+    if defined?(pbAbilityCapsuleChoices) && scope != :all && scope != :random
+      return pbAbilityCapsuleChoices(pkmn, scope == :hidden)
+    end
+    choices = []
+    seen_abilities = {}
+    current_ability = pkmn.respond_to?(:ability_id) ? pkmn.ability_id : nil
+    pkmn.getAbilityList.each do |ability_id, ability_index|
+      next if ability_id.nil? || seen_abilities[ability_id]
+      next if scope == :regular && ability_index.to_i >= 2
+      next if scope == :hidden && ability_index.to_i < 2
+      next if ability_id == current_ability
+      seen_abilities[ability_id] = true
+      choices << [ability_id, ability_index]
+    end
+    return choices
+  rescue
+    return []
+  end
+
+  def apply_external_ability_capsule_item(pkmn, scene, scope)
+    return external_item_no_effect(scene) if !external_item_valid_pokemon_target?(pkmn)
+    return external_item_no_effect(scene) if pkmn.respond_to?(:isSpecies?) && pkmn.isSpecies?(:ZYGARDE)
+    choices = external_ability_capsule_choices(pkmn, scope)
+    return external_item_no_effect(scene) if choices.empty?
+    chosen_ability = nil
+    if scope == :random
+      chosen_ability = choices[rand(choices.length)]
+    elsif defined?(pbChooseAbilityCapsuleTarget)
+      chosen_ability = pbChooseAbilityCapsuleTarget(pkmn, scene, choices)
+    else
+      chosen_ability = choices[0]
+      if choices.length > 1 && scene && scene.respond_to?(:pbShowCommands)
+        commands = choices.map { |ability_id, _ability_index| GameData::Ability.get(ability_id).name }
+        chosen_index = scene.pbShowCommands(_INTL("Choose an ability."), commands, 0)
+        return false if chosen_index.nil? || chosen_index < 0
+        chosen_ability = choices[chosen_index]
+      end
+      ability_name = GameData::Ability.get(chosen_ability[0]).name
+      if scene && scene.respond_to?(:pbConfirm)
+        return false if !scene.pbConfirm(_INTL("Would you like to change {1}'s Ability to {2}?", pkmn.name, ability_name))
+      end
+    end
+    return false if chosen_ability.nil?
+    if defined?(pbApplyAbilityCapsuleChoice)
+      return pbApplyAbilityCapsuleChoice(pkmn, scene, chosen_ability)
+    end
+    ability_id, ability_index = chosen_ability
+    ability_name = GameData::Ability.get(ability_id).name
+    pkmn.ability_index = ability_index if pkmn.respond_to?(:ability_index=)
+    pkmn.ability = ability_id if pkmn.respond_to?(:ability=)
+    scene.pbHardRefresh if scene && scene.respond_to?(:pbHardRefresh)
+    scene.pbDisplay(_INTL("{1}'s Ability changed to {2}!", pkmn.name, ability_name)) if scene && scene.respond_to?(:pbDisplay)
+    return true
+  rescue => e
+    log("Imported ability capsule failed for #{pkmn ? pkmn.name : "nil"}: #{e.class}: #{e.message}")
+    return external_item_no_effect(scene)
+  end
+
+  def external_rock_smash_target_event
+    return nil if !defined?($game_player) || !$game_player || !$game_player.respond_to?(:pbFacingEvent)
+    event = ($game_player.pbFacingEvent(true) rescue nil)
+    event = ($game_player.pbFacingEvent rescue nil) if event.nil?
+    return nil if event.nil?
+    name = event.respond_to?(:name) ? event.name.to_s : ""
+    return event if name =~ /(smash\s*rock|smashrock|rock\s*smash|breakable\s*rock|cracked\s*rock)/i
+    return event if name =~ /\brock\b/i
+    return nil
+  rescue
+    return nil
+  end
+
+  def use_external_rock_smash_item
+    event = external_rock_smash_target_event
+    if event.nil?
+      pbMessage(_INTL("There is no breakable rock here.")) if defined?(pbMessage)
+      return false
+    end
+    confirmed = defined?(pbConfirmMessage) ? pbConfirmMessage(_INTL("This rock appears to be breakable. Use the Pickaxe?")) : true
+    return false if !confirmed
+    holder = nil
+    holder = $Trainer.get_pokemon_with_move(:ROCKSMASH) if defined?($Trainer) && $Trainer &&
+                                                           $Trainer.respond_to?(:get_pokemon_with_move)
+    actor_name = holder && holder.respond_to?(:name) ? holder.name : nil
+    actor_name = $Trainer.name if actor_name.to_s.empty? && defined?($Trainer) && $Trainer.respond_to?(:name)
+    actor_name = "You" if actor_name.to_s.empty?
+    pbMessage(_INTL("{1} used the Pickaxe!", actor_name)) if defined?(pbMessage)
+    pbHiddenMoveAnimation(holder) if holder && defined?(pbHiddenMoveAnimation)
+    if defined?(pbSmashEvent)
+      pbSmashEvent(event)
+    elsif event.respond_to?(:erase)
+      event.erase
+    end
+    pbRockSmashRandomEncounter if defined?(pbRockSmashRandomEncounter)
+    return true
+  rescue => e
+    log("Imported Rock Smash item failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    pbMessage(_INTL("The Pickaxe could not be used here.")) if defined?(pbMessage)
+    return false
+  end
+
+  def external_battler_has_type?(battler, type_id)
+    type = type_id.to_sym
+    return true if battler.respond_to?(:pbHasType?) && battler.pbHasType?(type)
+    return true if battler.respond_to?(:hasType?) && battler.hasType?(type)
+    if battler.respond_to?(:types)
+      types = battler.types
+      return true if types && types.map { |entry| entry.to_sym rescue entry }.include?(type)
+    end
+    pokemon = battler.respond_to?(:pokemon) ? battler.pokemon : nil
+    if pokemon && pokemon.respond_to?(:types)
+      types = pokemon.types
+      return true if types && types.map { |entry| entry.to_sym rescue entry }.include?(type)
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def ensure_external_ball_type!(runtime_symbol)
+    return false if runtime_symbol.nil? || !defined?($BallTypes) || !$BallTypes.is_a?(Hash)
+    return true if $BallTypes.values.include?(runtime_symbol)
+    max_index = $BallTypes.keys.compact.map { |key| integer(key, -1) }.max.to_i
+    $BallTypes[[max_index + 1, 41].max] = runtime_symbol
+    return true
+  rescue => e
+    log("Imported ball type registration failed for #{runtime_symbol}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def ensure_external_ball_graphics!(runtime_symbol, expansion_id, source_ball)
+    return false if runtime_symbol.nil? || expansion_id.to_s.empty? || source_ball.to_s.empty?
+    begin
+      require "fileutils" if !defined?(FileUtils)
+    rescue Exception
+    end
+    return false if !defined?(FileUtils)
+    copied = false
+    pairs = [
+      ["Graphics/Pictures/Battle/#{source_ball}", "Graphics/Battle animations/ball_#{runtime_symbol}"],
+      ["Graphics/Pictures/Battle/#{source_ball}_open", "Graphics/Battle animations/ball_#{runtime_symbol}_open"],
+      ["Graphics/Pictures/Summary/summaryball#{source_ball}", "Graphics/Pictures/Summary/icon_ball_#{runtime_symbol}"]
+    ]
+    pairs.each do |source_logical, target_logical|
+      next if defined?(pbResolveBitmap) && pbResolveBitmap(target_logical)
+      source = resolve_runtime_path_for_expansion(expansion_id, source_logical, [".png", ".gif", ".jpg", ".jpeg", ".bmp"]) if respond_to?(:resolve_runtime_path_for_expansion)
+      next if source.to_s.empty? || !File.file?(source)
+      target = File.join(Dir.pwd, "#{target_logical}#{File.extname(source)}")
+      FileUtils.mkdir_p(File.dirname(target))
+      next if File.file?(target)
+      FileUtils.cp(source, target)
+      copied = true
+    end
+    return copied
+  rescue => e
+    log("Imported ball graphics bridge failed for #{runtime_symbol}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def use_external_quartz_flute_item
+    if respond_to?(:insurgence_expansion_id?) && !insurgence_expansion_id?
+      pbMessage(_INTL("Mew does not answer from this world.")) if defined?(pbMessage)
+      return true
+    end
+    if respond_to?(:insurgence_mew_transform_interaction!) && insurgence_mew_transform_interaction!(false)
+      return true
+    end
+    pbMessage(_INTL("A clear note rings out, but nothing responds right now.")) if defined?(pbMessage)
+    return true
+  rescue => e
+    log("Imported Quartz Flute item failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    pbMessage(_INTL("The Quartz Flute gives a quiet, harmless note.")) if defined?(pbMessage)
+    return false
   end
 
   def imported_exp_gain_cap(pkmn)
@@ -1535,6 +2277,52 @@ module TravelExpansionFramework
       ItemHandlers::UseOnPokemon.add(runtime_symbol, proc { |_item, pkmn, scene|
         next apply_reborn_exp_candy(pkmn, scene, exp_value)
       })
+    when :external_mint
+      nature_id = metadata[:nature_id]
+      ItemHandlers::UseOnPokemon.add(runtime_symbol, proc { |_item, pkmn, scene|
+        next apply_external_mint_item(pkmn, scene, nature_id)
+      })
+    when :external_iv_capsule
+      stat_id = metadata[:stat_id]
+      iv_amount = metadata[:iv_amount] || 10
+      ItemHandlers::UseOnPokemon.add(runtime_symbol, proc { |_item, pkmn, scene|
+        next apply_external_iv_capsule_item(pkmn, scene, stat_id, iv_amount)
+      })
+    when :external_ability_capsule
+      scope = metadata[:ability_scope] || (metadata[:allow_hidden_abilities] ? :hidden : :regular)
+      ItemHandlers::UseOnPokemon.add(runtime_symbol, proc { |_item, pkmn, scene|
+        next apply_external_ability_capsule_item(pkmn, scene, scope)
+      })
+    when :external_rock_smash
+      ItemHandlers::UseInField.add(runtime_symbol, proc { |_item|
+        next TravelExpansionFramework.use_external_rock_smash_item ? 1 : 0
+      })
+      ItemHandlers::UseFromBag.add(runtime_symbol, proc { |_item|
+        next TravelExpansionFramework.use_external_rock_smash_item ? 2 : 0
+      })
+    when :external_steam_ball
+      ensure_external_ball_type!(runtime_symbol)
+      ensure_external_ball_graphics!(runtime_symbol, metadata[:expansion_id] || metadata["expansion_id"], "STEAMBALL")
+      if defined?(BallHandlers)
+        BallHandlers::ModifyCatchRate.add(runtime_symbol, proc { |_ball, catch_rate, _battle, battler, ultra_beast|
+          rate = catch_rate.to_i
+          is_ultra_beast = ultra_beast
+          is_ultra_beast = pbIsUltraBeast?(battler) if !is_ultra_beast && defined?(pbIsUltraBeast?)
+          rate = (rate * 0.1).floor if is_ultra_beast
+          if TravelExpansionFramework.external_battler_has_type?(battler, :FIRE) ||
+             TravelExpansionFramework.external_battler_has_type?(battler, :WATER)
+            rate = (rate * 3.5).floor
+          end
+          next [rate.to_i, 1].max
+        })
+      end
+    when :external_quartz_flute
+      ItemHandlers::UseInField.add(runtime_symbol, proc { |_item|
+        next TravelExpansionFramework.use_external_quartz_flute_item ? 1 : 0
+      })
+      ItemHandlers::UseFromBag.add(runtime_symbol, proc { |_item|
+        next TravelExpansionFramework.use_external_quartz_flute_item ? 2 : 0
+      })
     when :delegate_native_item
       native_item = metadata[:native_item]
       battle_item = metadata[:battle_delegate] || native_item
@@ -1589,6 +2377,62 @@ module TravelExpansionFramework
     log("Imported item handler registration failed for #{runtime_symbol}: #{e.class}: #{e.message}")
   end
 
+  def refresh_imported_item_registration!(runtime_symbol, expansion, raw, item_data = nil, definition = nil)
+    return nil if runtime_symbol.nil?
+    definition ||= imported_item_registration_definition(expansion, raw) || {}
+    id_number = item_data && item_data.respond_to?(:id_number) ? item_data.id_number : imported_item_id_number(expansion, raw)
+    display_name = definition[:name].to_s
+    display_name = humanize_external_item_name(raw) if display_name.empty?
+    display_plural = definition[:name_plural].to_s
+    display_plural = imported_item_plural(display_name) if display_plural.empty?
+    description = definition[:description].to_s
+    if description.empty?
+      description = _INTL("{1} imported from {2}. Some custom behavior may require a dedicated compatibility adapter.",
+                          display_name, imported_item_display_name(expansion))
+    end
+
+    GameData::Item.register({
+      :id          => runtime_symbol,
+      :id_number   => id_number,
+      :name        => display_name,
+      :name_plural => display_plural,
+      :pocket      => integer(definition[:pocket], item_data && item_data.respond_to?(:pocket) ? item_data.pocket : 1),
+      :price       => integer(definition[:price], item_data && item_data.respond_to?(:price) ? item_data.price : 0),
+      :description => description,
+      :field_use   => integer(definition[:field_use], item_data && item_data.respond_to?(:field_use) ? item_data.field_use : 0),
+      :battle_use  => integer(definition[:battle_use], item_data && item_data.respond_to?(:battle_use) ? item_data.battle_use : 0),
+      :type        => integer(definition[:type], item_data && item_data.respond_to?(:type) ? item_data.type : 0),
+      :move        => definition[:move]
+    })
+    MessageTypes.set(MessageTypes::Items, id_number, display_name) if defined?(MessageTypes)
+    MessageTypes.set(MessageTypes::ItemPlurals, id_number, display_plural) if defined?(MessageTypes)
+    MessageTypes.set(MessageTypes::ItemDescriptions, id_number, description) if defined?(MessageTypes)
+
+    metadata = (imported_runtime_items[runtime_symbol] || {}).merge(definition).merge({
+      :runtime_symbol => runtime_symbol,
+      :raw_name       => raw,
+      :expansion_id   => expansion,
+      :id_number      => id_number
+    })
+    imported_runtime_items[runtime_symbol] = metadata
+    remember_imported_item_origin(metadata)
+    imported_runtime_item_lookup[runtime_symbol] = metadata
+    imported_runtime_item_lookup[runtime_symbol.to_s] = metadata
+    imported_runtime_item_lookup[id_number] = metadata
+    imported_runtime_item_lookup[id_number.to_s] = metadata
+    refreshed_item = base_item_try_get(runtime_symbol)
+    attach_imported_item_metadata(item_data, metadata) if item_data
+    attach_imported_item_metadata(refreshed_item, metadata)
+    imported_runtime_item_lookup[item_data] = metadata if item_data
+    imported_runtime_item_lookup[refreshed_item] = metadata if refreshed_item
+    register_imported_item_handlers(runtime_symbol, metadata)
+    clear_item_icon_filename_cache!
+    return metadata
+  rescue => e
+    log("Imported item metadata refresh failed for #{runtime_symbol}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
   def ensure_external_item_registered(expansion_id, item_identifier)
     expansion = expansion_id.to_s
     return nil if expansion.empty?
@@ -1610,7 +2454,10 @@ module TravelExpansionFramework
       runtime_symbol = imported_item_runtime_symbol(expansion, raw)
       return nil if runtime_symbol.nil?
       existing = base_item_try_get(runtime_symbol)
-      return existing.id if existing
+      if existing
+        refresh_imported_item_registration!(runtime_symbol, expansion, raw, existing)
+        return existing.id
+      end
       registration_key = "#{expansion}:#{runtime_symbol}"
       if imported_item_registration_stack[registration_key]
         return runtime_symbol if imported_item_runtime_symbol?(runtime_symbol)
@@ -1641,7 +2488,7 @@ module TravelExpansionFramework
         :field_use   => integer(definition[:field_use], 0),
         :battle_use  => integer(definition[:battle_use], 0),
         :type        => integer(definition[:type], 0),
-        :move        => nil
+        :move        => definition[:move]
       })
       MessageTypes.set(MessageTypes::Items, id_number, display_name)
       MessageTypes.set(MessageTypes::ItemPlurals, id_number, display_plural)
@@ -1745,6 +2592,20 @@ if defined?(PBItems)
         return tef_original_const_missing(name)
       end
       raise NameError, "uninitialized constant PBItems::#{name}"
+    end
+  end
+end
+
+if defined?(PokemonBag)
+  class PokemonBag
+    alias tef_imported_alias_original_rearrange rearrange unless method_defined?(:tef_imported_alias_original_rearrange)
+
+    def rearrange
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:repair_imported_item_aliases!)
+        TravelExpansionFramework.repair_imported_item_aliases!
+      end
+      return tef_imported_alias_original_rearrange
     end
   end
 end

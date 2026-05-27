@@ -37,6 +37,20 @@ module TravelExpansionFramework
     return false
   end
 
+  def anil_record_badges_from_script!(script)
+    return false if !script
+    return false if respond_to?(:anil_active_now?) && !anil_active_now?
+    recorded = false
+    script.to_s.scan(/\$(?:player|Trainer)\.badges\[(\d+)\]\s*=\s*true/i) do |match|
+      index = match[0].to_i
+      recorded = record_expansion_badge!(ANIL_EXPANSION_ID, index) || recorded if respond_to?(:record_expansion_badge!)
+    end
+    return recorded
+  rescue => e
+    log("[anil] badge script bridge failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
   def anil_any_challenge_mode_enabled?
     anil_mode_states.any? { |key, value| value && key.to_s.start_with?("challenge_") }
   rescue
@@ -63,6 +77,374 @@ module TravelExpansionFramework
     end
   rescue => e
     log("[anil] has_species? compatibility failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  ANIL_ABILITY_ALIASES = {
+    :CAMORRISTA => :CAMORRISTA,
+    :STRIKER    => :CAMORRISTA
+  }.freeze unless const_defined?(:ANIL_ABILITY_ALIASES, false)
+
+  def anil_normalize_ability_key(value)
+    return nil if value.nil?
+    return anil_normalize_ability_key(value.id) if value.respond_to?(:id)
+    data = GameData::Ability.try_get(value) if defined?(GameData::Ability) && GameData::Ability.respond_to?(:try_get)
+    return data.id if data && data.respond_to?(:id)
+    text = value.to_s.upcase.gsub(/[^A-Z0-9]+/, "_").gsub(/\A_+|_+\z/, "")
+    key = text.empty? ? nil : text.to_sym
+    aliases = const_defined?(:ANIL_ABILITY_ALIASES, false) ? ANIL_ABILITY_ALIASES : {}
+    return aliases[key] || key
+  rescue
+    return value.to_s.upcase.to_sym
+  end
+
+  def anil_pokemon_has_ability?(pokemon, ability)
+    wanted = anil_normalize_ability_key(ability)
+    return false if pokemon.nil? || wanted.nil?
+    current = []
+    current << pokemon.ability_id if pokemon.respond_to?(:ability_id)
+    ability_data = pokemon.ability if pokemon.respond_to?(:ability)
+    current << ability_data.id if ability_data && ability_data.respond_to?(:id)
+    current << ability_data.real_name if ability_data && ability_data.respond_to?(:real_name)
+    current << ability_data.name if ability_data && ability_data.respond_to?(:name)
+    current << pokemon.forced_ability if pokemon.respond_to?(:forced_ability)
+    current.any? { |entry| anil_normalize_ability_key(entry) == wanted } ||
+      (pokemon.respond_to?(:hasAbility?) && pokemon.hasAbility?(wanted) rescue false)
+  rescue
+    return false
+  end
+
+  def anil_trainer_has_pokemon_with_ability?(trainer, ability)
+    party = trainer.pokemon_party if trainer && trainer.respond_to?(:pokemon_party)
+    party = trainer.party if (!party || party.empty?) && trainer && trainer.respond_to?(:party)
+    return Array(party).any? { |pokemon| anil_pokemon_has_ability?(pokemon, ability) }
+  rescue => e
+    log("[anil] has_pokemon_with_ability? compatibility failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  ANIL_FOSSIL_ITEM_IDS = [
+    :HELIXFOSSIL, :DOMEFOSSIL, :OLDAMBER, :ROOTFOSSIL, :CLAWFOSSIL,
+    :SKULLFOSSIL, :ARMORFOSSIL, :COVERFOSSIL, :PLUMEFOSSIL,
+    :JAWFOSSIL, :SAILFOSSIL, :FOSSILIZEDBIRD, :FOSSILIZEDDINO,
+    :FOSSILIZEDDRAKE, :FOSSILIZEDFISH
+  ].freeze unless const_defined?(:ANIL_FOSSIL_ITEM_IDS, false)
+
+  def anil_normalize_item_id(item)
+    data = GameData::Item.try_get(item) if defined?(GameData::Item) && GameData::Item.respond_to?(:try_get)
+    return data.id if data && data.respond_to?(:id)
+    return item if item.is_a?(Symbol)
+    return item.to_s.upcase.gsub(/[^A-Z0-9]+/, "").to_sym
+  rescue
+    return item
+  end
+
+  def anil_fossil_item_ids
+    ids = const_defined?(:ANIL_FOSSIL_ITEM_IDS, false) ? ANIL_FOSSIL_ITEM_IDS.dup : []
+    if defined?(GameData::Item) && GameData::Item.const_defined?(:DATA, false)
+      GameData::Item::DATA.each_value do |data|
+        next if data.nil? || !data.respond_to?(:id)
+        next if data.respond_to?(:is_fossil?) && !data.is_fossil?
+        ids << data.id if data.respond_to?(:is_fossil?) && data.is_fossil?
+      end
+    end
+    return ids.compact.map { |item| anil_normalize_item_id(item) }.uniq
+  rescue => e
+    log("[anil] fossil item list fallback used: #{e.class}: #{e.message}") if respond_to?(:log)
+    return ANIL_FOSSIL_ITEM_IDS.dup
+  end
+
+  def anil_bag_fossil_items(bag, *args, exclude: nil, **_kwargs)
+    options = args.last.is_a?(Hash) ? args.last : {}
+    exclude = options[:exclude] if exclude.nil? && options.has_key?(:exclude)
+    excluded = Array(exclude).map { |item| anil_normalize_item_id(item) }
+    anil_fossil_item_ids.find_all do |item|
+      next false if excluded.include?(anil_normalize_item_id(item))
+      next false if defined?(GameData::Item) && GameData::Item.respond_to?(:try_get) && !(GameData::Item.try_get(item) rescue nil)
+      quantity = bag && bag.respond_to?(:pbQuantity) ? (bag.pbQuantity(item) rescue 0) : 0
+      quantity.to_i > 0
+    end
+  rescue => e
+    log("[anil] bag fossil scan failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return []
+  end
+
+  def anil_bag_has_fossil?(bag, *args, exclude: nil, **kwargs)
+    found = !anil_bag_fossil_items(bag, *args, exclude: exclude, **kwargs).empty?
+    record_release_shim_hit("PokemonBag#has_fossil?", "item_handlers", found ? "true" : "false") if respond_to?(:record_release_shim_hit)
+    return found
+  rescue => e
+    log("[anil] has_fossil? compatibility failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_daycare_value_has_egg?(value, visited = [])
+    return false if value.nil? || value == false
+    return true if value == true
+    object_id = value.object_id rescue nil
+    return false if object_id && visited.include?(object_id)
+    visited << object_id if object_id
+    if value.is_a?(Hash)
+      keys = [:egg, "egg", :generated_egg, "generated_egg", :egg_generated, "egg_generated", :has_egg, "has_egg"]
+      keys.each do |key|
+        next if !value.has_key?(key)
+        return true if anil_daycare_value_has_egg?(value[key], visited)
+      end
+      return value.any? { |_key, entry| anil_daycare_value_has_egg?(entry, visited) }
+    elsif value.is_a?(Array)
+      return value.any? { |entry| anil_daycare_value_has_egg?(entry, visited) }
+    end
+    [:egg_ready?, :has_egg?, :egg, :generated_egg].each do |method_name|
+      next if !value.respond_to?(method_name)
+      result = value.public_send(method_name) rescue nil
+      return true if anil_daycare_value_has_egg?(result, visited)
+    end
+    [:@egg, :@generated_egg, :@egg_generated, :@has_egg, :@daycare_egg, :@daycareEgg].each do |ivar|
+      next if !value.instance_variable_defined?(ivar)
+      return true if anil_daycare_value_has_egg?(value.instance_variable_get(ivar), visited)
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def anil_kernel_function_defined?(method_name)
+    return true if Kernel.respond_to?(method_name)
+    return true if Object.method_defined?(method_name)
+    return true if Object.private_method_defined?(method_name)
+    return false
+  rescue
+    return false
+  end
+
+  def anil_call_kernel_function(method_name, *args)
+    return Kernel.send(method_name, *args) if Kernel.respond_to?(method_name)
+    return Object.new.send(method_name, *args) if Object.method_defined?(method_name) ||
+                                                  Object.private_method_defined?(method_name)
+    return nil
+  end
+
+  def anil_daycare_slots
+    global = ($PokemonGlobal rescue nil)
+    return [[nil, 0], [nil, 0]] if global.nil?
+    slots = global.daycare if global.respond_to?(:daycare)
+    slots = [[nil, 0], [nil, 0]] if !slots.is_a?(Array)
+    2.times do |i|
+      slots[i] = [slots[i], 0] if !slots[i].is_a?(Array)
+      slots[i][1] = 0 if slots[i][1].nil?
+    end
+    global.daycare = slots if global.respond_to?(:daycare=)
+    return slots
+  rescue => e
+    log("[anil] daycare slots fallback used: #{e.class}: #{e.message}") if respond_to?(:log)
+    return [[nil, 0], [nil, 0]]
+  end
+
+  def anil_daycare_entry(index)
+    slots = anil_daycare_slots
+    slot = integer(index, 0)
+    slot = slots.length + slot if slot < 0
+    return slots[slot]
+  rescue
+    return nil
+  end
+
+  def anil_daycare_count
+    anil_daycare_slots
+    if anil_kernel_function_defined?(:pbDayCareDeposited)
+      count = anil_call_kernel_function(:pbDayCareDeposited)
+      return integer(count, 0)
+    end
+    return anil_daycare_slots[0, 2].count { |slot| slot.is_a?(Array) && !slot[0].nil? }
+  rescue => e
+    log("[anil] daycare count failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return 0
+  end
+
+  def anil_daycare_egg_generated?
+    if defined?(DayCare) && DayCare.instance_variable_defined?(:@tef_anil_egg_generated) &&
+       DayCare.instance_variable_get(:@tef_anil_egg_generated)
+      return true
+    end
+    anil_daycare_slots
+    if anil_kernel_function_defined?(:pbEggGenerated?)
+      return anil_call_kernel_function(:pbEggGenerated?) ? true : false
+    end
+    global = ($PokemonGlobal rescue nil)
+    if global && global.respond_to?(:daycareEgg)
+      egg_state = global.daycareEgg
+      return true if egg_state == true || egg_state.to_i == 1
+    end
+    values = []
+    [$PokemonGlobal, $PokemonTemp, $Trainer].each do |owner|
+      next if owner.nil?
+      [:daycare, :day_care, :daycareEgg, :daycare_egg, :day_care_egg, :egg_generated, :egg_ready, :has_egg].each do |method_name|
+        next if !owner.respond_to?(method_name)
+        values << (owner.public_send(method_name) rescue nil)
+      end
+      owner.instance_variables.each do |ivar|
+        next if ivar.to_s !~ /(day.?care|egg)/i
+        values << (owner.instance_variable_get(ivar) rescue nil)
+      end
+    end
+    found = values.any? { |value| anil_daycare_value_has_egg?(value) }
+    record_release_shim_hit("DayCare.egg_generated?", "story_transfer", found ? "true" : "false") if respond_to?(:record_release_shim_hit)
+    return found
+  rescue => e
+    log("[anil] daycare egg compatibility failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_daycare_get_details(index = -1, name_variable = -1, cost_variable = -1)
+    anil_daycare_slots
+    if anil_kernel_function_defined?(:pbDayCareGetDeposited)
+      anil_call_kernel_function(:pbDayCareGetDeposited, index, name_variable, cost_variable)
+      return true
+    end
+    entry = anil_daycare_entry(index)
+    pkmn = entry && entry[0]
+    return false if pkmn.nil?
+    name = pkmn.respond_to?(:name) ? pkmn.name : "Pokemon"
+    level = pkmn.respond_to?(:level) ? integer(pkmn.level, 1) : 1
+    base_level = integer(entry[1], level)
+    cost = [[level - base_level + 1, 1].max * 100, 0].max
+    $game_variables[integer(name_variable, -1)] = name if defined?($game_variables) && integer(name_variable, -1) >= 0
+    $game_variables[integer(cost_variable, -1)] = cost if defined?($game_variables) && integer(cost_variable, -1) >= 0
+    return true
+  rescue => e
+    log("[anil] daycare details failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_daycare_get_level_gain(index = -1, name_variable = -1, level_variable = -1)
+    anil_daycare_slots
+    if anil_kernel_function_defined?(:pbDayCareGetLevelGain)
+      return anil_call_kernel_function(:pbDayCareGetLevelGain, index, name_variable, level_variable) ? true : false
+    end
+    entry = anil_daycare_entry(index)
+    pkmn = entry && entry[0]
+    return false if pkmn.nil?
+    name = pkmn.respond_to?(:name) ? pkmn.name : "Pokemon"
+    level = pkmn.respond_to?(:level) ? integer(pkmn.level, 1) : 1
+    base_level = integer(entry[1], level)
+    $game_variables[integer(name_variable, -1)] = name if defined?($game_variables) && integer(name_variable, -1) >= 0
+    $game_variables[integer(level_variable, -1)] = [level - base_level, 0].max if defined?($game_variables) && integer(level_variable, -1) >= 0
+    return true
+  rescue => e
+    log("[anil] daycare level gain failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_daycare_get_compatibility(variable = -1)
+    anil_daycare_slots
+    if anil_kernel_function_defined?(:pbDayCareGetCompatibility)
+      anil_call_kernel_function(:pbDayCareGetCompatibility, variable)
+      return true
+    end
+    $game_variables[integer(variable, -1)] = 0 if defined?($game_variables) && integer(variable, -1) >= 0
+    return true
+  rescue => e
+    log("[anil] daycare compatibility failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def anil_daycare_choose(text = nil, variable = 1)
+    anil_daycare_slots
+    if anil_kernel_function_defined?(:pbDayCareChoose)
+      anil_call_kernel_function(:pbDayCareChoose, text || "Which Pokemon do you want back?", variable)
+      return true
+    end
+    slots = anil_daycare_slots
+    chosen = slots[0] && slots[0][0] ? 0 : 1
+    chosen = -1 if anil_daycare_count <= 0
+    $game_variables[integer(variable, -1)] = chosen if defined?($game_variables) && integer(variable, -1) >= 0
+    return chosen >= 0
+  rescue => e
+    log("[anil] daycare choose failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_daycare_reset_egg_counters
+    global = ($PokemonGlobal rescue nil)
+    if global
+      global.daycareEgg = 0 if global.respond_to?(:daycareEgg=)
+      global.daycareEggSteps = 0 if global.respond_to?(:daycareEggSteps=)
+    end
+    DayCare.instance_variable_set(:@tef_anil_egg_generated, false) if defined?(DayCare)
+    return true
+  rescue => e
+    log("[anil] daycare egg reset failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def anil_daycare_deposit(index)
+    anil_daycare_slots
+    if anil_kernel_function_defined?(:pbDayCareDeposit)
+      anil_call_kernel_function(:pbDayCareDeposit, index)
+      return true
+    end
+    trainer = ($Trainer rescue nil) || ($player rescue nil)
+    party = trainer.party if trainer && trainer.respond_to?(:party)
+    party = Array(party)
+    party_index = integer(index, -1)
+    pkmn = party[party_index]
+    return false if pkmn.nil?
+    slots = anil_daycare_slots
+    slot_index = slots[0][0].nil? ? 0 : (slots[1][0].nil? ? 1 : nil)
+    return false if slot_index.nil?
+    slots[slot_index] = [pkmn, pkmn.respond_to?(:level) ? integer(pkmn.level, 1) : 1]
+    party.delete_at(party_index)
+    party.compact!
+    anil_daycare_reset_egg_counters
+    return true
+  rescue => e
+    log("[anil] daycare deposit failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_daycare_withdraw(index)
+    anil_daycare_slots
+    if anil_kernel_function_defined?(:pbDayCareWithdraw)
+      anil_call_kernel_function(:pbDayCareWithdraw, index)
+      return true
+    end
+    trainer = ($Trainer rescue nil) || ($player rescue nil)
+    return false if trainer && trainer.respond_to?(:party_full?) && trainer.party_full?
+    party = trainer.party if trainer && trainer.respond_to?(:party)
+    return false if party.nil?
+    entry = anil_daycare_entry(index)
+    pkmn = entry && entry[0]
+    return false if pkmn.nil?
+    party << pkmn
+    entry[0] = nil
+    entry[1] = 0
+    anil_daycare_reset_egg_counters
+    return true
+  rescue => e
+    log("[anil] daycare withdraw failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_can_add_egg?
+    trainer = ($Trainer rescue nil) || ($player rescue nil)
+    return false if trainer && trainer.respond_to?(:party_full?) && trainer.party_full?
+    return true
+  rescue
+    return true
+  end
+
+  def anil_daycare_collect_egg
+    anil_daycare_slots
+    return false if !anil_daycare_egg_generated?
+    return false if !anil_can_add_egg?
+    if anil_kernel_function_defined?(:pbDayCareGenerateEgg)
+      anil_call_kernel_function(:pbDayCareGenerateEgg)
+      anil_daycare_reset_egg_counters
+      return true
+    end
+    return false
+  rescue => e
+    log("[anil] daycare egg collection failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
     return false
   end
 end if defined?(TravelExpansionFramework)
@@ -263,12 +645,82 @@ if !defined?(DayCare)
 end
 
 class << DayCare
-  def get_details(*_args); return nil; end unless method_defined?(:get_details)
-  def get_compatibility(*_args); return 0; end unless method_defined?(:get_compatibility)
-  def choose(*_args); return nil; end unless method_defined?(:choose)
-  def deposit(*_args); return true; end unless method_defined?(:deposit)
-  def reset_egg_counters(*_args); return true; end unless method_defined?(:reset_egg_counters)
+  def count(*_args)
+    return TravelExpansionFramework.anil_daycare_count if defined?(TravelExpansionFramework) &&
+                                                          TravelExpansionFramework.respond_to?(:anil_daycare_count)
+    return 0
+  end unless method_defined?(:count)
+  def size(*args); return count(*args); end unless method_defined?(:size)
+  def length(*args); return count(*args); end unless method_defined?(:length)
+  def empty?(*args); return count(*args) <= 0; end unless method_defined?(:empty?)
+  def [](index)
+    return TravelExpansionFramework.anil_daycare_entry(index) if defined?(TravelExpansionFramework) &&
+                                                                TravelExpansionFramework.respond_to?(:anil_daycare_entry)
+    return nil
+  end unless method_defined?(:[])
+  def get_details(index = -1, name_variable = -1, cost_variable = -1, *_args)
+    return TravelExpansionFramework.anil_daycare_get_details(index, name_variable, cost_variable) if defined?(TravelExpansionFramework) &&
+                                                                                                    TravelExpansionFramework.respond_to?(:anil_daycare_get_details)
+    return false
+  end unless method_defined?(:get_details)
+  def get_level_gain(index = -1, name_variable = -1, level_variable = -1, *_args)
+    return TravelExpansionFramework.anil_daycare_get_level_gain(index, name_variable, level_variable) if defined?(TravelExpansionFramework) &&
+                                                                                                        TravelExpansionFramework.respond_to?(:anil_daycare_get_level_gain)
+    return false
+  end unless method_defined?(:get_level_gain)
+  def get_compatibility(variable = -1, *_args)
+    return TravelExpansionFramework.anil_daycare_get_compatibility(variable) if defined?(TravelExpansionFramework) &&
+                                                                               TravelExpansionFramework.respond_to?(:anil_daycare_get_compatibility)
+    return 0
+  end unless method_defined?(:get_compatibility)
+  def choose(text = nil, variable = 1, *_args)
+    return TravelExpansionFramework.anil_daycare_choose(text, variable) if defined?(TravelExpansionFramework) &&
+                                                                          TravelExpansionFramework.respond_to?(:anil_daycare_choose)
+    return false
+  end unless method_defined?(:choose)
+  def deposit(index = nil, *_args)
+    return TravelExpansionFramework.anil_daycare_deposit(index) if defined?(TravelExpansionFramework) &&
+                                                                  TravelExpansionFramework.respond_to?(:anil_daycare_deposit)
+    return false
+  end unless method_defined?(:deposit)
+  def withdraw(index = nil, *_args)
+    return TravelExpansionFramework.anil_daycare_withdraw(index) if defined?(TravelExpansionFramework) &&
+                                                                   TravelExpansionFramework.respond_to?(:anil_daycare_withdraw)
+    return false
+  end unless method_defined?(:withdraw)
+  def reset_egg_counters(*_args)
+    return TravelExpansionFramework.anil_daycare_reset_egg_counters if defined?(TravelExpansionFramework) &&
+                                                                      TravelExpansionFramework.respond_to?(:anil_daycare_reset_egg_counters)
+    return true
+  end unless method_defined?(:reset_egg_counters)
+  def egg_generated?(*_args)
+    if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:anil_daycare_egg_generated?)
+      return TravelExpansionFramework.anil_daycare_egg_generated?
+    end
+    return false
+  end unless method_defined?(:egg_generated?)
+  def egg_ready?(*args); return egg_generated?(*args); end unless method_defined?(:egg_ready?)
+  def has_egg?(*args); return egg_generated?(*args); end unless method_defined?(:has_egg?)
+  def egg(*_args); return nil; end unless method_defined?(:egg)
+  def generated_egg(*_args); return egg(*_args); end unless method_defined?(:generated_egg)
+  def egg_generated=(value); @tef_anil_egg_generated = value ? true : false; end unless method_defined?(:egg_generated=)
+  def generate_egg(*_args); @tef_anil_egg_generated = true; return true; end unless method_defined?(:generate_egg)
+  def take_egg(*_args); @tef_anil_egg_generated = false; return nil; end unless method_defined?(:take_egg)
+  def collect_egg(*_args)
+    return TravelExpansionFramework.anil_daycare_collect_egg if defined?(TravelExpansionFramework) &&
+                                                               TravelExpansionFramework.respond_to?(:anil_daycare_collect_egg)
+    return take_egg(*_args)
+  end unless method_defined?(:collect_egg)
+  def reset_egg(*_args); return reset_egg_counters(*_args); end unless method_defined?(:reset_egg)
 end if defined?(DayCare)
+
+def can_add_egg?
+  return TravelExpansionFramework.anil_can_add_egg? if defined?(TravelExpansionFramework) &&
+                                                      TravelExpansionFramework.respond_to?(:anil_can_add_egg?)
+  return true
+rescue
+  return true
+end unless defined?(can_add_egg?)
 
 module Kernel
   def self.pbSetPokemonCenter(*args)
@@ -340,6 +792,34 @@ if defined?(PokemonGlobalMetadata)
     attr_accessor :follower_toggled unless method_defined?(:follower_toggled)
     attr_accessor :nuzlocke unless method_defined?(:nuzlocke)
     attr_accessor :permalocke_loss unless method_defined?(:permalocke_loss)
+    attr_accessor :tef_anil_egg_incubator_storage unless method_defined?(:tef_anil_egg_incubator_storage)
+    attr_accessor :tef_anil_egg_incubator_recovery_storage unless method_defined?(:tef_anil_egg_incubator_recovery_storage)
+  end
+end
+
+if defined?(PokemonBag)
+  class PokemonBag
+    if !method_defined?(:fossil_items)
+      def fossil_items(*args, exclude: nil, **kwargs)
+        if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:anil_bag_fossil_items)
+          return TravelExpansionFramework.anil_bag_fossil_items(self, *args, exclude: exclude, **kwargs)
+        end
+        return []
+      rescue
+        return []
+      end
+    end
+
+    if !method_defined?(:has_fossil?)
+      def has_fossil?(*args, exclude: nil, **kwargs)
+        if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:anil_bag_has_fossil?)
+          return TravelExpansionFramework.anil_bag_has_fossil?(self, *args, exclude: exclude, **kwargs)
+        end
+        return !fossil_items(*args, exclude: exclude, **kwargs).empty?
+      rescue
+        return false
+      end
+    end
   end
 end
 
@@ -375,6 +855,20 @@ if defined?(Trainer)
     rescue
       return false
     end
+
+    def has_pokemon_with_ability?(ability, *_args)
+      return TravelExpansionFramework.anil_trainer_has_pokemon_with_ability?(self, ability) if defined?(TravelExpansionFramework) &&
+                                                                                               TravelExpansionFramework.respond_to?(:anil_trainer_has_pokemon_with_ability?)
+      return Array(party).any? { |pkmn| pkmn && pkmn.respond_to?(:ability_id) && pkmn.ability_id == ability }
+    rescue
+      return false
+    end unless method_defined?(:has_pokemon_with_ability?)
+
+    def has_pokemon_with_ability(ability, *args)
+      return has_pokemon_with_ability?(ability, *args)
+    rescue
+      return false
+    end unless method_defined?(:has_pokemon_with_ability)
   end
 end
 
@@ -409,6 +903,20 @@ if defined?(Player)
     rescue
       return false
     end
+
+    def has_pokemon_with_ability?(ability, *_args)
+      return TravelExpansionFramework.anil_trainer_has_pokemon_with_ability?(self, ability) if defined?(TravelExpansionFramework) &&
+                                                                                               TravelExpansionFramework.respond_to?(:anil_trainer_has_pokemon_with_ability?)
+      return Array(party).any? { |pkmn| pkmn && pkmn.respond_to?(:ability_id) && pkmn.ability_id == ability }
+    rescue
+      return false
+    end unless method_defined?(:has_pokemon_with_ability?)
+
+    def has_pokemon_with_ability(ability, *args)
+      return has_pokemon_with_ability?(ability, *args)
+    rescue
+      return false
+    end unless method_defined?(:has_pokemon_with_ability)
 
     def connecting_online
       return @tef_anil_connecting_online ? true : false
@@ -488,6 +996,9 @@ class NilClass
   def female?; return false; end unless method_defined?(:female?)
   def name; return "Player"; end unless method_defined?(:name)
   def party; return []; end unless method_defined?(:party)
+  def has_pokemon_with_ability?(*_args); return false; end unless method_defined?(:has_pokemon_with_ability?)
+  def has_pokemon_with_ability(*_args); return false; end unless method_defined?(:has_pokemon_with_ability)
+  def is_fossil?; return false; end unless method_defined?(:is_fossil?)
 end
 
 if defined?(Player::Pokedex)
@@ -2798,7 +3309,17 @@ module TravelExpansionFramework
     :ALBUM_FOTOS   => :ALBUMFOTOS,
     :ALBUMDEFOTOS  => :ALBUMFOTOS,
     :PHOTOALBUM    => :ALBUMFOTOS,
-    :PHOTO_ALBUM   => :ALBUMFOTOS
+    :PHOTO_ALBUM   => :ALBUMFOTOS,
+    :EGGHATCHER    => :EGGHATCHER,
+    :EGG_HATCHER   => :EGGHATCHER,
+    :EGGINCUBATOR  => :EGGHATCHER,
+    :EGG_INCUBATOR => :EGGHATCHER,
+    :INCUBADORA    => :EGGHATCHER,
+    :ROCKSMASHITEM => :ROCKSMASHITEM,
+    :ROCKSMASH     => :ROCKSMASHITEM,
+    :ROCK_SMASH    => :ROCKSMASHITEM,
+    :PICO          => :ROCKSMASHITEM,
+    :PICKAXE       => :ROCKSMASHITEM
   }.freeze unless const_defined?(:ANIL_KEY_ITEM_ALIASES, false)
 
   def anil_key_item_handler_registry
@@ -3042,6 +3563,478 @@ module TravelExpansionFramework
     return false
   end
 
+  def anil_mutable_party
+    trainer = ($Trainer rescue nil)
+    trainer ||= ($player rescue nil)
+    party = trainer.party if trainer && trainer.respond_to?(:party)
+    return party if party.is_a?(Array)
+    return []
+  rescue
+    return []
+  end
+
+  def anil_egg_incubator_storage_entry?(entry)
+    return false if entry.nil?
+    return true if entry.respond_to?(:species)
+    return true if entry.respond_to?(:steps_to_hatch)
+    return true if entry.respond_to?(:egg?) || entry.respond_to?(:name)
+    return false
+  rescue
+    return false
+  end
+
+  def anil_egg_incubator_storage_key(entry)
+    return [:nil] if entry.nil?
+    personal = entry.personalID if entry.respond_to?(:personalID)
+    return [:pokemon, personal] if !personal.nil?
+    [
+      :pokemon,
+      (entry.species if entry.respond_to?(:species)),
+      (entry.form if entry.respond_to?(:form)),
+      (entry.gender if entry.respond_to?(:gender)),
+      (entry.steps_to_hatch if entry.respond_to?(:steps_to_hatch)),
+      (entry.name if entry.respond_to?(:name)),
+      entry.object_id
+    ]
+  rescue
+    return [:object, entry.object_id]
+  end
+
+  ANIL_EGG_INCUBATOR_MAX_SLOTS = 6 unless const_defined?(:ANIL_EGG_INCUBATOR_MAX_SLOTS, false)
+
+  def anil_egg_incubator_max_slots
+    return ANIL_EGG_INCUBATOR_MAX_SLOTS if const_defined?(:ANIL_EGG_INCUBATOR_MAX_SLOTS, false)
+    return 6
+  rescue
+    return 6
+  end
+
+  def anil_egg_incubator_unwrap_storage_entry(entry)
+    if entry.is_a?(Hash)
+      [:pokemon, "pokemon", :pkmn, "pkmn", :egg, "egg", :stored, "stored"].each do |key|
+        next if !entry.has_key?(key)
+        value = entry[key]
+        next if value.nil?
+        return anil_egg_incubator_unwrap_storage_entry(value)
+      end
+      return nil
+    end
+    if entry.is_a?(Array) && entry.length <= 3
+      entry.each do |value|
+        next if value.nil? || value.is_a?(Symbol) || value.is_a?(String) || value.is_a?(Numeric)
+        unwrapped = anil_egg_incubator_unwrap_storage_entry(value)
+        return unwrapped if anil_egg_incubator_storage_entry?(unwrapped)
+      end
+    end
+    return entry
+  rescue
+    return entry
+  end
+
+  def anil_egg_incubator_normalize_storage(storage)
+    normalized = []
+    seen = {}
+    Array(storage).each do |raw_entry|
+      entry = anil_egg_incubator_unwrap_storage_entry(raw_entry)
+      next if !anil_egg_incubator_storage_entry?(entry)
+      key = anil_egg_incubator_storage_key(entry)
+      next if seen[key]
+      normalized << entry
+      seen[key] = true
+      break if normalized.length >= anil_egg_incubator_max_slots
+    end
+    return normalized
+  rescue
+    return []
+  end
+
+  def anil_egg_incubator_storage_candidates
+    candidates = []
+    candidates << @anil_egg_incubator_storage_cache if @anil_egg_incubator_storage_cache.is_a?(Array)
+    global = ($PokemonGlobal rescue nil)
+    if global
+      if global.respond_to?(:tef_anil_egg_incubator_storage)
+        candidates << global.tef_anil_egg_incubator_storage
+      elsif global.instance_variable_defined?(:@tef_anil_egg_incubator_storage)
+        candidates << global.instance_variable_get(:@tef_anil_egg_incubator_storage)
+      end
+      if global.respond_to?(:tef_anil_egg_incubator_recovery_storage)
+        candidates << global.tef_anil_egg_incubator_recovery_storage
+      elsif global.instance_variable_defined?(:@tef_anil_egg_incubator_recovery_storage)
+        candidates << global.instance_variable_get(:@tef_anil_egg_incubator_recovery_storage)
+      end
+    end
+    meta = anil_metadata if respond_to?(:anil_metadata)
+    if meta.is_a?(Hash)
+      candidates << meta["egg_incubator_storage"]
+      candidates << meta["egg_incubator_recovery_storage"]
+    end
+    return candidates
+  rescue
+    return []
+  end
+
+  def anil_egg_incubator_merged_storage
+    merged = []
+    seen = {}
+    anil_egg_incubator_storage_candidates.each do |candidate|
+      anil_egg_incubator_normalize_storage(candidate).each do |entry|
+        key = anil_egg_incubator_storage_key(entry)
+        next if seen[key]
+        merged << entry
+        seen[key] = true
+        break if merged.length >= anil_egg_incubator_max_slots
+      end
+      break if merged.length >= anil_egg_incubator_max_slots
+    end
+    return merged
+  rescue
+    return []
+  end
+
+  def anil_egg_incubator_save!(storage)
+    storage = anil_egg_incubator_normalize_storage(storage)
+    @anil_egg_incubator_storage_cache = storage
+    @anil_egg_incubator_storage_has_contents = storage.any?
+    @anil_egg_incubator_storage_known_empty = storage.empty?
+    anil_remember_value("egg_incubator_storage", storage) if respond_to?(:anil_remember_value)
+    global = ($PokemonGlobal rescue nil)
+    if global
+      if global.respond_to?(:tef_anil_egg_incubator_storage=)
+        global.tef_anil_egg_incubator_storage = storage
+      else
+        global.instance_variable_set(:@tef_anil_egg_incubator_storage, storage)
+      end
+      if storage.any?
+        if global.respond_to?(:tef_anil_egg_incubator_recovery_storage=)
+          global.tef_anil_egg_incubator_recovery_storage = storage
+        else
+          global.instance_variable_set(:@tef_anil_egg_incubator_recovery_storage, storage)
+        end
+        anil_remember_value("egg_incubator_recovery_storage", storage) if respond_to?(:anil_remember_value)
+      end
+    end
+    return storage
+  rescue => e
+    log("[anil] Egg Incubator save failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return anil_egg_incubator_normalize_storage(storage)
+  end
+
+  def anil_egg_incubator_storage
+    storage = anil_egg_incubator_merged_storage
+    return anil_egg_incubator_save!(storage)
+  rescue => e
+    log("[anil] Egg Incubator storage failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return []
+  end
+
+  def anil_egg_incubator_storage_present?
+    return true if @anil_egg_incubator_storage_has_contents
+    storage = anil_egg_incubator_merged_storage
+    present = Array(storage).compact.any?
+    @anil_egg_incubator_storage_has_contents = present
+    @anil_egg_incubator_storage_known_empty = !present
+    return present
+  rescue
+    return false
+  end
+
+  def anil_egg_pokemon?(pokemon)
+    return false if pokemon.nil?
+    return pokemon.egg? if pokemon.respond_to?(:egg?)
+    steps = pokemon.steps_to_hatch if pokemon.respond_to?(:steps_to_hatch)
+    return integer(steps, 0) > 0
+  rescue
+    return false
+  end
+
+  def anil_egg_incubator_label(pokemon)
+    if anil_egg_pokemon?(pokemon)
+      steps = pokemon.steps_to_hatch if pokemon.respond_to?(:steps_to_hatch)
+      steps = integer(steps, 0)
+      return steps > 1 ? _INTL("Egg ({1} steps)", steps) : _INTL("Egg (ready)")
+    end
+    name = pokemon.name if pokemon.respond_to?(:name)
+    name = pokemon.speciesName if (name.nil? || name.to_s.empty?) && pokemon.respond_to?(:speciesName)
+    if (name.nil? || name.to_s.empty?) && defined?(GameData::Species) && pokemon.respond_to?(:species)
+      data = GameData::Species.try_get(pokemon.species) rescue nil
+      name = data.name if data && data.respond_to?(:name)
+    end
+    return _INTL("{1} (hatched)", name.to_s.empty? ? "Pokemon" : name.to_s)
+  rescue
+    return _INTL("Egg")
+  end
+
+  def anil_egg_incubator_party_egg_indices
+    party = anil_mutable_party
+    indices = []
+    party.each_with_index { |pokemon, index| indices << index if anil_egg_pokemon?(pokemon) }
+    return indices
+  rescue
+    return []
+  end
+
+  def anil_egg_incubator_storage_egg_indices(storage = nil)
+    storage ||= anil_egg_incubator_storage
+    indices = []
+    Array(storage).each_with_index { |pokemon, index| indices << index if anil_egg_pokemon?(pokemon) }
+    return indices
+  rescue
+    return []
+  end
+
+  def anil_egg_incubator_storage_hatched_indices(storage = nil)
+    storage ||= anil_egg_incubator_storage
+    indices = []
+    Array(storage).each_with_index do |pokemon, index|
+      next if pokemon.nil?
+      indices << index if !anil_egg_pokemon?(pokemon)
+    end
+    return indices
+  rescue
+    return []
+  end
+
+  def anil_egg_incubator_clear_recovery_if_empty!(storage)
+    return true if Array(storage).compact.any?
+    global = ($PokemonGlobal rescue nil)
+    if global
+      if global.respond_to?(:tef_anil_egg_incubator_recovery_storage=)
+        global.tef_anil_egg_incubator_recovery_storage = []
+      else
+        global.instance_variable_set(:@tef_anil_egg_incubator_recovery_storage, [])
+      end
+    end
+    anil_remember_value("egg_incubator_recovery_storage", []) if respond_to?(:anil_remember_value)
+    return true
+  rescue => e
+    log("[anil] Egg Incubator recovery clear failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_egg_incubator_register_hatched!(pokemon)
+    return false if pokemon.nil? || anil_egg_pokemon?(pokemon)
+    return false if !defined?($Trainer) || !$Trainer || !$Trainer.respond_to?(:pokedex)
+    $Trainer.pokedex.register(pokemon) rescue nil
+    $Trainer.pokedex.set_owned(pokemon.species) rescue nil if pokemon.respond_to?(:species)
+    return true
+  rescue
+    return false
+  end
+
+  def anil_egg_incubator_deliver!(pokemon)
+    return false if pokemon.nil?
+    party = anil_mutable_party
+    label = anil_egg_incubator_label(pokemon).sub(/\s+\(hatched\)\z/, "")
+    if anil_egg_pokemon?(pokemon)
+      if party.length < 6
+        party << pokemon
+        pbMessage(_INTL("The Egg was moved to your party.")) if defined?(pbMessage)
+        return true
+      end
+      if defined?($PokemonStorage) && $PokemonStorage &&
+         (!$PokemonStorage.respond_to?(:full?) || !$PokemonStorage.full?)
+        box = $PokemonStorage.pbStoreCaught(pokemon) rescue -1
+        if box && box.to_i >= 0
+          box_name = ($PokemonStorage[box].name rescue _INTL("a PC Box"))
+          pbMessage(_INTL("The Egg was sent to {1}.", box_name)) if defined?(pbMessage)
+          return true
+        end
+      end
+      pbMessage(_INTL("There is no room for the Egg.")) if defined?(pbMessage)
+      return false
+    end
+    if party.length < 6
+      party << pokemon
+      anil_egg_incubator_register_hatched!(pokemon)
+      pbMessage(_INTL("{1} was moved to your party.", label)) if defined?(pbMessage)
+      return true
+    end
+    if defined?($PokemonStorage) && $PokemonStorage &&
+       (!$PokemonStorage.respond_to?(:full?) || !$PokemonStorage.full?)
+      box = $PokemonStorage.pbStoreCaught(pokemon) rescue -1
+      if box && box.to_i >= 0
+        anil_egg_incubator_register_hatched!(pokemon)
+        box_name = ($PokemonStorage[box].name rescue _INTL("a PC Box"))
+        pbMessage(_INTL("{1} was sent to {2}.", label, box_name)) if defined?(pbMessage)
+        return true
+      end
+    end
+    pbMessage(_INTL("There is no room for {1}.", label)) if defined?(pbMessage)
+    return false
+  rescue => e
+    log("[anil] Egg Incubator delivery failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    pbMessage(_INTL("The Egg Incubator couldn't withdraw anything.")) if defined?(pbMessage)
+    return false
+  end
+
+  def anil_egg_incubator_step_power
+    amount = 1
+    amount += 1 if defined?(isWearingClothes) && defined?(CLOTHES_BREEDER) && isWearingClothes(CLOTHES_BREEDER)
+    anil_mutable_party.each do |pokemon|
+      next if pokemon.nil? || anil_egg_pokemon?(pokemon)
+      if pokemon.respond_to?(:hasAbility?) && (pokemon.hasAbility?(:FLAMEBODY) || pokemon.hasAbility?(:MAGMAARMOR))
+        amount += 1
+        break
+      end
+    end
+    return [amount, 1].max
+  rescue
+    return 1
+  end
+
+  def anil_egg_incubator_advance!
+    return false if !anil_egg_incubator_storage_present?
+    storage = anil_egg_incubator_storage
+    return false if storage.empty?
+    power = anil_egg_incubator_step_power
+    changed = false
+    storage.each do |pokemon|
+      next if !anil_egg_pokemon?(pokemon)
+      next if !pokemon.respond_to?(:steps_to_hatch) || !pokemon.respond_to?(:steps_to_hatch=)
+      pokemon.steps_to_hatch = integer(pokemon.steps_to_hatch, 0) - power
+      changed = true
+      next if pokemon.steps_to_hatch > 0
+      pokemon.steps_to_hatch = 0
+      begin
+        pbHatch(pokemon) if defined?(pbHatch)
+      rescue => e
+        log("[anil] Egg Incubator hatch animation failed: #{e.class}: #{e.message}") if respond_to?(:log)
+      end
+    end
+    anil_egg_incubator_save!(storage) if changed
+    return changed
+  rescue => e
+    log("[anil] Egg Incubator step failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_egg_incubator_store!
+    storage = anil_egg_incubator_storage
+    if storage.length >= anil_egg_incubator_max_slots
+      pbMessage(_INTL("The Egg Incubator is full.")) if defined?(pbMessage)
+      return false
+    end
+    party = anil_mutable_party
+    indices = anil_egg_incubator_party_egg_indices
+    if indices.empty?
+      return anil_egg_incubator_withdraw!(:all) if !storage.empty?
+      pbMessage(_INTL("There aren't any Eggs in your party.")) if defined?(pbMessage)
+      return false
+    end
+    commands = indices.map { |index| anil_egg_incubator_label(party[index]) }
+    commands << _INTL("Cancel")
+    choice = defined?(pbShowCommands) ? pbShowCommands(nil, commands, -1) : -1
+    return false if choice.nil? || choice < 0 || choice >= indices.length
+    pokemon = party.delete_at(indices[choice])
+    party.compact!
+    storage << pokemon
+    anil_egg_incubator_save!(storage)
+    pbMessage(_INTL("The Egg was placed in the Egg Incubator.")) if defined?(pbMessage)
+    return true
+  rescue => e
+    log("[anil] Egg Incubator store failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    pbMessage(_INTL("The Egg Incubator couldn't store an Egg.")) if defined?(pbMessage)
+    return false
+  end
+
+  def anil_egg_incubator_withdraw!(mode = :all)
+    storage = anil_egg_incubator_storage
+    if storage.empty?
+      pbMessage(_INTL("The Egg Incubator is empty.")) if defined?(pbMessage)
+      return false
+    end
+    mode = :hatched if mode == true
+    mode = :all if mode == false || mode.nil?
+    indices = case mode
+              when :hatched
+                anil_egg_incubator_storage_hatched_indices(storage)
+              when :egg, :eggs
+                anil_egg_incubator_storage_egg_indices(storage)
+              else
+                (0...storage.length).to_a
+              end
+    if indices.empty?
+      message = mode == :hatched ? _INTL("There aren't any hatched Pokemon ready.") :
+                mode == :egg || mode == :eggs ? _INTL("There aren't any Eggs in the Egg Incubator.") :
+                _INTL("The Egg Incubator is empty.")
+      pbMessage(message) if defined?(pbMessage)
+      return false
+    end
+    commands = indices.map { |index| anil_egg_incubator_label(storage[index]) }
+    commands << _INTL("Cancel")
+    choice = defined?(pbShowCommands) ? pbShowCommands(nil, commands, -1) : -1
+    return false if choice.nil? || choice < 0 || choice >= indices.length
+    storage_index = indices[choice]
+    pokemon = storage[storage_index]
+    return false if !anil_egg_incubator_deliver!(pokemon)
+    storage.delete_at(storage_index)
+    anil_egg_incubator_save!(storage)
+    anil_egg_incubator_clear_recovery_if_empty!(storage)
+    return true
+  rescue => e
+    log("[anil] Egg Incubator withdraw failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    pbMessage(_INTL("The Egg Incubator couldn't withdraw anything.")) if defined?(pbMessage)
+    return false
+  end
+
+  def anil_egg_incubator_view!
+    storage = anil_egg_incubator_storage
+    if storage.empty?
+      pbMessage(_INTL("The Egg Incubator is empty.")) if defined?(pbMessage)
+      return true
+    end
+    lines = [_INTL("Egg Incubator: {1}/{2} slots", storage.length, anil_egg_incubator_max_slots)]
+    lines.concat(storage.each_with_index.map { |pokemon, index| "#{index + 1}. #{anil_egg_incubator_label(pokemon)}" })
+    lines.each_slice(3) { |slice| pbMessage(slice.join("\n")) if defined?(pbMessage) }
+    return true
+  rescue => e
+    log("[anil] Egg Incubator view failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def anil_use_egg_incubator!
+    storage = anil_egg_incubator_storage
+    party = anil_mutable_party
+    party_eggs = anil_egg_incubator_party_egg_indices
+    stored_eggs = anil_egg_incubator_storage_egg_indices(storage)
+    hatched = anil_egg_incubator_storage_hatched_indices(storage)
+    commands = []
+    store_cmd = nil
+    withdraw_egg_cmd = nil
+    withdraw_hatched_cmd = nil
+    withdraw_any_cmd = nil
+    view_cmd = nil
+    withdraw_hatched_cmd = commands.length; commands << _INTL("Withdraw Hatched") if !hatched.empty?
+    withdraw_egg_cmd = commands.length; commands << _INTL("Withdraw Egg") if !stored_eggs.empty?
+    withdraw_any_cmd = commands.length; commands << _INTL("Withdraw Stored") if !storage.empty? && hatched.empty? && stored_eggs.empty?
+    store_cmd = commands.length; commands << _INTL("Store an Egg") if !party_eggs.empty? && storage.length < anil_egg_incubator_max_slots
+    view_cmd = commands.length; commands << _INTL("Check Eggs") if !storage.empty?
+    commands << _INTL("Cancel")
+    if commands.length <= 1
+      if storage.empty? && party_eggs.empty?
+        pbMessage(_INTL("There aren't any Eggs to manage.")) if defined?(pbMessage)
+      elsif storage.length >= anil_egg_incubator_max_slots
+        pbMessage(_INTL("The Egg Incubator is full.")) if defined?(pbMessage)
+      elsif party.length >= 6
+        pbMessage(_INTL("Your party is full.")) if defined?(pbMessage)
+      end
+      return true
+    end
+    choice = defined?(pbShowCommands) ? pbShowCommands(nil, commands, -1) : -1
+    return false if choice.nil? || choice < 0 || choice >= commands.length - 1
+    return anil_egg_incubator_store! if !store_cmd.nil? && choice == store_cmd
+    return anil_egg_incubator_withdraw!(:hatched) if !withdraw_hatched_cmd.nil? && choice == withdraw_hatched_cmd
+    return anil_egg_incubator_withdraw!(:egg) if !withdraw_egg_cmd.nil? && choice == withdraw_egg_cmd
+    return anil_egg_incubator_withdraw!(:all) if !withdraw_any_cmd.nil? && choice == withdraw_any_cmd
+    return anil_egg_incubator_view! if !view_cmd.nil? && choice == view_cmd
+    return true
+  rescue => e
+    log("[anil] Egg Incubator use failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    pbMessage(_INTL("The Egg Incubator couldn't be opened.")) if defined?(pbMessage)
+    return false
+  end
+
   def anil_register_key_item_symbol!(raw_name, item_symbol)
     return false if item_symbol.nil? || !defined?(ItemHandlers)
     raw = anil_key_item_raw_name(raw_name)
@@ -3081,6 +4074,20 @@ module TravelExpansionFramework
       ItemHandlers::UseFromBag.add(symbol, proc { |_item|
         next TravelExpansionFramework.anil_use_photo_album! ? 1 : 0
       })
+    when :EGGHATCHER
+      ItemHandlers::UseInField.add(symbol, proc { |_item|
+        next TravelExpansionFramework.anil_use_egg_incubator! ? 1 : 0
+      })
+      ItemHandlers::UseFromBag.add(symbol, proc { |_item|
+        next TravelExpansionFramework.anil_use_egg_incubator! ? 2 : 0
+      })
+    when :ROCKSMASHITEM
+      ItemHandlers::UseInField.add(symbol, proc { |_item|
+        next TravelExpansionFramework.use_external_rock_smash_item ? 1 : 0
+      })
+      ItemHandlers::UseFromBag.add(symbol, proc { |_item|
+        next TravelExpansionFramework.use_external_rock_smash_item ? 2 : 0
+      })
     else
       return false
     end
@@ -3096,7 +4103,7 @@ module TravelExpansionFramework
     return false if @anil_key_item_registration_active
     @anil_key_item_registration_active = true
     registered = false
-    [:POKERIDER, :POKERADAR, :RADAR, :ALBUMFOTOS].each do |raw|
+    [:POKERIDER, :POKERADAR, :RADAR, :ALBUMFOTOS, :EGGHATCHER, :ROCKSMASHITEM].each do |raw|
       anil_key_item_symbols(raw).each do |symbol|
         registered = anil_register_key_item_symbol!(raw, symbol) || registered
       end
@@ -3133,6 +4140,16 @@ end
 
 TravelExpansionFramework.anil_register_key_item_handlers! if defined?(TravelExpansionFramework) &&
                                                              TravelExpansionFramework.respond_to?(:anil_register_key_item_handlers!)
+
+if defined?(Events) && defined?(TravelExpansionFramework) &&
+   TravelExpansionFramework.respond_to?(:anil_egg_incubator_advance!) &&
+   !TravelExpansionFramework.instance_variable_get(:@anil_egg_incubator_step_hook_registered)
+  Events.onStepTaken += proc { |_sender, _event|
+    TravelExpansionFramework.anil_egg_incubator_advance! if defined?(TravelExpansionFramework) &&
+                                                            TravelExpansionFramework.respond_to?(:anil_egg_incubator_advance!)
+  }
+  TravelExpansionFramework.instance_variable_set(:@anil_egg_incubator_step_hook_registered, true)
+end
 
 class Interpreter
   const_set(:LevelCapsEX, ::LevelCapsEX) if defined?(::LevelCapsEX) && !const_defined?(:LevelCapsEX, false)
@@ -3527,8 +4544,16 @@ class Interpreter
   def execute_script(script)
     TravelExpansionFramework.ensure_player_global! if defined?(TravelExpansionFramework) &&
                                                      TravelExpansionFramework.respond_to?(:ensure_player_global!)
-    return tef_anil_original_execute_script(script) if respond_to?(:tef_anil_original_execute_script, true)
-    return eval(script)
+    if respond_to?(:tef_anil_original_execute_script, true)
+      result = tef_anil_original_execute_script(script)
+      TravelExpansionFramework.anil_record_badges_from_script!(script) if defined?(TravelExpansionFramework) &&
+                                                                          TravelExpansionFramework.respond_to?(:anil_record_badges_from_script!)
+      return result
+    end
+    result = eval(script)
+    TravelExpansionFramework.anil_record_badges_from_script!(script) if defined?(TravelExpansionFramework) &&
+                                                                        TravelExpansionFramework.respond_to?(:anil_record_badges_from_script!)
+    return result
   rescue NoMethodError => e
     missing_name = e.name.to_s rescue ""
     if tef_anil_active? && ["mystery_gift_unlocked", "pbShowdown"].include?(missing_name)

@@ -28,6 +28,8 @@ if defined?(Scene_Map)
       # Background panel padding around icons
       BG_PAD    = 4
       ARROW_W   = 10      # arrow column width on right edge of bg
+      MIN_STRIP_W = 5     # left edge click strip for full minimization
+      MIN_SLIVER_W = 4    # minimized width: a plain line
 
       # Deploy animation speed (0..1 progress per frame)
       DEPLOY_SPEED = 0.12
@@ -74,6 +76,9 @@ if defined?(Scene_Map)
         @spr.visible = false
 
         @deployed = false
+        @minimized = false       # true = only the thin left sliver is shown
+        @sliver_only = false
+        @minimize_cooldown = 0
         @deploy_progress = 0.0   # 0 = collapsed, 1 = expanded
         @hover_btn = nil         # index of hovered button
         @mouse_over_area = false # mouse over the whole HUD region
@@ -116,6 +121,7 @@ if defined?(Scene_Map)
         @ticks += 1
 
         # ── Mouse handling (every frame for responsiveness) ──
+        @minimize_cooldown = [@minimize_cooldown - 1, 0].max if @minimize_cooldown > 0
         _handle_mouse
 
         # ── Deploy animation ──
@@ -130,7 +136,7 @@ if defined?(Scene_Map)
         end
 
         # ── State check (throttled) ──
-        layout_state = [_hud_scale, _battle_anchor?, _battle_chat_progress.round(2)]
+        layout_state = [_hud_scale, _battle_anchor?, _battle_chat_progress.round(2), @minimized]
         if @last_layout_state != layout_state
           @last_layout_state = layout_state
           @force_redraw = true
@@ -152,7 +158,7 @@ if defined?(Scene_Map)
           in_squad     = !!(MultiplayerClient.in_squad? rescue false)
           profile_open = !!(defined?(MultiplayerUI::ProfilePanel) && MultiplayerUI::ProfilePanel.open? rescue false)
 
-          state = [chat_on, in_squad, profile_open, @deploy_progress, @hover_btn, _hud_scale, _battle_anchor?, _battle_chat_progress.round(2)]
+          state = [chat_on, in_squad, profile_open, @deploy_progress, @hover_btn, @minimized, _hud_scale, _battle_anchor?, _battle_chat_progress.round(2)]
           if @last_state != state || @force_redraw
             @last_state = state
             _redraw(chat_on, in_squad, profile_open)
@@ -167,11 +173,14 @@ if defined?(Scene_Map)
       private
 
       def _set_visible(v)
-        return if @visible == v
         @visible = v
-        @viewport.visible = v rescue nil
-        @bg_spr.visible = v rescue nil
-        @spr.visible = v rescue nil
+        _apply_sprite_visibility
+      end
+
+      def _apply_sprite_visibility
+        @viewport.visible = @visible rescue nil
+        @bg_spr.visible = @visible rescue nil
+        @spr.visible = @visible && !@sliver_only rescue nil
       end
 
       # ── Mouse input ─────────────────────────────────────────
@@ -266,9 +275,17 @@ if defined?(Scene_Map)
         bg_h = layout[:bg_h]
         spr_y = layout[:spr_y]
 
-        # Check mouse over the whole background panel
-        over_panel = mx >= bg_x && mx < bg_x + bg_w &&
-                     my >= bg_y && my < bg_y + bg_h
+        sliver_w = [(MIN_SLIVER_W * scale).to_i, 3].max
+        strip_w  = [(MIN_STRIP_W * scale).to_i, 3].max
+        suppress_hover = @minimize_cooldown > 0
+        over_sliver = @minimized && !suppress_hover &&
+                      mx >= bg_x && mx < bg_x + sliver_w &&
+                      my >= bg_y && my < bg_y + bg_h
+        over_full_panel = !suppress_hover &&
+                          mx >= bg_x && mx < bg_x + bg_w &&
+                          my >= bg_y && my < bg_y + bg_h
+        sliver_closed = @minimized && @deploy_progress <= 0.01
+        over_panel = sliver_closed ? over_sliver : over_full_panel
 
         @mouse_over_area = over_panel
         if clicked && over_panel && defined?(MultiplayerUI) &&
@@ -276,10 +293,31 @@ if defined?(Scene_Map)
           MultiplayerUI.consume_mouse_ui_click!
         end
 
+        if clicked && over_sliver
+          @minimized = false
+          @deployed = true
+          @force_redraw = true
+          return
+        end
+
+        over_minimize_strip = !@minimized &&
+                              mx >= bg_x && mx < bg_x + strip_w &&
+                              my >= bg_y && my < bg_y + bg_h
+        if clicked && over_minimize_strip
+          @minimized = true
+          @deployed = false
+          @mouse_over_area = false
+          @deploy_progress = 0.0
+          @minimize_cooldown = 12
+          @hover_btn = nil
+          @force_redraw = true
+          return
+        end
+
         # Determine hovered button
         old_hover = @hover_btn
         @hover_btn = nil
-        if over_panel
+        if over_panel && !over_minimize_strip
           buttons.each_with_index do |btn, i|
             iy = spr_y + (i * (BTN_H + BTN_GAP) * scale).to_i
             btn_h_scaled = (BTN_H * scale).to_i
@@ -347,6 +385,46 @@ if defined?(Scene_Map)
         total_h = n * BTN_H + (n - 1) * BTN_GAP
 
         # ── Background panel ─────────────────────────────────
+        @sliver_only = @minimized && @deploy_progress <= 0.01 && !@mouse_over_area
+
+        if @sliver_only
+          bg_w = MIN_SLIVER_W
+          bg_h = total_h + BG_PAD * 2
+          if @bg_spr.bitmap.nil? || @bg_spr.bitmap.disposed? ||
+             @bg_spr.bitmap.width != bg_w || @bg_spr.bitmap.height != bg_h
+            @bg_spr.bitmap.dispose if @bg_spr.bitmap && !@bg_spr.bitmap.disposed?
+            @bg_spr.bitmap = Bitmap.new(bg_w, bg_h)
+          else
+            @bg_spr.bitmap.clear
+          end
+
+          bgb = @bg_spr.bitmap
+          bgb.fill_rect(0, 2, bg_w, bg_h - 4, _c([40, 44, 56, 185]))
+          bgb.fill_rect(bg_w - 1, 4, 1, bg_h - 8, _c(C_BORDER))
+
+          if @spr.bitmap.nil? || @spr.bitmap.disposed? ||
+             @spr.bitmap.width != 1 || @spr.bitmap.height != 1
+            @spr.bitmap.dispose if @spr.bitmap && !@spr.bitmap.disposed?
+            @spr.bitmap = Bitmap.new(1, 1)
+          else
+            @spr.bitmap.clear
+          end
+
+          scale = _hud_scale
+          @bg_spr.zoom_x = scale
+          @bg_spr.zoom_y = scale
+          @spr.zoom_x = scale
+          @spr.zoom_y = scale
+          scaled_bg_h = (bg_h * scale).to_i
+          @bg_spr.x = _battle_anchor? ? _battle_layout_x : (PAD_X - BG_PAD)
+          @bg_spr.y = _battle_anchor? ? _battle_layout_y(scaled_bg_h) : (PAD_Y - BG_PAD)
+          @spr.x = @bg_spr.x
+          @spr.y = @bg_spr.y
+          _apply_sprite_visibility
+          return
+        end
+        @sliver_only = false
+
         bg_w = content_w + BG_PAD * 2 + ARROW_W
         bg_h = total_h + BG_PAD * 2
 
@@ -371,6 +449,11 @@ if defined?(Scene_Map)
         bgb.fill_rect(2, bg_h - 1, bg_w - 4, 1, border_col)
         bgb.fill_rect(0, 2, 1, bg_h - 4, border_col)
         bgb.fill_rect(bg_w - 1, 2, 1, bg_h - 4, border_col)
+        strip_h = [bg_h - 8, 36].min
+        strip_y = (bg_h - strip_h) / 2
+        strip_col = @mouse_over_area ? Color.new(90, 130, 185, 205) : Color.new(42, 42, 52, 180)
+        bgb.fill_rect(0, strip_y, MIN_STRIP_W, strip_h, strip_col)
+        bgb.fill_rect(MIN_STRIP_W - 1, strip_y + 4, 1, strip_h - 8, _c(C_ARROW))
 
         # Arrow chevron on right edge of background
         arrow_x = bg_w - ARROW_W + 1
@@ -457,6 +540,7 @@ if defined?(Scene_Map)
             bmp.draw_text(LABEL_X,     iy + 2, LABEL_W, BTN_H - 2, btn[:label], 0)
           end
         end
+        _apply_sprite_visibility
       end
 
       def _hud_scale

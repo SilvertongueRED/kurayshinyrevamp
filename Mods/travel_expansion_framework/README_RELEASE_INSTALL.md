@@ -44,13 +44,16 @@ C:/Games/
   HollowWoods/
   Keishou/
   UnbreakableTies/
+  Decades/
+  Rejuvenation/
+  Void/
 ```
 
 If your folders are somewhere else, edit `Mods/travel_expansion_framework/travel_expansion_sources.json`. Each world entry has a `root` and optional `root_aliases`. Point those at the local install folder that contains that game's `Data`, `Graphics`, `Audio`, `Game.ini`, or archive files.
 
 ## Registered Release Candidate Worlds
 
-Reborn, Xenoverse, Insurgence, Uranium, Opalo, Empyrean, Realidea, Soulstones, Soulstones 2, Anil, Bushido, Dark Horizon, Infinity, Solar Eclipse, Vanguard, Pokemon Z, Chaos in Vesita, Deserted, Gadir Deluxe, Hollow Woods, Keishou, and Unbreakable Ties.
+Reborn, Xenoverse, Insurgence, Uranium, Opalo, Empyrean, Realidea, Soulstones, Soulstones 2, Anil, Bushido, Dark Horizon, Infinity, Solar Eclipse, Vanguard, Pokemon Z, Chaos in Vesita, Deserted, Gadir Deluxe, Hollow Woods, Keishou, Unbreakable Ties, Decades, Rejuvenation, and Void.
 
 ## Save Safety Rules
 

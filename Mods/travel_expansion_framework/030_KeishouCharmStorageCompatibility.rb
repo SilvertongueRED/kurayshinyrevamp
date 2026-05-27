@@ -1422,6 +1422,48 @@ if defined?(TravelExpansionFramework)
       return []
     end
 
+    def keishou_dispatch_unlock_recipe(recipe_id = nil, *args)
+      return release_unlock_recipe!(recipe_id, *args) if respond_to?(:release_unlock_recipe!)
+      if !respond_to?(:keishou_active_now?) || keishou_active_now? ||
+         (respond_to?(:keishou_recipe_record_for) && keishou_recipe_record_for(recipe_id))
+        return keishou_unlock_recipe(recipe_id)
+      end
+      return true
+    rescue => e
+      log("[keishou] recipe unlock dispatch failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return true
+    end
+
+    def keishou_dispatch_lock_recipe(recipe_id = nil, *args)
+      return release_lock_recipe!(recipe_id, *args) if respond_to?(:release_lock_recipe!)
+      if !respond_to?(:keishou_active_now?) || keishou_active_now? ||
+         (respond_to?(:keishou_recipe_record_for) && keishou_recipe_record_for(recipe_id))
+        return keishou_lock_recipe(recipe_id)
+      end
+      return true
+    rescue => e
+      log("[keishou] recipe lock dispatch failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return true
+    end
+
+    def keishou_dispatch_recipe_ids_for_flag(flag = nil, *args)
+      return release_recipe_ids_for_flag(flag, *args) if respond_to?(:release_recipe_ids_for_flag)
+      return keishou_recipe_ids_for_flag(flag) if !respond_to?(:keishou_active_now?) || keishou_active_now?
+      return []
+    rescue => e
+      log("[keishou] recipe list dispatch failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return []
+    end
+
+    def keishou_dispatch_item_crafter(stock = nil, speech1 = nil, speech2 = nil, *args)
+      return release_item_crafter(stock, speech1, speech2, *args) if respond_to?(:release_item_crafter)
+      return keishou_craft_from_recipe_list(stock, speech1, speech2) if !respond_to?(:keishou_active_now?) || keishou_active_now?
+      return true
+    rescue => e
+      log("[keishou] recipe crafter dispatch failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return true
+    end
+
     def keishou_recipe_output_quantity(recipe)
       value = recipe.send(:yield) if recipe && recipe.respond_to?(:yield)
       value = recipe.instance_variable_get(:@yield) if value.nil? && recipe.respond_to?(:instance_variable_get)
@@ -2127,6 +2169,30 @@ if defined?(TravelExpansionFramework)
       return false
     end
 
+    def keishou_dispatch_random_item(*args)
+      if (!respond_to?(:keishou_active_now?) || keishou_active_now?) &&
+         respond_to?(:keishou_random_rock_smash_item!)
+        return keishou_random_rock_smash_item!
+      end
+      return release_safe_stub("pbRandomItem", "nil", "item_handlers", *args) if respond_to?(:release_safe_stub)
+      return nil
+    rescue => e
+      log("[keishou] random item dispatch failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return nil
+    end
+
+    def keishou_dispatch_rock_smash_random_encounter(*args)
+      if (!respond_to?(:keishou_active_now?) || keishou_active_now?) &&
+         respond_to?(:keishou_rock_smash_random_encounter!)
+        return keishou_rock_smash_random_encounter!
+      end
+      return release_safe_stub("pbRockSmashRandomEncounter", "false", "encounters", *args) if respond_to?(:release_safe_stub)
+      return false
+    rescue => e
+      log("[keishou] Rock Smash dispatch failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+      return false
+    end
+
     def keishou_adjust_item_ball_quantity(item, quantity)
       return quantity if !keishou_active_charm?(:TWINCHARM)
       item_data = GameData::Item.try_get(item) if defined?(GameData::Item)
@@ -2287,24 +2353,24 @@ end
 
 if defined?(Interpreter)
   class Interpreter
-    def pbUnlockRecipe(recipe_id)
-      return TravelExpansionFramework.keishou_unlock_recipe(recipe_id)
+    def pbUnlockRecipe(recipe_id = nil, *args)
+      return TravelExpansionFramework.keishou_dispatch_unlock_recipe(recipe_id, *args)
     end unless method_defined?(:pbUnlockRecipe)
 
-    def pbLockRecipe(recipe_id)
-      return TravelExpansionFramework.keishou_lock_recipe(recipe_id)
+    def pbLockRecipe(recipe_id = nil, *args)
+      return TravelExpansionFramework.keishou_dispatch_lock_recipe(recipe_id, *args)
     end unless method_defined?(:pbLockRecipe)
 
-    def pbGetRecipes(flag = nil)
-      return TravelExpansionFramework.keishou_recipe_ids_for_flag(flag)
+    def pbGetRecipes(flag = nil, *args)
+      return TravelExpansionFramework.keishou_dispatch_recipe_ids_for_flag(flag, *args)
     end unless method_defined?(:pbGetRecipes)
 
-    def pbItemCrafter(stock, speech1 = nil, speech2 = nil)
-      return TravelExpansionFramework.keishou_craft_from_recipe_list(stock, speech1, speech2)
+    def pbItemCrafter(stock = nil, speech1 = nil, speech2 = nil, *args)
+      return TravelExpansionFramework.keishou_dispatch_item_crafter(stock, speech1, speech2, *args)
     end unless method_defined?(:pbItemCrafter)
 
-    def pbRandomItem
-      return TravelExpansionFramework.keishou_random_rock_smash_item!
+    def pbRandomItem(*args)
+      return TravelExpansionFramework.keishou_dispatch_random_item(*args)
     end unless method_defined?(:pbRandomItem)
 
     alias tef_keishou_original_pbRockSmashRandomEncounter pbRockSmashRandomEncounter if method_defined?(:pbRockSmashRandomEncounter) &&
@@ -2314,7 +2380,8 @@ if defined?(Interpreter)
       if defined?(TravelExpansionFramework) &&
          TravelExpansionFramework.respond_to?(:keishou_active_now?) &&
          TravelExpansionFramework.keishou_active_now?
-        return TravelExpansionFramework.keishou_rock_smash_random_encounter!
+        return TravelExpansionFramework.keishou_dispatch_rock_smash_random_encounter(*args) if TravelExpansionFramework.respond_to?(:keishou_dispatch_rock_smash_random_encounter)
+        return false
       end
       return tef_keishou_original_pbRockSmashRandomEncounter(*args) if respond_to?(:tef_keishou_original_pbRockSmashRandomEncounter, true)
       return false
@@ -2508,42 +2575,42 @@ if defined?(pbUseItem) && !Object.private_method_defined?(:tef_keishou_bag_origi
   end
 end
 
-def pbUnlockRecipe(recipe_id)
-  return TravelExpansionFramework.keishou_unlock_recipe(recipe_id)
+def pbUnlockRecipe(recipe_id = nil, *args)
+  return TravelExpansionFramework.keishou_dispatch_unlock_recipe(recipe_id, *args)
 end unless defined?(pbUnlockRecipe)
 
-def pbLockRecipe(recipe_id)
-  return TravelExpansionFramework.keishou_lock_recipe(recipe_id)
+def pbLockRecipe(recipe_id = nil, *args)
+  return TravelExpansionFramework.keishou_dispatch_lock_recipe(recipe_id, *args)
 end unless defined?(pbLockRecipe)
 
-def pbGetRecipes(flag = nil)
-  return TravelExpansionFramework.keishou_recipe_ids_for_flag(flag)
+def pbGetRecipes(flag = nil, *args)
+  return TravelExpansionFramework.keishou_dispatch_recipe_ids_for_flag(flag, *args)
 end unless defined?(pbGetRecipes)
 
-def pbItemCrafter(stock, speech1 = nil, speech2 = nil)
-  return TravelExpansionFramework.keishou_craft_from_recipe_list(stock, speech1, speech2)
+def pbItemCrafter(stock = nil, speech1 = nil, speech2 = nil, *args)
+  return TravelExpansionFramework.keishou_dispatch_item_crafter(stock, speech1, speech2, *args)
 end unless defined?(pbItemCrafter)
 
-def pbRandomItem
-  return TravelExpansionFramework.keishou_random_rock_smash_item!
+def pbRandomItem(*args)
+  return TravelExpansionFramework.keishou_dispatch_random_item(*args)
 end unless defined?(pbRandomItem)
 
-def pbRockSmashRandomEncounter
-  return TravelExpansionFramework.keishou_rock_smash_random_encounter!
+def pbRockSmashRandomEncounter(*args)
+  return TravelExpansionFramework.keishou_dispatch_rock_smash_random_encounter(*args)
 end unless defined?(pbRockSmashRandomEncounter)
 
 if defined?(Kernel)
   module Kernel
-    def pbRandomItem
-      return TravelExpansionFramework.keishou_random_rock_smash_item! if defined?(TravelExpansionFramework) &&
-                                                                         TravelExpansionFramework.respond_to?(:keishou_random_rock_smash_item!)
-      return false
+    def pbRandomItem(*args)
+      return TravelExpansionFramework.keishou_dispatch_random_item(*args) if defined?(TravelExpansionFramework) &&
+                                                                             TravelExpansionFramework.respond_to?(:keishou_dispatch_random_item)
+      return nil
     end unless method_defined?(:pbRandomItem)
     module_function :pbRandomItem if method_defined?(:pbRandomItem) && !respond_to?(:pbRandomItem)
 
-    def pbRockSmashRandomEncounter
-      return TravelExpansionFramework.keishou_rock_smash_random_encounter! if defined?(TravelExpansionFramework) &&
-                                                                              TravelExpansionFramework.respond_to?(:keishou_rock_smash_random_encounter!)
+    def pbRockSmashRandomEncounter(*args)
+      return TravelExpansionFramework.keishou_dispatch_rock_smash_random_encounter(*args) if defined?(TravelExpansionFramework) &&
+                                                                                             TravelExpansionFramework.respond_to?(:keishou_dispatch_rock_smash_random_encounter)
       return false
     end unless method_defined?(:pbRockSmashRandomEncounter)
     module_function :pbRockSmashRandomEncounter if method_defined?(:pbRockSmashRandomEncounter) &&

@@ -1,11 +1,11 @@
 #define ProjectRoot "C:\Games\PIF"
 #define AppName "Kuray Infinite Fusion"
-#define AppVersion "2026.05.12"
+#define AppVersion "2026.05.27"
 #define AppPublisher "Kuray Infinite Fusion"
 #define AppExeName "Game.exe"
 #define AppCompatExeName "Game-compatibility.exe"
 #define AppId "{{F7E2C955-11C8-4D0A-B25B-02AA6DD15C2C}}"
-#define OutputBase "PIF-Setup-20260512-full-current"
+#define OutputBase "PIF-Setup-20260527-full-current"
 
 [Setup]
 AppId={#AppId}
@@ -28,8 +28,8 @@ UninstallDisplayIcon={app}\{#AppExeName}
 SetupLogging=yes
 OutputDir={#ProjectRoot}\dist
 OutputBaseFilename={#OutputBase}
-VersionInfoVersion=2026.5.12.0
-VersionInfoDescription={#AppName} Installer
+VersionInfoVersion=2026.5.27.0
+VersionInfoDescription={#AppName} Experimental Installer
 VersionInfoCompany={#AppPublisher}
 ArchitecturesAllowed=x86 x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
@@ -56,7 +56,7 @@ Source: "{#ProjectRoot}\ExpansionLinks\*"; DestDir: "{app}\ExpansionLinks"; Flag
 Source: "{#ProjectRoot}\Fonts\*"; DestDir: "{app}\Fonts"; Flags: ignoreversion recursesubdirs sortfilesbyextension; Components: main
 Source: "{#ProjectRoot}\Graphics\*"; DestDir: "{app}\Graphics"; Flags: ignoreversion recursesubdirs sortfilesbyextension; Components: main
 Source: "{#ProjectRoot}\Libs\*"; DestDir: "{app}\Libs"; Flags: ignoreversion recursesubdirs sortfilesbyextension; Components: main
-Source: "{#ProjectRoot}\Mods\*"; DestDir: "{app}\Mods"; Excludes: "compat_report.txt,mod_manager_state.json,autoplay_bot\data\cache\*,autoplay_bot\logs\*,autoplay_bot\data\state*.json,custom_species_framework\checkpoints\*,custom_species_framework\framework_debug.log,custom_species_framework\creator\*.log,custom_species_framework\creator\_job_state.json,custom_species_framework\creator\_creator_server_url.txt,custom_species_framework\creator\edge_dom.txt,custom_species_framework\importer\state\import_state.json,custom_species_framework\importer\import_output\import.log"; Flags: ignoreversion recursesubdirs sortfilesbyextension; Components: main
+Source: "{#ProjectRoot}\Mods\*"; DestDir: "{app}\Mods"; Excludes: "compat_report.txt,mod_manager_state.json,autoplay_bot\data\cache\*,autoplay_bot\logs\*,autoplay_bot\data\state*.json,custom_species_framework\checkpoints\*,custom_species_framework\framework_debug.log,custom_species_framework\creator\*.log,custom_species_framework\creator\_job_state.json,custom_species_framework\creator\_creator_server_url.txt,custom_species_framework\creator\edge_dom.txt,custom_species_framework\importer\state\import_state.json,custom_species_framework\importer\import_output\import.log,zzz_gba_player\ROMs\*,zzz_gba_player\Saves\*,zzz_gba_player\mirror_runtime\*,zzz_gba_player\launch.log,zzz_gba_player\Emulator\mGBA-0.10.5-win64\qt.ini,zzz_gba_player\native\corehost\bin\*,zzz_gba_player\native\corehost\obj\*,zzz_gba_player\native\mirror\bin\*,zzz_gba_player\native\mirror\obj\*,zzz_gba_player\native\corehost\publish\*.pdb,zzz_gba_player\native\mirror\publish\*.pdb"; Flags: ignoreversion recursesubdirs sortfilesbyextension; Components: main
 Source: "{#ProjectRoot}\KIFM\*"; DestDir: "{app}\KIFM"; Excludes: "platinum_uuids.txt,discord_ids.txt,pending_discord_link.txt,coop_debug.log,pvp_wins.txt,discord_link.log"; Flags: ignoreversion recursesubdirs sortfilesbyextension; Components: main
 Source: "{#ProjectRoot}\Game.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: main
 Source: "{#ProjectRoot}\Game-compatibility.exe"; DestDir: "{app}"; Flags: ignoreversion; Components: main

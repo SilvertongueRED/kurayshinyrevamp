@@ -345,13 +345,32 @@ class Scene_PvPSettings
 
       case ev[:type]
       when :settings_update
-        @settings = ev[:data].dup
+        event_data = ev[:data] || {}
+        if event_data.is_a?(Hash) && event_data.key?(:settings)
+          incoming_battle_id = event_data[:battle_id].to_s
+          if incoming_battle_id.length > 0 && incoming_battle_id != PvPBattleState.battle_id.to_s
+            if PvPBattleState.is_initiator?
+              next
+            else
+              PvPBattleState.instance_variable_set(:@battle_id, incoming_battle_id)
+            end
+          end
+          @settings = event_data[:settings].dup
+        else
+          @settings = event_data.dup
+        end
         PvPBattleState.update_settings(@settings)
         refresh_settings_display()
 
       when :start_battle
         # Receiver: Opponent has confirmed settings, start battle
         unless @is_initiator
+          incoming_battle_id = ev[:data][:battle_id].to_s
+          current_battle_id = PvPBattleState.battle_id.to_s
+          if incoming_battle_id.length > 0 && current_battle_id.length > 0 && incoming_battle_id != current_battle_id
+            next if PvPBattleState.is_initiator?
+            PvPBattleState.instance_variable_set(:@battle_id, incoming_battle_id)
+          end
           # Update battle_id to match initiator's
           if ev[:data][:battle_id]
             PvPBattleState.instance_variable_set(:@battle_id, ev[:data][:battle_id])
@@ -373,6 +392,9 @@ class Scene_PvPSettings
         end
 
       when :abort, :cancelled
+        if ev[:data].is_a?(Hash) && ev[:data][:battle_id]
+          next if ev[:data][:battle_id].to_s != PvPBattleState.battle_id.to_s
+        end
         pbMessage(_INTL("Battle cancelled by opponent."))
         @disposed = true
 

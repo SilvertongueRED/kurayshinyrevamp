@@ -472,6 +472,45 @@ module MultiplayerClient
       obj.dup rescue obj
     end
   end
+
+  def self.pvp_target_sid
+    return nil unless defined?(PvPBattleState) && PvPBattleState.respond_to?(:opponent_sid)
+    sid = PvPBattleState.opponent_sid
+    sid.nil? ? nil : sid.to_s
+  rescue
+    nil
+  end
+
+  def self.pvp_packet_meta(battle_id = nil)
+    {
+      "battle_id"   => battle_id.to_s,
+      "sender_sid"  => @session_id.to_s,
+      "target_sid"  => pvp_target_sid.to_s
+    }
+  end
+
+  def self.pvp_packet_for_me?(meta)
+    return true unless meta.is_a?(Hash)
+    target = meta["target_sid"] || meta[:target_sid]
+    sender = meta["sender_sid"] || meta[:sender_sid]
+    if target && target.to_s.length > 0 && target.to_s != @session_id.to_s
+      return false
+    end
+    expected_sender = pvp_target_sid
+    if expected_sender && expected_sender.length > 0 && sender && sender.to_s.length > 0 && sender.to_s != expected_sender
+      return false
+    end
+    true
+  rescue
+    true
+  end
+
+  def self.pvp_wire_packet_for_me?(sender_sid, target_sid)
+    meta = {}
+    meta["sender_sid"] = sender_sid if sender_sid && sender_sid.to_s.length > 0
+    meta["target_sid"] = target_sid if target_sid && target_sid.to_s.length > 0
+    pvp_packet_for_me?(meta)
+  end
   # --- Busy (battle/menu) state ---
   # Player is "busy" if they're in battle OR in a menu (party, bag, PC, etc.)
   # This prevents coop wild battles from trying to sync with unavailable players
@@ -2107,7 +2146,9 @@ module MultiplayerClient
             battle_id, json_settings = body.split("|", 2)
             begin
               settings = MiniJSON.parse(json_settings)
-              push_pvp_event(type: :settings_update, data: settings)
+              meta = settings.is_a?(Hash) ? (settings.delete("__pvp_meta__") || settings.delete(:__pvp_meta__)) : nil
+              next unless pvp_packet_for_me?(meta)
+              push_pvp_event(type: :settings_update, data: { battle_id: battle_id, settings: settings })
             rescue => e
               ##MultiplayerDebug.warn("C-PVP", "Bad JSON in PVP_SETTINGS_UPDATE: #{e.message}")
             end
@@ -2121,7 +2162,22 @@ module MultiplayerClient
               # Use JSON + PokemonSerializer instead of Marshal
               json_str = BinHex.decode(hex_party)
               party_data = MiniJSON.parse(json_str)
-              party = PokemonSerializer.deserialize_party(party_data)
+              raise "Decoded party payload is not Array" unless party_data.is_a?(Array)
+              meta = nil
+              party_entries = []
+              party_data.each do |entry|
+                if entry.is_a?(Hash) && (entry["__pvp_meta__"] || entry[:__pvp_meta__])
+                  meta ||= entry["__pvp_meta__"] || entry[:__pvp_meta__]
+                else
+                  party_entries << entry
+                end
+              end
+              next unless pvp_packet_for_me?(meta)
+              party = PokemonSerializer.deserialize_party(party_entries)
+              expected_count = party_entries.compact.length
+              unless party.is_a?(Array) && party.length == expected_count && party.all? { |p| p.is_a?(Pokemon) }
+                raise "Party deserialize mismatch (expected #{expected_count}, got #{party.is_a?(Array) ? party.length : party.class})"
+              end
               push_pvp_event(type: :party_received, data: { battle_id: battle_id, party: party })
             rescue => e
               ##MultiplayerDebug.error("C-PVP", "Failed to decode party: #{e.message}")
@@ -2134,7 +2190,9 @@ module MultiplayerClient
             battle_id, json_settings = body.split("|", 2)
             begin
               settings = MiniJSON.parse(json_settings)
-              push_pvp_event(type: :start_battle, data: { battle_id: battle_id, settings: settings })
+              meta = settings.is_a?(Hash) ? (settings.delete("__pvp_meta__") || settings.delete(:__pvp_meta__)) : nil
+              next unless pvp_packet_for_me?(meta)
+              push_pvp_event(type: :start_battle, data: { battle_id: battle_id, settings: settings, trusted: !meta.nil? })
             rescue => e
               ##MultiplayerDebug.warn("C-PVP", "Bad JSON in PVP_START_BATTLE: #{e.message}")
             end
@@ -2150,7 +2208,8 @@ module MultiplayerClient
 
           if data.start_with?("PVP_RNG_SEED:")
             body = data.sub("PVP_RNG_SEED:", "")
-            battle_id, turn, seed = body.split("|", 3)
+            battle_id, turn, seed, sender_sid, target_sid = body.split("|", 5)
+            next unless pvp_wire_packet_for_me?(sender_sid, target_sid)
             if defined?(PvPRNGSync)
               PvPRNGSync.receive_seed(battle_id, turn.to_i, seed.to_i)
             end
@@ -2173,7 +2232,8 @@ module MultiplayerClient
 
           if data.start_with?("PVP_SWITCH:")
             body = data.sub("PVP_SWITCH:", "")
-            battle_id, idxParty = body.split("|", 2)
+            battle_id, idxParty, sender_sid, target_sid = body.split("|", 4)
+            next unless pvp_wire_packet_for_me?(sender_sid, target_sid)
             if defined?(PvPSwitchSync)
               PvPSwitchSync.receive_switch(battle_id, idxParty.to_i)
             end
@@ -2181,7 +2241,9 @@ module MultiplayerClient
           end
 
           if data.start_with?("PVP_FORFEIT:")
-            battle_id = data.sub("PVP_FORFEIT:", "")
+            body = data.sub("PVP_FORFEIT:", "")
+            battle_id, sender_sid, target_sid = body.split("|", 3)
+            next unless pvp_wire_packet_for_me?(sender_sid, target_sid)
             if defined?(MultiplayerDebug)
               MultiplayerDebug.info("C-PVP", "[NET] Received PVP_FORFEIT: battle_id=#{battle_id}")
             end
@@ -3495,7 +3557,9 @@ module MultiplayerClient
   end
 
   def self.pvp_update_settings(bid, settings_hash)
-    json = MiniJSON.dump(settings_hash)
+    payload = settings_hash.dup
+    payload["__pvp_meta__"] = pvp_packet_meta(bid)
+    json = MiniJSON.dump(payload)
     send_data("PVP_SETTINGS_UPDATE:#{bid}|#{json}")
   end
 
@@ -3508,14 +3572,23 @@ module MultiplayerClient
 
   def self.pvp_send_party(bid, party)
     # Use PokemonSerializer (JSON-based) instead of Marshal
+    raise "PokemonSerializer not available" unless defined?(PokemonSerializer)
+    expected_count = party.is_a?(Array) ? party.compact.length : 0
     party_data = PokemonSerializer.serialize_party(party)
+    serialized_count = party_data.compact.length
+    if serialized_count != expected_count
+      raise "PVP party serialization mismatch (expected #{expected_count}, got #{serialized_count})"
+    end
+    party_data = [{ "__pvp_meta__" => pvp_packet_meta(bid) }] + party_data
     json_str = MiniJSON.dump(party_data)
     hex = BinHex.encode(json_str)
     send_data("PVP_PARTY_PUSH:#{bid}|#{hex}")
   end
 
   def self.pvp_start_battle(bid, settings)
-    json = MiniJSON.dump(settings)
+    payload = settings.dup
+    payload["__pvp_meta__"] = pvp_packet_meta(bid)
+    json = MiniJSON.dump(payload)
     send_data("PVP_START_BATTLE:#{bid}|#{json}")
   end
 

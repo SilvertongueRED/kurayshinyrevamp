@@ -1689,11 +1689,13 @@ end
 
 if defined?(PokeBattle_Pokemon)
   class << PokeBattle_Pokemon
+    alias tef_reborn_original_new new unless method_defined?(:tef_reborn_original_new)
+
     def new(*args)
       if TravelExpansionFramework.reborn_expansion_id?
         return TravelExpansionFramework.reborn_build_legacy_pokemon(*args)
       end
-      super(*args)
+      return tef_reborn_original_new(*args)
     end
   end
 end

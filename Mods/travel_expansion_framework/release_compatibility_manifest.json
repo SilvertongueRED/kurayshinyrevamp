@@ -106,6 +106,16 @@
       "status": "release_candidate",
       "required_categories": ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "follower_system", "encounters", "menu_settings", "save_load_recovery"],
       "known_risks": ["Deluxe Battle Kit rules", "form trader screens", "battle-mode bag helpers", "follower setup", "tip cards"]
+    },
+    "rejuvenation": {
+      "status": "release_candidate",
+      "required_categories": ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "follower_system", "bridge_passability", "encounters", "menu_settings", "save_load_recovery"],
+      "known_risks": ["password and intro setup menus", "quest helpers", "dependency/follower helpers", "custom duel and minigame screens"]
+    },
+    "pokemon_void": {
+      "status": "release_candidate",
+      "required_categories": ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "follower_system", "bridge_passability", "encounters", "dex", "menu_settings", "save_load_recovery"],
+      "known_risks": ["packaged Essentials v21 archive", "plugin scripts", "compiled species data", "custom fakemon graphics", "early story bootstrap"]
     }
   }
 }

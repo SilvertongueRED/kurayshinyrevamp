@@ -90,6 +90,18 @@ module TravelExpansionFramework
   DECADES_GATEHOUSE_TV_EVENT_ID = 3 unless const_defined?(:DECADES_GATEHOUSE_TV_EVENT_ID)
   DECADES_GATEHOUSE_TRASH_EVENT_IDS = [1, 2].freeze unless const_defined?(:DECADES_GATEHOUSE_TRASH_EVENT_IDS)
   DECADES_TRASH_ENCOUNTER_SPECIES = [:TRUBBISH, :GRIMER, :RATTATA, :GULPIN, :ZIGZAGOON].freeze unless const_defined?(:DECADES_TRASH_ENCOUNTER_SPECIES)
+  REJUVENATION_EXPANSION_ID = "rejuvenation" unless const_defined?(:REJUVENATION_EXPANSION_ID)
+  REJUVENATION_LEGACY_EXPANSION_IDS = ["pokemon_rejuvenation", "rejuv", "pokemon_rejuv"].freeze unless const_defined?(:REJUVENATION_LEGACY_EXPANSION_IDS)
+  REJUVENATION_INTRO_LOCAL_MAP_ID = 1 unless const_defined?(:REJUVENATION_INTRO_LOCAL_MAP_ID)
+  REJUVENATION_EXPLORATION_LOCAL_MAP_ID = 21 unless const_defined?(:REJUVENATION_EXPLORATION_LOCAL_MAP_ID)
+  POKEMON_VOID_EXPANSION_ID = "pokemon_void" unless const_defined?(:POKEMON_VOID_EXPANSION_ID)
+  POKEMON_VOID_LEGACY_EXPANSION_IDS = ["void"].freeze unless const_defined?(:POKEMON_VOID_LEGACY_EXPANSION_IDS)
+  POKEMON_VOID_SPECIES_ALIASES = {
+    :TAMATOO  => :CSF_VOID_TAMATOO,
+    :FLARET   => :CSF_VOID_FLARET,
+    :CUBBLE   => :CSF_VOID_CUBBLE,
+    :SEDIMITE => :CSF_VOID_SEDIMITE
+  }.freeze unless const_defined?(:POKEMON_VOID_SPECIES_ALIASES)
   DECADES_STORY_MODE_KIT_ITEMS = [
     [:POKEBALL, 10],
     [:POTION, 5],
@@ -298,7 +310,13 @@ module TravelExpansionFramework
     "pokemon_unbreakable_ties" => { :canonical => "unbreakable_ties" },
     "pokemon_unbreakableties" => { :canonical => "unbreakable_ties" },
     "decades"         => { :aliases => ["pokemon_decades"], :identity => :host },
-    "pokemon_decades" => { :canonical => "decades" }
+    "pokemon_decades" => { :canonical => "decades" },
+    "rejuvenation"    => { :aliases => ["pokemon_rejuvenation", "rejuv", "pokemon_rejuv"], :identity => :host },
+    "pokemon_rejuvenation" => { :canonical => "rejuvenation" },
+    "rejuv"           => { :canonical => "rejuvenation" },
+    "pokemon_rejuv"   => { :canonical => "rejuvenation" },
+    "pokemon_void"    => { :aliases => ["void"], :identity => :host },
+    "void"            => { :canonical => "pokemon_void" }
   }.freeze unless const_defined?(:NEW_PROJECT_COMPATIBILITY_PROFILES)
 
   if !defined?(::OrderedHash)
@@ -346,20 +364,50 @@ module TravelExpansionFramework
     end
   end
 
+  def safe_new_project_id_text(value)
+    return "" if value.nil?
+    text = nil
+    if value.is_a?(String)
+      text = value
+    elsif value.is_a?(Symbol) || value.is_a?(Numeric)
+      text = value.to_s
+    elsif value.respond_to?(:to_str)
+      text = value.to_str rescue nil
+    end
+    text = "" if text.nil?
+    return text.gsub("\\", "/").strip
+  rescue Exception
+    return ""
+  end
+
   def canonical_new_project_id(expansion_id)
-    id = expansion_id.to_s
+    id = safe_new_project_id_text(expansion_id)
     profile = NEW_PROJECT_COMPATIBILITY_PROFILES[id] rescue nil
-    return profile[:canonical].to_s if profile.is_a?(Hash) && profile[:canonical]
+    canonical = safe_new_project_id_text(profile[:canonical]) if profile.is_a?(Hash) && profile[:canonical]
+    return canonical if canonical && !canonical.empty?
     return id
-  rescue
-    return expansion_id.to_s
+  rescue Exception
+    return safe_new_project_id_text(expansion_id)
   end
 
   def expansion_id_in_list?(expansion_id, ids)
+    @new_project_id_list_depth ||= 0
+    return false if @new_project_id_list_depth > 8
+    @new_project_id_list_depth += 1
     target = canonical_new_project_id(expansion_id)
-    return ids.map { |id| canonical_new_project_id(id) }.include?(target)
-  rescue
+    raw_target = safe_new_project_id_text(expansion_id)
+    return false if target.empty? && raw_target.empty?
+    list = ids.is_a?(Array) ? ids : [ids]
+    return list.flatten.compact.any? do |id|
+      candidate = canonical_new_project_id(id)
+      raw_candidate = safe_new_project_id_text(id)
+      (!target.empty? && (candidate == target || raw_candidate == target)) ||
+        (!raw_target.empty? && (candidate == raw_target || raw_candidate == raw_target))
+    end
+  rescue Exception
     return false
+  ensure
+    @new_project_id_list_depth = [(@new_project_id_list_depth || 1) - 1, 0].max
   end
 
   def active_project_expansion_id(ids, map_id = nil)
@@ -422,6 +470,14 @@ module TravelExpansionFramework
     return [DECADES_EXPANSION_ID] + DECADES_LEGACY_EXPANSION_IDS
   end
 
+  def rejuvenation_expansion_ids
+    return [REJUVENATION_EXPANSION_ID] + REJUVENATION_LEGACY_EXPANSION_IDS
+  end
+
+  def pokemon_void_expansion_ids
+    return [POKEMON_VOID_EXPANSION_ID] + POKEMON_VOID_LEGACY_EXPANSION_IDS
+  end
+
   def newly_registered_project_expansion_ids
     return [BUSHIDO_EXPANSION_ID] + BUSHIDO_LEGACY_EXPANSION_IDS +
            [DARKHORIZON_EXPANSION_ID] + DARKHORIZON_LEGACY_EXPANSION_IDS +
@@ -435,7 +491,9 @@ module TravelExpansionFramework
            [HOLLOW_WOODS_EXPANSION_ID] + HOLLOW_WOODS_LEGACY_EXPANSION_IDS +
            [KEISHOU_EXPANSION_ID] + KEISHOU_LEGACY_EXPANSION_IDS +
            [UNBREAKABLE_TIES_EXPANSION_ID] + UNBREAKABLE_TIES_LEGACY_EXPANSION_IDS +
-           [DECADES_EXPANSION_ID] + DECADES_LEGACY_EXPANSION_IDS
+           [DECADES_EXPANSION_ID] + DECADES_LEGACY_EXPANSION_IDS +
+           [REJUVENATION_EXPANSION_ID] + REJUVENATION_LEGACY_EXPANSION_IDS +
+           [POKEMON_VOID_EXPANSION_ID] + POKEMON_VOID_LEGACY_EXPANSION_IDS
   end
 
   def new_project_expansion_ids
@@ -797,6 +855,59 @@ module TravelExpansionFramework
 
   def infinity_active_now?(map_id = nil)
     return !active_project_expansion_id(infinity_expansion_ids, map_id).nil?
+  end
+
+  def rejuvenation_expansion_id?(expansion_id = nil)
+    return expansion_id_in_list?(expansion_id, rejuvenation_expansion_ids) if !expansion_id.nil? && !expansion_id.to_s.empty?
+    return !active_project_expansion_id(rejuvenation_expansion_ids).nil?
+  end
+
+  def rejuvenation_active_now?(map_id = nil)
+    return !active_project_expansion_id(rejuvenation_expansion_ids, map_id).nil?
+  end
+
+  def current_rejuvenation_expansion_id(map_id = nil)
+    return active_project_expansion_id(rejuvenation_expansion_ids, map_id)
+  end
+
+  def void_map_block_id?(map_id = nil)
+    target = integer(map_id || ($game_map.map_id rescue 0), 0)
+    return false if target <= 0
+    manifest = manifest_for(POKEMON_VOID_EXPANSION_ID) if respond_to?(:manifest_for)
+    if manifest.is_a?(Hash)
+      block = manifest[:map_block] || manifest["map_block"]
+      if block.is_a?(Hash)
+        start_id = integer(block[:start] || block["start"], 0)
+        size = integer(block[:size] || block["size"], 0)
+        return true if start_id > 0 && size > 0 && target >= start_id && target < start_id + size
+      end
+    end
+    # Void's first release import is fixed at 48000. Keep this explicit fallback
+    # because message rendering can run before the active expansion marker is set.
+    return target >= 48000 && target < 49000
+  rescue
+    target = (map_id || ($game_map.map_id rescue 0)).to_i rescue 0
+    return target >= 48000 && target < 49000
+  end
+
+  def void_active_now?(map_id = nil)
+    return true if void_map_block_id?(map_id)
+    current_map = integer(($game_map.map_id rescue 0), 0)
+    local_map = integer(map_id, 0)
+    return true if local_map > 0 && local_map < 1000 && void_map_block_id?(current_map)
+    return !active_project_expansion_id(pokemon_void_expansion_ids, map_id).nil?
+  end
+
+  def current_void_expansion_id(map_id = nil)
+    return POKEMON_VOID_EXPANSION_ID if void_map_block_id?(map_id)
+    current_map = integer(($game_map.map_id rescue 0), 0)
+    local_map = integer(map_id, 0)
+    return POKEMON_VOID_EXPANSION_ID if local_map > 0 && local_map < 1000 && void_map_block_id?(current_map)
+    return active_project_expansion_id(pokemon_void_expansion_ids, map_id)
+  end
+
+  def rejuvenation_root_path
+    return project_root_path(REJUVENATION_EXPANSION_ID, "Rejuvenation", ["Pokemon Rejuvenation", "Rejuv", "Pokemon Rejuv"])
   end
 
   def infinity_local_map_id(map_id = nil)
@@ -1791,10 +1902,12 @@ module TravelExpansionFramework
   end
 
   def new_project_active_now?(map_id = nil)
+    return true if respond_to?(:void_active_now?) && void_active_now?(map_id)
     return !active_project_expansion_id(new_project_expansion_ids, map_id).nil?
   end
 
   def current_new_project_expansion_id(map_id = nil)
+    return current_void_expansion_id(map_id) if respond_to?(:void_active_now?) && void_active_now?(map_id)
     return active_project_expansion_id(new_project_expansion_ids, map_id)
   end
 
@@ -1845,13 +1958,21 @@ module TravelExpansionFramework
   end
 
   def opalo_asset_context_active?
-    expansion = current_asset_expansion_id if respond_to?(:current_asset_expansion_id)
-    expansion = current_runtime_expansion_id if expansion.to_s.empty? && respond_to?(:current_runtime_expansion_id)
-    expansion = current_map_expansion_id if expansion.to_s.empty? && respond_to?(:current_map_expansion_id)
-    return opalo_expansion_id?(expansion) if !expansion.to_s.empty?
-    return opalo_active_now?
-  rescue
+    @opalo_asset_context_depth ||= 0
+    return false if @opalo_asset_context_depth > 0
+    @opalo_asset_context_depth += 1
+    expansion = @rendering_expansion_id if instance_variable_defined?(:@rendering_expansion_id)
+    expansion = current_runtime_expansion_id if safe_new_project_id_text(expansion).empty? && respond_to?(:current_runtime_expansion_id)
+    if safe_new_project_id_text(expansion).empty? && defined?($game_map) && $game_map && respond_to?(:direct_map_expansion_id)
+      map_id = $game_map.respond_to?(:map_id) ? $game_map.map_id : nil
+      expansion = direct_map_expansion_id(map_id)
+    end
+    return false if safe_new_project_id_text(expansion).empty?
+    return opalo_expansion_id?(expansion)
+  rescue Exception
     return false
+  ensure
+    @opalo_asset_context_depth = [(@opalo_asset_context_depth || 1) - 1, 0].max
   end
 
   def opalo_picture_override_path(logical_path, extensions = [])
@@ -2481,9 +2602,548 @@ module TravelExpansionFramework
     body.gsub!(/\n[ \t]+/, "\n")
     body.gsub!(/[ \t]{2,}/, " ")
     body.strip!
+    # Host pbMessageDisplay prepends a colour tag based on the active
+    # windowskin. Void's imported dark portrait windowskin can report bad
+    # colour pixels in the host renderer, making otherwise valid text invisible.
+    body.gsub!(/<\/?c[23][^>]*>/i, "")
     return "#{body}#{trailer}"
   rescue
     return text.to_s
+  end
+
+  def void_host_player_name
+    name = ($Trainer.name rescue nil).to_s.strip
+    return name if !name.empty?
+    return "Player"
+  rescue
+    return "Player"
+  end
+
+  def void_default_rival_name(slot = 1)
+    return ["Ronan", "Nia", "Seren"][integer(slot, 1) - 1] || "Rival"
+  rescue
+    return "Rival"
+  end
+
+  def void_current_rival_slot
+    meta = new_project_metadata(POKEMON_VOID_EXPANSION_ID) if respond_to?(:new_project_metadata)
+    if meta.is_a?(Hash)
+      slot = integer(meta["void_current_rival_slot"], 0)
+      return slot if slot > 0
+    end
+    store = respond_to?(:void_rival_graphic_store) ? void_rival_graphic_store : nil
+    map_id = ($game_map.map_id rescue 0).to_i
+    if store.is_a?(Hash)
+      store.to_a.reverse_each do |entry|
+        key = entry[0].to_s
+        data = entry[1]
+        next if !data.is_a?(Hash)
+        key_map_id = key.split(":", 2)[0].to_i
+        next if map_id > 0 && key_map_id > 0 && key_map_id != map_id
+        slot = integer(data["rival_slot"], 0)
+        return slot if slot > 0
+      end
+    end
+    return 1
+  rescue
+    return 1
+  end
+
+  def void_set_rival_dialogue_portrait!(rival_slot = nil, fallback_event_id = nil, *args)
+    slot = integer(rival_slot, 0)
+    slot = 1 if slot <= 0
+    meta = new_project_metadata(POKEMON_VOID_EXPANSION_ID) if respond_to?(:new_project_metadata)
+    meta["void_current_rival_slot"] = slot if meta.is_a?(Hash)
+    record_release_shim_hit("pbSetRivalDialoguePortrait", "menu_settings", "slot=#{slot}") if respond_to?(:record_release_shim_hit)
+    map_id = ($game_map.map_id rescue nil) if defined?($game_map) && $game_map
+    if defined?($game_map) && $game_map && void_active_now?(map_id)
+      void_prepare_map_runtime!($game_map, "rival_dialogue_slot") if respond_to?(:void_prepare_map_runtime!)
+    end
+    return true
+  rescue => e
+    log("[void] rival dialogue portrait skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def void_dialog_dynamic_subject
+    return void_default_rival_name(void_current_rival_slot)
+  rescue
+    return void_default_rival_name(1)
+  end
+
+  def void_dialog_token_name(prefix)
+    key = prefix.to_s.downcase
+    case key
+    when "player", "player_name", "trainer", "trainer_name"
+      return void_host_player_name
+    when "c", "character", "char", "rival2", "r2"
+      return void_default_rival_name(2)
+    when "d", "default", "default_rival", "rival", "rival1", "r1"
+      return void_default_rival_name(1)
+    when "rival3", "r3"
+      return void_default_rival_name(3)
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def void_dialog_token_value(raw_token)
+    token = raw_token.to_s.strip
+    return nil if token.empty?
+    if token[/\A([A-Za-z0-9_]+)_n:([^|{}]*)\|([^{}]*)\z/i]
+      return $3.to_s
+    end
+    if token[/\A([A-Za-z0-9_]+)_([a-z])\z/i]
+      base_name = void_dialog_token_name($1)
+      return nil if base_name.to_s.empty?
+      case $2.downcase
+      when "o"
+        return "#{base_name}'s"
+      when "s"
+        return base_name
+      end
+      return base_name
+    end
+    return void_dialog_token_name(token)
+  rescue
+    return nil
+  end
+
+  def normalize_void_possessive_text(text)
+    body = text.to_s.dup
+    body.gsub!(/('s)+/i, "'s")
+    body.gsub!(/\b(Ronan|Nia|Seren)'s\s+'s\b/i, "\\1's")
+    body.gsub!(/\b(Ronan|Nia|Seren)\s+place\b/i, "\\1's place")
+    return body
+  rescue
+    return text.to_s
+  end
+
+  def normalize_void_text_glyphs(text)
+    body = text.to_s.dup
+    replacements = {
+      [0x2018].pack("U") => "'",
+      [0x2019].pack("U") => "'",
+      [0x201A].pack("U") => "'",
+      [0x201B].pack("U") => "'",
+      [0x2032].pack("U") => "'",
+      [0x201C].pack("U") => "\"",
+      [0x201D].pack("U") => "\"",
+      [0x201E].pack("U") => "\"",
+      [0x2033].pack("U") => "\"",
+      [0x2026].pack("U") => "...",
+      [0x00A0].pack("U") => " "
+    }
+    replacements.each { |from, to| body.gsub!(from, to) }
+    body.gsub!("PokÃƒÂ©mon", "Pokemon")
+    body.gsub!("PokÃƒÂ©gear", "Pokegear")
+    body.gsub!("Ã¢â‚¬â„¢", "'")
+    body.gsub!("Ã¢â‚¬Ëœ", "'")
+    body.gsub!("Ã¢â‚¬Å“", "\"")
+    body.gsub!("Ã¢â‚¬ï¿½", "\"")
+    body.gsub!("Ã¢â‚¬Â�", "\"")
+    body.gsub!("Ã¢â‚¬Â¦", "...")
+    body.gsub!("Ã‚", "")
+    return body
+  rescue
+    return text.to_s
+  end
+
+  def apply_void_common_text_replacements(body)
+    result = normalize_void_text_glyphs(body)
+    player = void_host_player_name
+    result.gsub!(/\{(?:player|player_name|trainer|trainer_name)\}/i, player)
+    result.gsub!(/\{(?:c|character|char)\}/i, void_default_rival_name(2))
+    result.gsub!(/\{(?:rival|rival1|rival1_name|r1|r1_name)\}/i, void_default_rival_name(1))
+    result.gsub!(/\{(?:rival2|rival2_name|r2|r2_name)\}/i, void_default_rival_name(2))
+    result.gsub!(/\{(?:rival3|rival3_name|r3|r3_name)\}/i, void_default_rival_name(3))
+    result.gsub!(/\{(?:d_s|default_subject|default_rival_subject)\}/i, void_dialog_dynamic_subject)
+    result.gsub!(/\{(?:d|default_rival)\}/i, void_default_rival_name(1))
+    result.gsub!(/\{([A-Za-z0-9_]+:[^{}|]*\|[^{}]*)\}/) { void_dialog_token_value($1) || "" }
+    result.gsub!(/\{([A-Za-z0-9_]+)\}/) { void_dialog_token_value($1) || $& }
+    result = normalize_void_possessive_text(result)
+    return result
+  rescue
+    return body.to_s
+  end
+
+  def prepare_void_message_text(text, map_id = nil)
+    source = text.to_s
+    return source if source.empty?
+    trailer = source[/\001+\z/].to_s
+    body = trailer.empty? ? source.dup : source[0, source.length - trailer.length]
+    stripped = body.strip
+    if stripped[/\A(?:pbSetDialoguePortrait|pbSetPlayerDialoguePortrait|pbSetRivalDialoguePortrait|pbClearDialoguePortrait|pbPortraitMessage|pbPlayerPortraitMessage|pbRivalPortraitMessage|VoidCharacterPortrait\.)\b/i]
+      return trailer
+    end
+    player = void_host_player_name
+    body.gsub!(/\{(?:player|player_name|trainer|trainer_name)\}/i, player)
+    body.gsub!(/\{(?:c|character|char)\}/i, void_default_rival_name(2))
+    body.gsub!(/\{(?:rival|rival1|rival1_name|r1|r1_name)\}/i, void_default_rival_name(1))
+    body.gsub!(/\{(?:rival2|rival2_name|r2|r2_name)\}/i, void_default_rival_name(2))
+    body.gsub!(/\{(?:rival3|rival3_name|r3|r3_name)\}/i, void_default_rival_name(3))
+    body.gsub!(/\{(?:d|default_rival)\}/i, void_default_rival_name(1))
+    body = apply_void_common_text_replacements(body)
+    body.gsub!("PokÃ©mon", "Pokemon")
+    body.gsub!("PokÃ©gear", "Pokegear")
+    body.gsub!("â€™", "'")
+    body.gsub!("â€œ", "\"")
+    body.gsub!("â€�", "\"")
+    body.gsub!("â€¦", "...")
+    body.gsub!("Â", "")
+    body.gsub!(/\{[A-Za-z0-9_]+_portrait\}/i, "")
+    body.gsub!(/\\s\[([^\|\]]+)\|([^\]]+)\]/i) { $1.to_s }
+    {
+      "they" => "they", "them" => "them", "their" => "their", "theirs" => "theirs",
+      "themself" => "themself", "are" => "are", "were" => "were", "have" => "have",
+      "do" => "do"
+    }.each do |token, value|
+      body.gsub!(/\\#{token}/i) do |match|
+        first = match[1, 1].to_s
+        first == first.upcase ? value.capitalize : value
+      end
+    end
+    body.gsub!(/<\/?(?:fs|c2|c3|ac|al|ar|b|i|u)[^>]*>/i, "")
+    return "#{body}#{trailer}"
+  rescue => e
+    log("[void] message text normalization failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return text.to_s
+  end
+
+  def prepare_void_rendered_message_text(text, map_id = nil)
+    source = text.to_s
+    return source if source.empty?
+    trailer = source[/\001+\z/].to_s
+    body = trailer.empty? ? source.dup : source[0, source.length - trailer.length]
+    stripped = body.strip
+    if stripped[/\A(?:pbSetDialoguePortrait|pbSetPlayerDialoguePortrait|pbSetRivalDialoguePortrait|pbClearDialoguePortrait|pbPortraitMessage|pbPlayerPortraitMessage|pbRivalPortraitMessage|VoidCharacterPortrait\.)\b/i]
+      return trailer
+    end
+    body.gsub!("PokÃ©mon", "Pokemon")
+    body.gsub!("PokÃ©gear", "Pokegear")
+    body.gsub!("â€™", "'")
+    body.gsub!("â€œ", "\"")
+    body.gsub!("â€�", "\"")
+    body.gsub!("â€¦", "...")
+    body.gsub!("Â", "")
+    body = apply_void_common_text_replacements(body)
+    # Host pbMessageDisplay prepends a colour tag based on the active
+    # windowskin. Void's imported dark portrait windowskin can report bad
+    # colour pixels in the host renderer, making otherwise valid text invisible.
+    body = force_void_message_text_color(body)
+    return "#{body}#{trailer}"
+  rescue => e
+    log("[void] rendered message text normalization failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return text.to_s
+  end
+
+  def imported_message_text_blank?(text)
+    body = text.to_s.dup
+    body.gsub!(/<[^>]*>/, "")
+    body.gsub!(/\\[A-Za-z]+(?:\[[^\]]*\])?/, "")
+    body.gsub!(/\\[.!^|]/, "")
+    body.gsub!(/[\x00-\x1F\s]+/, "")
+    return body.empty?
+  rescue
+    return text.to_s.empty?
+  end
+
+  def void_message_text_blank?(text)
+    body = text.to_s
+    body = body.gsub(/<[^>]*>/, "")
+    body = body.gsub(/\\[A-Za-z]+\[[^\]]*\]/, "")
+    body = body.gsub(/\\[A-Za-z]/, "")
+    return body.strip.empty?
+  rescue
+    return text.to_s.strip.empty?
+  end
+
+  def prepare_void_message_window_for_text!(msgwindow, text = nil)
+    return false if !msgwindow
+    normalize_void_message_window!(msgwindow) if respond_to?(:normalize_void_message_window!)
+    apply_void_message_text_colors!(msgwindow) if respond_to?(:apply_void_message_text_colors!)
+    if msgwindow.respond_to?(:letterbyletter=)
+      msgwindow.letterbyletter = true
+    else
+      msgwindow.instance_variable_set(:@letterbyletter, true)
+    end
+    if defined?(pbSetSystemFont) && msgwindow.respond_to?(:contents)
+      contents = (msgwindow.contents rescue nil)
+      pbSetSystemFont(contents) if contents
+    end
+    if !text.nil? && void_message_text_blank?(text)
+      dispose_void_textbox_backdrop!(msgwindow) if respond_to?(:dispose_void_textbox_backdrop!)
+    else
+      update_void_textbox_backdrop!(msgwindow) if respond_to?(:update_void_textbox_backdrop!)
+    end
+    apply_void_message_text_colors!(msgwindow) if respond_to?(:apply_void_message_text_colors!)
+    return true
+  rescue => e
+    log("[void] message window text prep failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def void_light_message_text_colors
+    if defined?(MessageConfig)
+      main = defined?(MessageConfig::LIGHT_TEXT_MAIN_COLOR) ? MessageConfig::LIGHT_TEXT_MAIN_COLOR : nil
+      shadow = defined?(MessageConfig::LIGHT_TEXT_SHADOW_COLOR) ? MessageConfig::LIGHT_TEXT_SHADOW_COLOR : nil
+      return [main, shadow] if main && shadow
+    end
+    return [Color.new(248, 248, 248), Color.new(72, 80, 88)] if defined?(Color)
+    return [nil, nil]
+  rescue
+    return [nil, nil]
+  end
+
+  def void_message_window_text_colors(msgwindow)
+    # Void's portrait message skin can be classified like a light host skin even
+    # though its message body is dark. Normal body text must therefore use light
+    # host colors rather than whatever the imported windowskin reports.
+    colors = void_light_message_text_colors
+    return colors if colors[0] && colors[1]
+    if defined?(getDefaultTextColors) && msgwindow && msgwindow.respond_to?(:windowskin)
+      colors = getDefaultTextColors(msgwindow.windowskin) rescue nil
+      return colors if colors.is_a?(Array) && colors.length >= 2 && colors[0] && colors[1]
+    end
+    return [nil, nil]
+  rescue
+    return [nil, nil]
+  end
+
+  def void_message_color_tag
+    colors = void_light_message_text_colors
+    if colors[0] && colors[1] && defined?(shadowc3tag)
+      return shadowc3tag(colors[0], colors[1])
+    end
+    return "<c3=F8F8F8,485058>"
+  rescue
+    return "<c3=F8F8F8,485058>"
+  end
+
+  def force_void_message_text_color(text)
+    body = text.to_s
+    return body if body.strip.empty?
+    body.gsub!(/<\/?c(?:[23])?(?:=[^>]*)?>/i, "")
+    return "#{void_message_color_tag}#{body}"
+  rescue
+    return text.to_s
+  end
+
+  def void_host_speech_frame
+    candidates = [
+      "Graphics/Windowskins/speech void",
+      "Graphics/Windowskins/SpeechShow",
+      "Graphics/Windowskins/Window",
+      "Graphics/Windowskins/Windowskin"
+    ]
+    if respond_to?(:resolve_runtime_path_for_expansion) && respond_to?(:pokemon_void_expansion_ids)
+      pokemon_void_expansion_ids.each do |expansion_id|
+        candidates.each do |candidate|
+          resolved = resolve_runtime_path_for_expansion(expansion_id, candidate, [".png"])
+          return resolved if resolved && (!respond_to?(:runtime_file_exists?) || runtime_file_exists?(resolved))
+        end
+      end
+    end
+    if respond_to?(:resolve_runtime_path)
+      candidates.each do |candidate|
+        resolved = resolve_runtime_path(candidate, [".png"])
+        return resolved if resolved && (!respond_to?(:runtime_file_exists?) || runtime_file_exists?(resolved))
+      end
+    end
+    return candidates[0]
+  rescue
+    return "Graphics/Windowskins/speech void"
+  end
+
+  def void_textbox_picture_path
+    candidates = [
+      "Graphics/Pictures/void_textbox",
+      "Graphics/Pictures/VoidTextbox",
+      "Graphics/Pictures/void textbox"
+    ]
+    if respond_to?(:resolve_runtime_path_for_expansion) && respond_to?(:pokemon_void_expansion_ids)
+      pokemon_void_expansion_ids.each do |expansion_id|
+        candidates.each do |candidate|
+          resolved = resolve_runtime_path_for_expansion(expansion_id, candidate, [".png"])
+          return resolved if resolved && (!respond_to?(:runtime_file_exists?) || runtime_file_exists?(resolved))
+        end
+      end
+    end
+    if respond_to?(:resolve_runtime_path)
+      candidates.each do |candidate|
+        resolved = resolve_runtime_path(candidate, [".png"])
+        return resolved if resolved && (!respond_to?(:runtime_file_exists?) || runtime_file_exists?(resolved))
+      end
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def dispose_void_textbox_backdrop!(msgwindow)
+    return false if !msgwindow || !msgwindow.respond_to?(:instance_variable_get)
+    sprite = msgwindow.instance_variable_get(:@tef_void_textbox_backdrop)
+    return true if !sprite
+    bitmap = (sprite.bitmap rescue nil)
+    sprite.dispose if sprite.respond_to?(:dispose) && !(sprite.disposed? rescue false)
+    bitmap.dispose if bitmap && bitmap.respond_to?(:dispose) && !(bitmap.disposed? rescue false)
+    msgwindow.instance_variable_set(:@tef_void_textbox_backdrop, nil)
+    msgwindow.instance_variable_set(:@tef_void_textbox_backdrop_path, nil)
+    return true
+  rescue => e
+    log("[void] textbox backdrop cleanup failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def update_void_textbox_backdrop!(msgwindow)
+    return false if !msgwindow || !defined?(Sprite) || !defined?(Bitmap)
+    path = void_textbox_picture_path
+    return false if path.to_s.empty?
+    sprite = msgwindow.instance_variable_get(:@tef_void_textbox_backdrop) if msgwindow.respond_to?(:instance_variable_get)
+    old_path = msgwindow.instance_variable_get(:@tef_void_textbox_backdrop_path) if msgwindow.respond_to?(:instance_variable_get)
+    if sprite && (sprite.disposed? rescue false)
+      sprite = nil
+    end
+    if !sprite || old_path != path
+      dispose_void_textbox_backdrop!(msgwindow)
+      viewport = (msgwindow.viewport rescue nil)
+      sprite = Sprite.new(viewport)
+      sprite.bitmap = Bitmap.new(path)
+      msgwindow.instance_variable_set(:@tef_void_textbox_backdrop, sprite)
+      msgwindow.instance_variable_set(:@tef_void_textbox_backdrop_path, path)
+    end
+    bitmap = (sprite.bitmap rescue nil)
+    width = bitmap && bitmap.respond_to?(:width) ? bitmap.width : 0
+    height = bitmap && bitmap.respond_to?(:height) ? bitmap.height : 0
+    if defined?(Graphics)
+      graphics_width = (Graphics.width rescue 0).to_i
+      graphics_height = (Graphics.height rescue 0).to_i
+      sprite.x = graphics_width > width ? ((graphics_width - width) / 2) : 0
+      sprite.y = graphics_height > height ? (graphics_height - height) : 0
+    else
+      sprite.x = 0
+      sprite.y = (msgwindow.y rescue 0)
+    end
+    sprite.z = [(msgwindow.z rescue 99999).to_i - 1, 0].max if sprite.respond_to?(:z=)
+    sprite.visible = (msgwindow.visible rescue true) if sprite.respond_to?(:visible=)
+    msgwindow.opacity = 0 if msgwindow.respond_to?(:opacity=)
+    msgwindow.back_opacity = 0 if msgwindow.respond_to?(:back_opacity=)
+    msgwindow.contents_opacity = 255 if msgwindow.respond_to?(:contents_opacity=)
+    return true
+  rescue => e
+    log("[void] textbox backdrop skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def apply_void_message_text_colors!(msgwindow)
+    colors = void_message_window_text_colors(msgwindow)
+    return false if !msgwindow || !colors[0] || !colors[1]
+    msgwindow.instance_variable_set(:@baseColor, colors[0])
+    msgwindow.instance_variable_set(:@shadowColor, colors[1])
+    if msgwindow.respond_to?(:contents)
+      contents = (msgwindow.contents rescue nil)
+      if contents && contents.respond_to?(:font) && contents.font && contents.font.respond_to?(:color=)
+        contents.font.color = colors[0]
+      end
+    end
+    return true
+  rescue => e
+    log("[void] message text color fallback failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def prime_void_message_color_ivars!(msgwindow)
+    colors = void_message_window_text_colors(msgwindow)
+    return false if !msgwindow || !colors[0] || !colors[1]
+    msgwindow.instance_variable_set(:@baseColor, colors[0])
+    msgwindow.instance_variable_set(:@shadowColor, colors[1])
+    return true
+  rescue
+    return false
+  end
+
+  def apply_void_host_message_skin!(msgwindow)
+    return false if !msgwindow
+    prime_void_message_color_ivars!(msgwindow) if respond_to?(:prime_void_message_color_ivars!)
+    return true if !msgwindow.respond_to?(:setSkin)
+    skin = void_host_speech_frame
+    return false if skin.to_s.empty?
+    if msgwindow.instance_variable_get(:@tef_void_message_skin) != skin
+      prime_void_message_color_ivars!(msgwindow) if respond_to?(:prime_void_message_color_ivars!)
+      arity = msgwindow.method(:setSkin).arity rescue 1
+      if arity == 1
+        msgwindow.setSkin(skin)
+      else
+        msgwindow.setSkin(skin, false)
+      end
+      msgwindow.instance_variable_set(:@tef_void_message_skin, skin)
+    end
+    apply_void_message_text_colors!(msgwindow) if respond_to?(:apply_void_message_text_colors!)
+    return true
+  rescue => e
+    apply_void_message_text_colors!(msgwindow) if respond_to?(:apply_void_message_text_colors!)
+    log("[void] host message skin fallback skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def normalize_void_message_window!(msgwindow)
+    return false if !msgwindow
+    apply_void_host_message_skin!(msgwindow) if respond_to?(:apply_void_host_message_skin!)
+    if msgwindow.respond_to?(:visible=)
+      msgwindow.visible = true
+    else
+      msgwindow.instance_variable_set(:@visible, true)
+    end
+    if msgwindow.respond_to?(:opacity=)
+      msgwindow.opacity = 255
+    else
+      msgwindow.instance_variable_set(:@opacity, 255)
+    end
+    if msgwindow.respond_to?(:back_opacity=)
+      msgwindow.back_opacity = 255
+    else
+      msgwindow.instance_variable_set(:@back_opacity, 255)
+    end
+    if msgwindow.respond_to?(:contents_opacity=)
+      msgwindow.contents_opacity = 255
+    else
+      msgwindow.instance_variable_set(:@contents_opacity, 255)
+    end
+    if defined?(Graphics)
+      if msgwindow.respond_to?(:z=)
+        msgwindow.z = 99999
+      else
+        msgwindow.instance_variable_set(:@z, 99999)
+      end
+    end
+    apply_void_message_text_colors!(msgwindow) if respond_to?(:apply_void_message_text_colors!)
+    return true
+  rescue => e
+    log("[void] message window normalization failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def reset_void_message_state!
+    reset_speechbubble_state! if respond_to?(:reset_speechbubble_state!)
+    if defined?($PokemonTemp) && $PokemonTemp
+      temp = $PokemonTemp
+      temp.speechbubble_bubble = nil if temp.respond_to?(:speechbubble_bubble=)
+      temp.speechbubble_talking = nil if temp.respond_to?(:speechbubble_talking=)
+      temp.speechbubble_alwaysDown = false if temp.respond_to?(:speechbubble_alwaysDown=)
+      temp.speechbubble_alwaysUp = false if temp.respond_to?(:speechbubble_alwaysUp=)
+      temp.speechbubble_outofrange = false if temp.respond_to?(:speechbubble_outofrange=)
+      temp.speechbubble_arrow = nil if temp.respond_to?(:speechbubble_arrow=)
+      temp.speechbubble_vp = nil if temp.respond_to?(:speechbubble_vp=)
+    end
+    if defined?($game_system) && $game_system
+      $game_system.message_position = 2 if $game_system.respond_to?(:message_position=)
+      $game_system.message_frame = 0 if $game_system.respond_to?(:message_frame=)
+    end
+    return true
+  rescue => e
+    log("[void] message state reset failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
   end
 
   def prepare_new_project_text(text, map_id = nil)
@@ -2496,6 +3156,7 @@ module TravelExpansionFramework
       result = opalo_translate_text(result, map_id)
     end
     result = cleanup_imported_message_text(result, map_id) if new_project_active_now?(map_id)
+    result = prepare_void_message_text(result, map_id) if respond_to?(:void_active_now?) && void_active_now?(map_id)
     return result
   rescue
     return text.to_s
@@ -2503,7 +3164,12 @@ module TravelExpansionFramework
 
   def prepare_new_project_commands(commands, map_id = nil)
     return commands if !commands
-    return Array(commands).map { |entry| prepare_new_project_text(entry, map_id) }
+    void_commands = respond_to?(:void_active_now?) && void_active_now?(map_id)
+    return Array(commands).map do |entry|
+      prepared = prepare_new_project_text(entry, map_id)
+      prepared = prepared.gsub(/\A\s*<c[23]=[^>]*>/i, "") if void_commands
+      prepared
+    end
   rescue
     return commands
   end
@@ -2924,6 +3590,28 @@ module TravelExpansionFramework
     return nil
   end
 
+  def resolve_new_project_gift_species_ref(pkmn)
+    return pkmn if pkmn.nil?
+    return pkmn if defined?(Pokemon) && pkmn.is_a?(Pokemon)
+    expansion = current_new_project_expansion_id if respond_to?(:current_new_project_expansion_id)
+    expansion = current_map_expansion_id if expansion.to_s.empty? && respond_to?(:current_map_expansion_id)
+    return pkmn if expansion.to_s.empty?
+    canonical_expansion = canonical_new_project_id(expansion) if respond_to?(:canonical_new_project_id)
+    canonical_expansion = expansion if canonical_expansion.to_s.empty?
+    resolved = nil
+    resolved = resolve_expansion_species(canonical_expansion, pkmn) if respond_to?(:resolve_expansion_species)
+    if pokemon_void_expansion_ids.include?(canonical_expansion.to_s) && pkmn.respond_to?(:to_sym)
+      resolved = POKEMON_VOID_SPECIES_ALIASES[pkmn.to_sym] if resolved.nil? || resolved == pkmn
+    end
+    data = GameData::Species.try_get(resolved) rescue nil
+    return data.species if data && data.respond_to?(:species)
+    return resolved if resolved
+    return pkmn
+  rescue => e
+    log("[new_project] gift species resolution failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return pkmn
+  end
+
   def bank_new_project_gift_pokemon_if_needed!(pkmn, level = 1, see_form = true, dont_randomize = false, variable_to_save = nil, source = "gift")
     expansion = new_project_banked_gift_expansion_id
     return nil if expansion.to_s.empty?
@@ -2931,7 +3619,7 @@ module TravelExpansionFramework
     return nil if !$Trainer.party_full?
     return nil if !defined?($PokemonStorage) || !$PokemonStorage || !$PokemonStorage.respond_to?(:pbStoreCaught)
     return nil if defined?(pbBoxesFull) && pbBoxesFull?
-    pokemon = pkmn
+    pokemon = resolve_new_project_gift_species_ref(pkmn)
     pokemon = Pokemon.new(pokemon, level) if defined?(Pokemon) && !pokemon.is_a?(Pokemon)
     return false if !pokemon
     tryRandomizeGiftPokemon(pokemon, dont_randomize) if defined?(tryRandomizeGiftPokemon)
@@ -3839,7 +4527,18 @@ if TravelExpansionFramework.respond_to?(:resolve_runtime_path)
     alias tef_new_projects_original_resolve_runtime_path resolve_runtime_path unless method_defined?(:tef_new_projects_original_resolve_runtime_path)
 
     def resolve_runtime_path(logical_path, extensions = [])
-      override = opalo_picture_override_path(logical_path, extensions) if respond_to?(:opalo_picture_override_path)
+      override = nil
+      if !@tef_opalo_picture_override_resolving && respond_to?(:opalo_picture_override_path)
+        begin
+          @tef_opalo_picture_override_resolving = true
+          override = opalo_picture_override_path(logical_path, extensions)
+        rescue Exception => e
+          log("[opalo] skipped unsafe picture override for #{logical_path.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+          override = nil
+        ensure
+          @tef_opalo_picture_override_resolving = false
+        end
+      end
       if override
         log_runtime_asset_once(TravelExpansionFramework::OPALO_EXPANSION_ID, :compat_picture, logical_path, override) if respond_to?(:log_runtime_asset_once)
         return override
@@ -3870,6 +4569,8 @@ if defined?(Scene_Map)
                                                                            TravelExpansionFramework.respond_to?(:gadir_deluxe_home_recovery_update!)
       TravelExpansionFramework.infinity_runtime_watchdog_update!(self) if defined?(TravelExpansionFramework) &&
                                                                           TravelExpansionFramework.respond_to?(:infinity_runtime_watchdog_update!)
+      TravelExpansionFramework.void_scene_runtime_repair_update!(self) if defined?(TravelExpansionFramework) &&
+                                                                          TravelExpansionFramework.respond_to?(:void_scene_runtime_repair_update!)
       return result
     end
   end
@@ -3885,12 +4586,16 @@ if defined?(Game_Event)
                                                                                             TravelExpansionFramework.respond_to?(:opalo_repair_starter_room_state!)
       result = tef_new_projects_original_refresh
       TravelExpansionFramework.apply_opalo_lens_event_state!(self, true) if defined?(TravelExpansionFramework)
+      TravelExpansionFramework.void_repair_runtime_event!(self, @map_id, "event_refresh") if defined?(TravelExpansionFramework) &&
+                                                                                             TravelExpansionFramework.respond_to?(:void_repair_runtime_event!)
       return result
     end
 
     def update
       result = tef_new_projects_original_update
       TravelExpansionFramework.apply_opalo_lens_event_state!(self, false) if defined?(TravelExpansionFramework)
+      TravelExpansionFramework.void_repair_runtime_event!(self, @map_id, "event_update") if defined?(TravelExpansionFramework) &&
+                                                                                            TravelExpansionFramework.respond_to?(:void_repair_runtime_event!)
       return result
     end
   end
@@ -5003,6 +5708,769 @@ unless defined?(AutomaticLevelScaling)
       end
     end
   end
+
+  def new_project_quest_key(quest)
+    return nil if quest.nil?
+    value = quest
+    value = quest.id if quest.respond_to?(:id)
+    value = value.name if value.respond_to?(:name) && !value.is_a?(Symbol)
+    text = value.to_s.strip
+    return nil if text.empty?
+    return text
+  rescue
+    return quest.to_s
+  end
+
+  def new_project_quest_state(expansion_id = nil)
+    expansion = expansion_id.to_s
+    expansion = current_new_project_expansion_id.to_s if expansion.empty? && respond_to?(:current_new_project_expansion_id)
+    expansion = "new_project" if expansion.empty?
+    meta = new_project_metadata(expansion) if respond_to?(:new_project_metadata)
+    if meta.is_a?(Hash)
+      meta["quest_shim"] = {} if !meta["quest_shim"].is_a?(Hash)
+      store = meta["quest_shim"]
+    else
+      @new_project_quest_fallback ||= {}
+      @new_project_quest_fallback[expansion] ||= {}
+      store = @new_project_quest_fallback[expansion]
+    end
+    store["active"] = [] if !store["active"].is_a?(Array)
+    store["completed"] = [] if !store["completed"].is_a?(Array)
+    store["stages"] = {} if !store["stages"].is_a?(Hash)
+    return store
+  rescue
+    @new_project_quest_fallback ||= {}
+    @new_project_quest_fallback["new_project"] ||= { "active" => [], "completed" => [], "stages" => {} }
+    return @new_project_quest_fallback["new_project"]
+  end
+
+  def new_project_start_quest!(quest = nil, *args)
+    if respond_to?(:release_activate_quest!)
+      return release_activate_quest!(quest, nil, true, *args)
+    end
+    key = new_project_quest_key(quest)
+    return true if key.nil?
+    store = new_project_quest_state
+    store["active"] << key if !store["active"].include?(key) && !store["completed"].include?(key)
+    store["stages"][key] = integer(args[0], 0) if args && !args.empty? && respond_to?(:integer)
+    log("[quest] started #{key}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[quest] start skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def new_project_complete_quest!(quest = nil, *args)
+    if respond_to?(:release_complete_quest!)
+      return release_complete_quest!(quest, true, *args)
+    end
+    key = new_project_quest_key(quest)
+    return true if key.nil?
+    store = new_project_quest_state
+    store["active"].delete(key)
+    store["completed"] << key if !store["completed"].include?(key)
+    log("[quest] completed #{key}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[quest] completion skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def new_project_quest_stage(quest = nil)
+    return release_quest_stage(quest) if respond_to?(:release_quest_stage)
+    key = new_project_quest_key(quest)
+    return 0 if key.nil?
+    store = new_project_quest_state
+    return integer(store["stages"][key], 0) if respond_to?(:integer)
+    return store["stages"][key].to_i
+  rescue
+    return 0
+  end
+
+  def new_project_quest_started?(quest = nil)
+    return release_quest_started?(quest) if respond_to?(:release_quest_started?)
+    key = new_project_quest_key(quest)
+    return false if key.nil?
+    store = new_project_quest_state
+    return store["active"].include?(key) || store["completed"].include?(key) || store["stages"].has_key?(key)
+  rescue
+    return false
+  end
+
+  def new_project_quest_completed?(quest = nil)
+    return release_quest_completed?(quest) if respond_to?(:release_quest_completed?)
+    key = new_project_quest_key(quest)
+    return false if key.nil?
+    return new_project_quest_state["completed"].include?(key)
+  rescue
+    return false
+  end
+
+  def void_rival_charset_name(rival_slot = nil)
+    slot = rival_slot.to_i
+    slot = 1 if slot <= 0
+    candidates = case slot
+    when 1
+      ["trainer_RONAN", "trainer_PECAN", "1_RIVAL_CHAMPION", "trainer_SEREN", "trainer_Ronan", "RIVAL_RONAN"]
+    when 2
+      ["trainer_NYA", "trainer_SEREN", "trainer_PECAN", "1_RIVAL_CHAMPION", "trainer_NIA", "trainer_Nia", "RIVAL_NIA"]
+    when 3
+      ["trainer_SEREN", "trainer_NYA", "trainer_PECAN", "1_RIVAL_CHAMPION", "trainer_Seren", "RIVAL_SEREN"]
+    else
+      ["trainer_NYA", "trainer_RONAN", "trainer_SEREN", "trainer_PECAN", "1_RIVAL_CHAMPION"]
+    end
+    candidates.each do |name|
+      resolved = nil
+      begin
+        resolved = resolve_runtime_path_for_expansion(POKEMON_VOID_EXPANSION_ID, "Graphics/Characters/#{name}", [".png", ".PNG"]) if respond_to?(:resolve_runtime_path_for_expansion)
+      rescue
+        resolved = nil
+      end
+      begin
+        resolved ||= pbResolveBitmap("Graphics/Characters/#{name}") if defined?(pbResolveBitmap)
+      rescue
+        resolved ||= nil
+      end
+      return name if resolved
+    end
+    return candidates[0]
+  rescue
+    return "trainer_NYA"
+  end
+
+  def void_apply_event_charset!(event, charset)
+    return false if !event || charset.to_s.empty?
+    event.character_name = charset if event.respond_to?(:character_name=)
+    if event.respond_to?(:instance_variable_set)
+      event.instance_variable_set(:@character_name, charset)
+      event.instance_variable_set(:@tef_void_forced_character_name, charset)
+      event.instance_variable_set(:@tile_id, 0)
+      event.instance_variable_set(:@character_hue, 0)
+      event.instance_variable_set(:@opacity, 255)
+      event.instance_variable_set(:@transparent, false)
+      event.instance_variable_set(:@erased, false)
+    end
+    return true
+  rescue => e
+    log("[void] event charset apply failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def void_runtime_event_id(event)
+    return nil if !event
+    return event.id if event.respond_to?(:id)
+    raw_event = event.instance_variable_get(:@event) if event.respond_to?(:instance_variable_get)
+    return raw_event.id if raw_event && raw_event.respond_to?(:id)
+    return event.instance_variable_get(:@id) if event.respond_to?(:instance_variable_get)
+    return nil
+  rescue
+    return nil
+  end
+
+  def void_runtime_event_map_id(event, fallback = nil)
+    return fallback if !event
+    return event.map_id if event.respond_to?(:map_id)
+    return event.instance_variable_get(:@map_id) if event.respond_to?(:instance_variable_get)
+    return fallback
+  rescue
+    return fallback
+  end
+
+  def void_runtime_event_commands(event)
+    return [] if !event || !event.respond_to?(:instance_variable_get)
+    list = event.instance_variable_get(:@list)
+    return list if list.is_a?(Array)
+    page = void_runtime_event_current_page(event)
+    return page.list if page && page.respond_to?(:list) && page.list.is_a?(Array)
+    return []
+  rescue
+    return []
+  end
+
+  def void_runtime_event_current_page(event)
+    return nil if !event || !event.respond_to?(:instance_variable_get)
+    page = event.instance_variable_get(:@page)
+    return page if page
+    raw_event = event.instance_variable_get(:@event)
+    page_index = event.instance_variable_get(:@page_index)
+    if raw_event && raw_event.respond_to?(:pages) && raw_event.pages
+      if !page_index.nil?
+        page = raw_event.pages[page_index.to_i]
+        return page if page
+      end
+      return raw_event.pages.last
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def void_event_page_condition_met?(event, page, map_id = nil)
+    return false if !event || !page || !page.respond_to?(:condition)
+    condition = page.condition
+    return true if !condition
+    if condition.switch1_valid
+      if event.respond_to?(:switchIsOn?)
+        return false if !event.switchIsOn?(condition.switch1_id)
+      elsif defined?($game_switches)
+        return false if !$game_switches[condition.switch1_id]
+      end
+    end
+    if condition.switch2_valid
+      if event.respond_to?(:switchIsOn?)
+        return false if !event.switchIsOn?(condition.switch2_id)
+      elsif defined?($game_switches)
+        return false if !$game_switches[condition.switch2_id]
+      end
+    end
+    if condition.variable_valid && defined?($game_variables)
+      return false if $game_variables[condition.variable_id].to_i < condition.variable_value.to_i
+    end
+    if condition.self_switch_valid
+      map = map_id || void_runtime_event_map_id(event, ($game_map.map_id rescue nil))
+      event_id = void_runtime_event_id(event)
+      return false if !defined?($game_self_switches) ||
+                      $game_self_switches[[map.to_i, event_id.to_i, condition.self_switch_ch]] != true
+    end
+    return true
+  rescue
+    return false
+  end
+
+  def void_runtime_event_all_commands(event)
+    commands = []
+    raw_event = event.instance_variable_get(:@event) if event && event.respond_to?(:instance_variable_get)
+    if raw_event && raw_event.respond_to?(:pages) && raw_event.pages
+      raw_event.pages.each do |page|
+        commands.concat(page.list) if page && page.respond_to?(:list) && page.list.is_a?(Array)
+      end
+    end
+    commands.concat(void_runtime_event_commands(event))
+    return commands.compact
+  rescue
+    return void_runtime_event_commands(event)
+  end
+
+  def void_runtime_event_trigger(event)
+    return nil if !event || !event.respond_to?(:instance_variable_get)
+    trigger = event.instance_variable_get(:@trigger)
+    return trigger if !trigger.nil?
+    page = void_runtime_event_current_page(event)
+    return page.trigger if page && page.respond_to?(:trigger)
+    return nil
+  rescue
+    return nil
+  end
+
+  def void_runtime_event_empty_graphic?(event)
+    return false if !event || !event.respond_to?(:instance_variable_get)
+    character_name = event.respond_to?(:character_name) ? event.character_name : event.instance_variable_get(:@character_name)
+    tile_id = event.respond_to?(:tile_id) ? event.tile_id : event.instance_variable_get(:@tile_id)
+    return character_name.to_s.empty? && tile_id.to_i <= 0
+  rescue
+    return false
+  end
+
+  def void_runtime_event_name(event)
+    return "" if !event
+    return event.name.to_s if event.respond_to?(:name)
+    raw_event = event.instance_variable_get(:@event) if event.respond_to?(:instance_variable_get)
+    return raw_event.name.to_s if raw_event && raw_event.respond_to?(:name)
+    return event.instance_variable_get(:@event_name).to_s if event.respond_to?(:instance_variable_get)
+    return ""
+  rescue
+    return ""
+  end
+
+  def void_local_map_id(map_id = nil)
+    map = integer(map_id || ($game_map.map_id rescue 0), 0)
+    expansion = current_void_expansion_id(map) if respond_to?(:current_void_expansion_id)
+    if respond_to?(:local_map_id_for)
+      local = local_map_id_for(expansion || POKEMON_VOID_EXPANSION_ID, map) rescue nil
+      return integer(local, map) if local
+    end
+    return map - 48000 if map >= 48000 && map < 49000
+    return map
+  rescue
+    return integer(map_id, 0)
+  end
+
+  def void_game_switch_on?(switch_id)
+    return false if !defined?($game_switches) || !$game_switches
+    return $game_switches[integer(switch_id, 0)] == true
+  rescue
+    return false
+  end
+
+  def void_player_has_running_shoes?
+    player_obj = ($player rescue nil)
+    trainer_obj = ($Trainer rescue nil)
+    [player_obj, trainer_obj].compact.each do |player|
+      return true if player.respond_to?(:has_running_shoes) && player.has_running_shoes
+      return true if player.respond_to?(:instance_variable_get) && player.instance_variable_get(:@has_running_shoes) == true
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def void_force_event_through!(event)
+    return false if !event
+    previous = event.respond_to?(:through) ? event.through : (event.instance_variable_get(:@through) rescue nil)
+    event.through = true if event.respond_to?(:through=)
+    event.instance_variable_set(:@through, true) if event.respond_to?(:instance_variable_set)
+    return previous != true
+  rescue
+    return false
+  end
+
+  def void_event_command_text(command)
+    params = command.respond_to?(:parameters) ? command.parameters : (command.instance_variable_get(:@parameters) rescue [])
+    return Array(params).map { |param| param.to_s }.join("\n")
+  rescue
+    return ""
+  end
+
+  def void_move_route_sets_opacity_zero?(route)
+    return false if !route || !route.respond_to?(:list)
+    route.list.any? do |move_command|
+      code = move_command.respond_to?(:code) ? move_command.code : (move_command.instance_variable_get(:@code) rescue nil)
+      next false if code.to_i != 42
+      params = move_command.respond_to?(:parameters) ? move_command.parameters : (move_command.instance_variable_get(:@parameters) rescue [])
+      integer(Array(params)[0], 255) <= 0
+    end
+  rescue
+    return false
+  end
+
+  def void_command_calls_clear_rival_graphic?(command, event_id)
+    return false if event_id.to_i <= 0
+    text = void_event_command_text(command)
+    text.scan(/pbVoidClearRivalGraphic\s*\(\s*(-?\d+)/i) do |target|
+      return true if integer(Array(target)[0], 0) == event_id.to_i
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def void_map_script_clears_rival_graphic?(event_id, map_id = nil)
+    return false if event_id.to_i <= 0 || !defined?($game_map) || !$game_map || !$game_map.respond_to?(:events)
+    map = map_id || ($game_map.map_id rescue nil)
+    $game_map.events.each_value do |candidate|
+      raw_event = candidate.instance_variable_get(:@event) if candidate && candidate.respond_to?(:instance_variable_get)
+      pages = raw_event && raw_event.respond_to?(:pages) ? raw_event.pages : []
+      pages.each do |page|
+        next if !void_event_page_condition_met?(candidate, page, map)
+        next if !page.respond_to?(:list) || !page.list.is_a?(Array)
+        return true if page.list.any? { |command| void_command_calls_clear_rival_graphic?(command, event_id) }
+      end
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def void_current_page_clears_rival_graphic?(event)
+    event_id = void_runtime_event_id(event).to_i
+    return false if event_id <= 0
+    void_runtime_event_commands(event).any? { |command| void_command_calls_clear_rival_graphic?(command, event_id) }
+  rescue
+    return false
+  end
+
+  def void_current_page_completion_stub?(event)
+    page = void_runtime_event_current_page(event)
+    return false if !page || !page.respond_to?(:condition)
+    condition = page.condition
+    return false if !condition || !(condition.self_switch_valid rescue false)
+    text = void_runtime_event_commands(event).map { |command| void_event_command_text(command) }.join("\n")
+    return false if text =~ /pbSetRivalDialoguePortrait|pbVoidApplyRivalGraphic|pbWalkCharacterTo|pbMessage|\bRival\b|rival/i
+    return true
+  rescue
+    return false
+  end
+
+  def void_runtime_event_hidden_by_current_page?(event)
+    opacity = event.respond_to?(:opacity) ? event.opacity : event.instance_variable_get(:@opacity)
+    return true if !opacity.nil? && opacity.to_i <= 0
+    return true if void_current_page_clears_rival_graphic?(event)
+    return true if void_current_page_completion_stub?(event)
+    trigger = void_runtime_event_trigger(event).to_i
+    return false if trigger != 4
+    void_runtime_event_commands(event).any? do |command|
+      code = command.respond_to?(:code) ? command.code : (command.instance_variable_get(:@code) rescue nil)
+      next false if code.to_i != 209
+      params = command.respond_to?(:parameters) ? command.parameters : (command.instance_variable_get(:@parameters) rescue [])
+      void_move_route_sets_opacity_zero?(Array(params)[1])
+    end
+  rescue
+    return false
+  end
+
+  def void_invisible_transfer_event?(event)
+    return false if !void_runtime_event_empty_graphic?(event)
+    trigger = void_runtime_event_trigger(event).to_i
+    return false if ![1, 2].include?(trigger)
+    void_runtime_event_commands(event).any? do |command|
+      code = command.respond_to?(:code) ? command.code : (command.instance_variable_get(:@code) rescue nil)
+      code.to_i == 201
+    end
+  rescue
+    return false
+  end
+
+  def void_repair_transfer_event_passability!(event, map_id = nil)
+    return false if !event
+    map = (map_id || void_runtime_event_map_id(event, ($game_map.map_id rescue nil))).to_i
+    return false if !void_active_now?(map)
+    return false if !void_invisible_transfer_event?(event)
+    event.through = true if event.respond_to?(:through=)
+    event.instance_variable_set(:@through, true) if event.respond_to?(:instance_variable_set)
+    return true
+  rescue => e
+    log("[void] transfer event passability repair failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def void_repair_running_shoes_event_passability!(event, map_id = nil)
+    return false if !event
+    map = (map_id || void_runtime_event_map_id(event, ($game_map.map_id rescue nil))).to_i
+    return false if !void_active_now?(map)
+    return false if void_local_map_id(map) != 3
+    event_id = void_runtime_event_id(event).to_i
+    name = void_runtime_event_name(event)
+    active_story = void_game_switch_on?(76) || void_game_switch_on?(176) ||
+                   void_game_switch_on?(101) || void_player_has_running_shoes?
+    return false if !active_story
+    should_repair = (event_id == 23 && name =~ /give running shoes/i) ||
+                    (event_id == 22 && name =~ /\bmom\b/i)
+    return false if !should_repair
+    changed = void_force_event_through!(event)
+    if changed
+      @void_running_shoes_passability_log ||= {}
+      key = "#{map}:#{event_id}"
+      if !@void_running_shoes_passability_log[key]
+        @void_running_shoes_passability_log[key] = true
+        log("[void] made running-shoes event #{event_id} passable after #{name.inspect}") if respond_to?(:log)
+      end
+    end
+    return changed
+  rescue => e
+    log("[void] running-shoes event passability repair failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def void_rival_graphic_store_key(map_id, event_id)
+    "#{integer(map_id, 0)}:#{integer(event_id, 0)}"
+  rescue
+    "#{map_id}:#{event_id}"
+  end
+
+  def void_rival_graphic_cleared?(map_id, event_id)
+    store = void_rival_graphic_store
+    return false if !store.is_a?(Hash)
+    data = store[void_rival_graphic_store_key(map_id, event_id)]
+    return data.is_a?(Hash) && data["cleared"] == true
+  rescue
+    return false
+  end
+
+  def void_reapply_rival_graphic_for_event!(event, map_id = nil)
+    return false if !event
+    event_id = void_runtime_event_id(event).to_i
+    return false if event_id <= 0
+    map = (map_id || void_runtime_event_map_id(event, ($game_map.map_id rescue nil))).to_i
+    return false if !void_active_now?(map)
+    store = void_rival_graphic_store
+    data = store[void_rival_graphic_store_key(map, event_id)] if store.is_a?(Hash)
+    return false if !data.is_a?(Hash)
+    return false if data["cleared"] == true
+    charset = data["charset"]
+    return false if charset.to_s.empty?
+    return void_apply_event_charset!(event, charset)
+  rescue => e
+    log("[void] rival graphic reapply failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def void_rival_slot_from_setup_commands(event_id)
+    return 0 if event_id.to_i <= 0 || !defined?($game_map) || !$game_map || !$game_map.respond_to?(:events)
+    map_id = ($game_map.map_id rescue nil)
+    $game_map.events.each_value do |candidate|
+      raw_event = candidate.instance_variable_get(:@event) if candidate && candidate.respond_to?(:instance_variable_get)
+      pages = raw_event && raw_event.respond_to?(:pages) ? raw_event.pages : []
+      pages.each do |page|
+        next if !void_event_page_condition_met?(candidate, page, map_id)
+        next if !page.respond_to?(:list) || !page.list.is_a?(Array)
+        text = page.list.map { |command| void_event_command_text(command) }.join("\n")
+        text.scan(/pbVoidApplyRivalGraphic\s*\(\s*(-?\d+)\s*(?:,\s*(-?\d+))?/i) do |target, slot|
+          next if integer(target, 0) != event_id.to_i
+          parsed = integer(slot, 1)
+          return parsed > 0 ? parsed : 1
+        end
+      end
+    end
+    return 0
+  rescue
+    return 0
+  end
+
+  def void_inferred_rival_slot_for_event(event)
+    event_id = void_runtime_event_id(event).to_i
+    setup_slot = void_rival_slot_from_setup_commands(event_id)
+    return setup_slot if setup_slot > 0
+    raw_event = event.instance_variable_get(:@event) if event && event.respond_to?(:instance_variable_get)
+    event_name = raw_event && raw_event.respond_to?(:name) ? raw_event.name.to_s : ""
+    event_name = event.instance_variable_get(:@event_name).to_s if event_name.empty? && event.respond_to?(:instance_variable_get)
+    return 2 if event_name =~ /cultist.*rival|rival.*cultist/i
+    return void_current_rival_slot if event_name =~ /rival/i
+    return 0
+  rescue
+    return 0
+  end
+
+  def void_repair_inferred_rival_graphic!(event, map_id = nil)
+    return false if !event
+    map = (map_id || void_runtime_event_map_id(event, ($game_map.map_id rescue nil))).to_i
+    return false if !void_active_now?(map)
+    return false if !void_runtime_event_empty_graphic?(event)
+    return false if void_runtime_event_hidden_by_current_page?(event)
+    event_id = void_runtime_event_id(event).to_i
+    return false if event_id <= 0
+    return false if void_map_script_clears_rival_graphic?(event_id, map)
+    return false if void_rival_graphic_cleared?(map, event_id)
+    slot = void_inferred_rival_slot_for_event(event)
+    return false if slot.to_i <= 0
+    charset = void_rival_charset_name(slot)
+    return false if charset.to_s.empty?
+    store = void_rival_graphic_store
+    if store.is_a?(Hash)
+      key = void_rival_graphic_store_key(map, event_id)
+      store[key] ||= {}
+      store[key].delete("cleared")
+      store[key]["target_event_id"] = event_id
+      store[key]["live_event_id"] = event_id
+      store[key]["rival_slot"] = slot
+      store[key]["charset"] = charset
+    end
+    changed = void_apply_event_charset!(event, charset)
+    if changed
+      @void_inferred_rival_graphic_log ||= {}
+      log_key = "#{map}:#{event_id}:#{charset}"
+      if !@void_inferred_rival_graphic_log[log_key]
+        @void_inferred_rival_graphic_log[log_key] = true
+        log("[void] repaired inferred rival graphic #{charset.inspect} on event #{event_id}") if respond_to?(:log)
+      end
+    end
+    return changed
+  rescue => e
+    log("[void] inferred rival graphic repair failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def void_repair_runtime_event!(event, map_id = nil, _reason = "event")
+    changed = false
+    changed = true if void_repair_running_shoes_event_passability!(event, map_id)
+    changed = true if void_repair_transfer_event_passability!(event, map_id)
+    changed = true if void_reapply_rival_graphic_for_event!(event, map_id)
+    changed = true if void_repair_inferred_rival_graphic!(event, map_id)
+    return changed
+  rescue
+    return false
+  end
+
+  def void_prepare_map_runtime!(game_map = nil, reason = "map_setup")
+    map = game_map || (defined?($game_map) ? $game_map : nil)
+    return false if !map || !map.respond_to?(:events)
+    map_id = map.respond_to?(:map_id) ? map.map_id : (map.instance_variable_get(:@map_id) rescue nil)
+    return false if !void_active_now?(map_id)
+    repaired = 0
+    map.events.each_value do |event|
+      repaired += 1 if void_repair_runtime_event!(event, map_id, reason)
+    end
+    log("[void] repaired #{repaired} runtime map event(s) for #{reason}") if repaired > 0 && respond_to?(:log)
+    return repaired > 0
+  rescue => e
+    log("[void] map runtime repair skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def void_scene_runtime_repair_update!(_scene = nil)
+    return false if !defined?($game_map) || !$game_map
+    map_id = ($game_map.map_id rescue nil)
+    return false if !void_active_now?(map_id)
+    frame = (Graphics.frame_count rescue nil)
+    tick = frame ? frame.to_i : (Time.now.to_f * 10).to_i
+    @void_scene_runtime_repair_ticks ||= {}
+    last = integer(@void_scene_runtime_repair_ticks[map_id], -9999)
+    return false if tick - last < 15
+    @void_scene_runtime_repair_ticks[map_id] = tick
+    return void_prepare_map_runtime!($game_map, "scene_update")
+  rescue => e
+    log("[void] scene runtime repair skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def void_walk_character_event(character_ref, fallback_event_id = nil)
+    return character_ref if character_ref && character_ref.respond_to?(:x) && character_ref.respond_to?(:y)
+    return $game_player if integer(character_ref, 0) == -1 && defined?($game_player)
+    return nil if !defined?($game_map) || !$game_map || !$game_map.respond_to?(:events)
+    [character_ref, fallback_event_id].each do |raw_id|
+      event_id = integer(raw_id, 0)
+      next if event_id <= 0
+      event = ($game_map.events[event_id] rescue nil)
+      return event if event
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def void_walk_character_to!(character_ref, target_x, target_y, wait = false, skippable = false, fallback_event_id = nil)
+    record_release_shim_hit("pbWalkCharacterTo", "story_transfer", "#{character_ref.inspect},#{target_x.inspect},#{target_y.inspect}") if respond_to?(:record_release_shim_hit)
+    character = void_walk_character_event(character_ref, fallback_event_id)
+    return true if !character
+    x = integer(target_x, character.x)
+    y = integer(target_y, character.y)
+    return true if character.x.to_i == x && character.y.to_i == y
+
+    commands = []
+    dx = x - character.x.to_i
+    dy = y - character.y.to_i
+    if defined?(PBMoveRoute)
+      dx.abs.times { commands << (dx > 0 ? PBMoveRoute::Right : PBMoveRoute::Left) }
+      dy.abs.times { commands << (dy > 0 ? PBMoveRoute::Down : PBMoveRoute::Up) }
+    end
+
+    if commands.length > 0 && defined?(pbMoveRoute)
+      pbMoveRoute(character, commands, false)
+    elsif character.respond_to?(:moveto)
+      character.moveto(x, y)
+      return true
+    end
+
+    if wait
+      limit = [commands.length * 24 + 120, 240].max
+      while limit > 0
+        route_forcing = character.instance_variable_get(:@move_route_forcing) rescue false
+        break if character.x.to_i == x && character.y.to_i == y &&
+                 (!character.respond_to?(:moving?) || !character.moving?) &&
+                 !route_forcing
+        if defined?(pbUpdateSceneMap)
+          pbUpdateSceneMap
+        elsif defined?($game_map) && $game_map && $game_map.respond_to?(:update)
+          $game_map.update
+        end
+        Graphics.update if defined?(Graphics)
+        Input.update if defined?(Input)
+        limit -= 1
+      end
+      character.moveto(x, y) if (character.x.to_i != x || character.y.to_i != y) && character.respond_to?(:moveto) && !skippable
+    end
+    return true
+  rescue => e
+    log("[void] pbWalkCharacterTo skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def void_rival_graphic_event(target_event_id = nil, fallback_event_id = nil)
+    return nil if !defined?($game_map) || !$game_map || !$game_map.respond_to?(:events)
+    [target_event_id, fallback_event_id].each do |raw_id|
+      event_id = integer(raw_id, 0)
+      next if event_id <= 0
+      event = ($game_map.events[event_id] rescue nil)
+      return event if event
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def void_rival_graphic_store
+    meta = new_project_metadata(POKEMON_VOID_EXPANSION_ID) if respond_to?(:new_project_metadata)
+    if meta.is_a?(Hash)
+      meta["void_rival_graphics"] = {} if !meta["void_rival_graphics"].is_a?(Hash)
+      return meta["void_rival_graphics"]
+    end
+    @void_rival_graphic_fallback ||= {}
+    return @void_rival_graphic_fallback
+  rescue
+    @void_rival_graphic_fallback ||= {}
+    return @void_rival_graphic_fallback
+  end
+
+  def void_apply_rival_graphic!(target_event_id = nil, rival_slot = nil, fallback_event_id = nil, *args)
+    record_release_shim_hit("pbVoidApplyRivalGraphic", "story_transfer", "#{target_event_id.inspect},#{rival_slot.inspect}") if respond_to?(:record_release_shim_hit)
+    event = void_rival_graphic_event(target_event_id, fallback_event_id)
+    charset = void_rival_charset_name(rival_slot)
+    store = void_rival_graphic_store
+    map_id = ($game_map.map_id rescue 0)
+    requested_event_id = integer(target_event_id, 0)
+    live_event_id = event ? void_runtime_event_id(event).to_i : requested_event_id
+    live_event_id = requested_event_id if live_event_id <= 0
+    key = void_rival_graphic_store_key(map_id, live_event_id)
+    store[key] ||= {}
+    store[key].delete("cleared")
+    store[key]["target_event_id"] = target_event_id
+    store[key]["live_event_id"] = live_event_id
+    store[key]["fallback_event_id"] = fallback_event_id
+    store[key]["rival_slot"] = rival_slot
+    store[key]["extra_args"] = Array(args).map { |arg| arg.to_s }
+    store[key]["charset"] = charset
+    requested_key = void_rival_graphic_store_key(map_id, requested_event_id)
+    store[requested_key] = store[key] if requested_event_id > 0 && requested_key != key
+    if event
+      previous = event.respond_to?(:character_name) ? event.character_name : (event.instance_variable_get(:@character_name) rescue nil)
+      store[key]["previous_charset"] = previous if !store[key].has_key?("previous_charset")
+      void_apply_event_charset!(event, charset)
+      log("[void] applied rival graphic #{charset.inspect} to event #{target_event_id.inspect}") if respond_to?(:log)
+    else
+      log("[void] noted rival graphic #{charset.inspect} without a live event #{target_event_id.inspect}") if respond_to?(:log)
+    end
+    return true
+  rescue => e
+    log("[void] rival graphic request skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def void_clear_rival_graphic!(target_event_id = nil, fallback_event_id = nil, *args)
+    record_release_shim_hit("pbVoidClearRivalGraphic", "story_transfer", "#{target_event_id.inspect}") if respond_to?(:record_release_shim_hit)
+    event = void_rival_graphic_event(target_event_id, fallback_event_id)
+    store = void_rival_graphic_store
+    map_id = ($game_map.map_id rescue 0)
+    requested_event_id = integer(target_event_id, 0)
+    live_event_id = event ? void_runtime_event_id(event).to_i : requested_event_id
+    live_event_id = requested_event_id if live_event_id <= 0
+    key = void_rival_graphic_store_key(map_id, live_event_id)
+    data = store[key].is_a?(Hash) ? store[key] : nil
+    store[key] ||= {}
+    store[key]["cleared"] = true
+    store[key]["target_event_id"] = target_event_id
+    store[key]["live_event_id"] = live_event_id
+    requested_key = void_rival_graphic_store_key(map_id, requested_event_id)
+    if requested_event_id > 0 && requested_key != key
+      store[requested_key] ||= {}
+      store[requested_key]["cleared"] = true
+      store[requested_key]["target_event_id"] = target_event_id
+      store[requested_key]["live_event_id"] = live_event_id
+    end
+    previous = data.is_a?(Hash) ? data["previous_charset"] : nil
+    if event && !previous.to_s.empty?
+      void_apply_event_charset!(event, previous)
+    elsif event
+      event.character_name = "" if event.respond_to?(:character_name=)
+      event.instance_variable_set(:@character_name, "") if event.respond_to?(:instance_variable_set)
+      event.instance_variable_set(:@tile_id, 0) if event.respond_to?(:instance_variable_set)
+    elsif event && event.respond_to?(:refresh)
+      event.refresh
+    end
+    log("[void] cleared rival graphic for event #{target_event_id.inspect}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[void] rival graphic cleanup skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
 end
 
 Object.const_set(:WildBattle, Module.new) unless Object.const_defined?(:WildBattle, false)
@@ -5061,6 +6529,84 @@ class << Object
     raise NameError, "uninitialized constant Object::#{name}"
   end
 end
+
+def pbStartQuest(quest = nil, *args)
+  return TravelExpansionFramework.new_project_start_quest!(quest, *args) if defined?(TravelExpansionFramework) &&
+                                                                            TravelExpansionFramework.respond_to?(:new_project_start_quest!)
+  return true
+rescue
+  return true
+end unless defined?(pbStartQuest)
+
+def pbCompleteQuest(quest = nil, *args)
+  return TravelExpansionFramework.new_project_complete_quest!(quest, *args) if defined?(TravelExpansionFramework) &&
+                                                                               TravelExpansionFramework.respond_to?(:new_project_complete_quest!)
+  return true
+rescue
+  return true
+end unless defined?(pbCompleteQuest)
+
+def pbQuestStatus(quest = nil, *_args)
+  return TravelExpansionFramework.new_project_quest_stage(quest) if defined?(TravelExpansionFramework) &&
+                                                                    TravelExpansionFramework.respond_to?(:new_project_quest_stage)
+  return 0
+rescue
+  return 0
+end unless defined?(pbQuestStatus)
+
+def pbQuestStarted?(quest = nil, *_args)
+  return TravelExpansionFramework.new_project_quest_started?(quest) if defined?(TravelExpansionFramework) &&
+                                                                       TravelExpansionFramework.respond_to?(:new_project_quest_started?)
+  return false
+rescue
+  return false
+end unless defined?(pbQuestStarted?)
+
+def pbQuestComplete?(quest = nil, *_args)
+  return TravelExpansionFramework.new_project_quest_completed?(quest) if defined?(TravelExpansionFramework) &&
+                                                                         TravelExpansionFramework.respond_to?(:new_project_quest_completed?)
+  return false
+rescue
+  return false
+end unless defined?(pbQuestComplete?)
+
+def pbQuestKnown?(quest = nil, *_args)
+  return pbQuestStarted?(quest)
+rescue
+  return false
+end unless defined?(pbQuestKnown?)
+
+def pbSetRivalDialoguePortrait(rival_slot = nil, *args)
+  return TravelExpansionFramework.void_set_rival_dialogue_portrait!(rival_slot, nil, *args) if defined?(TravelExpansionFramework) &&
+                                                                                               TravelExpansionFramework.respond_to?(:void_set_rival_dialogue_portrait!)
+  return true
+rescue
+  return true
+end unless defined?(pbSetRivalDialoguePortrait)
+
+def pbVoidApplyRivalGraphic(target_event_id = nil, rival_slot = nil, *args)
+  return TravelExpansionFramework.void_apply_rival_graphic!(target_event_id, rival_slot, nil, *args) if defined?(TravelExpansionFramework) &&
+                                                                                                       TravelExpansionFramework.respond_to?(:void_apply_rival_graphic!)
+  return true
+rescue
+  return true
+end unless defined?(pbVoidApplyRivalGraphic)
+
+def pbVoidClearRivalGraphic(target_event_id = nil, *args)
+  return TravelExpansionFramework.void_clear_rival_graphic!(target_event_id, nil, *args) if defined?(TravelExpansionFramework) &&
+                                                                                           TravelExpansionFramework.respond_to?(:void_clear_rival_graphic!)
+  return true
+rescue
+  return true
+end unless defined?(pbVoidClearRivalGraphic)
+
+def pbWalkCharacterTo(character_ref, target_x, target_y, wait = false, skippable = false)
+  return TravelExpansionFramework.void_walk_character_to!(character_ref, target_x, target_y, wait, skippable, nil) if defined?(TravelExpansionFramework) &&
+                                                                                                                      TravelExpansionFramework.respond_to?(:void_walk_character_to!)
+  return true
+rescue
+  return true
+end unless defined?(pbWalkCharacterTo)
 
 if defined?(pbSetPokemonCenter) && !defined?(tef_new_projects_original_pbSetPokemonCenter)
   alias tef_new_projects_original_pbSetPokemonCenter pbSetPokemonCenter
@@ -5192,11 +6738,16 @@ if defined?(_INTL) && !defined?(tef_new_projects_original__INTL)
   alias tef_new_projects_original__INTL _INTL
 end
 
+if defined?(_MAPINTL) && !defined?(tef_new_projects_original__MAPINTL)
+  alias tef_new_projects_original__MAPINTL _MAPINTL
+end
+
 if defined?(pbAddPokemon) && !defined?(tef_new_projects_original_pbAddPokemon)
   alias tef_new_projects_original_pbAddPokemon pbAddPokemon
 end
 
 def pbAddPokemon(pkmn, level = 1, see_form = true, dontRandomize = false, variableToSave = nil)
+  pkmn = TravelExpansionFramework.resolve_new_project_gift_species_ref(pkmn) if TravelExpansionFramework.respond_to?(:resolve_new_project_gift_species_ref)
   if TravelExpansionFramework.respond_to?(:bank_new_project_gift_pokemon_if_needed!)
     handled = TravelExpansionFramework.bank_new_project_gift_pokemon_if_needed!(pkmn, level, see_form, dontRandomize, variableToSave, "pbAddPokemon")
     return handled if !handled.nil?
@@ -5211,6 +6762,7 @@ if defined?(pbAddPokemonSilent) && !defined?(tef_new_projects_original_pbAddPoke
 end
 
 def pbAddPokemonSilent(pkmn, level = 1, see_form = true)
+  pkmn = TravelExpansionFramework.resolve_new_project_gift_species_ref(pkmn) if TravelExpansionFramework.respond_to?(:resolve_new_project_gift_species_ref)
   if TravelExpansionFramework.respond_to?(:bank_new_project_gift_pokemon_if_needed!)
     handled = TravelExpansionFramework.bank_new_project_gift_pokemon_if_needed!(pkmn, level, see_form, false, nil, "pbAddPokemonSilent")
     return handled if !handled.nil?
@@ -5225,6 +6777,7 @@ if defined?(pbAddToParty) && !defined?(tef_new_projects_original_pbAddToParty)
 end
 
 def pbAddToParty(pkmn, level = 1, see_form = true, dontRandomize = false)
+  pkmn = TravelExpansionFramework.resolve_new_project_gift_species_ref(pkmn) if TravelExpansionFramework.respond_to?(:resolve_new_project_gift_species_ref)
   if TravelExpansionFramework.respond_to?(:bank_new_project_gift_pokemon_if_needed!)
     handled = TravelExpansionFramework.bank_new_project_gift_pokemon_if_needed!(pkmn, level, see_form, dontRandomize, nil, "pbAddToParty")
     return handled if !handled.nil?
@@ -5239,6 +6792,7 @@ if defined?(pbAddToPartySilent) && !defined?(tef_new_projects_original_pbAddToPa
 end
 
 def pbAddToPartySilent(pkmn, level = nil, see_form = true)
+  pkmn = TravelExpansionFramework.resolve_new_project_gift_species_ref(pkmn) if TravelExpansionFramework.respond_to?(:resolve_new_project_gift_species_ref)
   if TravelExpansionFramework.respond_to?(:bank_new_project_gift_pokemon_if_needed!)
     handled = TravelExpansionFramework.bank_new_project_gift_pokemon_if_needed!(pkmn, level || 1, see_form, false, nil, "pbAddToPartySilent")
     return handled if !handled.nil?
@@ -5285,6 +6839,56 @@ def _INTL(*arg)
   return TravelExpansionFramework.format_translation_text(arg[0].to_s, arg[1..-1])
 end
 
+def _MAPINTL(mapid, *arg)
+  source = arg[0].to_s
+  translated = nil
+  if respond_to?(:tef_new_projects_original__MAPINTL, true)
+    translated = send(:tef_new_projects_original__MAPINTL, mapid, *arg)
+  end
+  imported_local_map = TravelExpansionFramework.new_project_active_now? &&
+                       TravelExpansionFramework.integer(mapid, 0) > 0 &&
+                       TravelExpansionFramework.integer(mapid, 0) < 1000
+  if imported_local_map || TravelExpansionFramework.new_project_active_now?(mapid)
+    if !source.empty? && (translated.nil? || TravelExpansionFramework.imported_message_text_blank?(translated))
+      translated = TravelExpansionFramework.format_translation_text(source, arg[1..-1])
+    end
+    return TravelExpansionFramework.prepare_new_project_text(translated.to_s, mapid)
+  end
+  return translated if !translated.nil?
+  return TravelExpansionFramework.format_translation_text(source, arg[1..-1])
+rescue
+  return TravelExpansionFramework.format_translation_text(source, arg[1..-1]) rescue source
+end
+
+if defined?(pbCreateMessageWindow) && !defined?(tef_new_projects_original_pbCreateMessageWindow)
+  alias tef_new_projects_original_pbCreateMessageWindow pbCreateMessageWindow
+end
+
+def pbCreateMessageWindow(viewport = nil, skin = nil)
+  map_id = ($game_map.map_id rescue nil)
+  void_message = TravelExpansionFramework.respond_to?(:void_active_now?) &&
+                 TravelExpansionFramework.void_active_now?(map_id)
+  if void_message && skin.nil? && TravelExpansionFramework.respond_to?(:void_host_speech_frame)
+    skin = TravelExpansionFramework.void_host_speech_frame
+  end
+  msgwindow = tef_new_projects_original_pbCreateMessageWindow(viewport, skin)
+  if void_message
+    TravelExpansionFramework.reset_void_message_state! if TravelExpansionFramework.respond_to?(:reset_void_message_state!)
+    TravelExpansionFramework.normalize_void_message_window!(msgwindow) if TravelExpansionFramework.respond_to?(:normalize_void_message_window!)
+  end
+  return msgwindow
+end
+
+if defined?(pbDisposeMessageWindow) && !defined?(tef_new_projects_original_pbDisposeMessageWindow)
+  alias tef_new_projects_original_pbDisposeMessageWindow pbDisposeMessageWindow
+end
+
+def pbDisposeMessageWindow(msgwindow)
+  TravelExpansionFramework.dispose_void_textbox_backdrop!(msgwindow) if defined?(TravelExpansionFramework) &&
+                                                                        TravelExpansionFramework.respond_to?(:dispose_void_textbox_backdrop!)
+  return tef_new_projects_original_pbDisposeMessageWindow(msgwindow)
+end
+
 if defined?(pbMessage) && !defined?(tef_new_projects_original_pbMessage)
   alias tef_new_projects_original_pbMessage pbMessage
 end
@@ -5310,9 +6914,29 @@ if defined?(pbMessageDisplay) && !defined?(tef_new_projects_original_pbMessageDi
   alias tef_new_projects_original_pbMessageDisplay pbMessageDisplay
 end
 
-def pbMessageDisplay(msgwindow, message, letterbyletter = true, commandProc = nil, withSound = true)
-  message = TravelExpansionFramework.prepare_new_project_text(message, ($game_map.map_id rescue nil)) if TravelExpansionFramework.new_project_active_now?
-  return tef_new_projects_original_pbMessageDisplay(msgwindow, message, letterbyletter, commandProc, withSound)
+def pbMessageDisplay(msgwindow, message, letterbyletter = true, commandProc = nil, withSound = true, &block)
+  void_message = false
+  if TravelExpansionFramework.new_project_active_now?
+    map_id = ($game_map.map_id rescue nil)
+    void_message = TravelExpansionFramework.respond_to?(:void_active_now?) &&
+                   TravelExpansionFramework.void_active_now?(map_id)
+    message = TravelExpansionFramework.prepare_new_project_text(message, map_id)
+    if void_message
+      TravelExpansionFramework.reset_void_message_state! if TravelExpansionFramework.respond_to?(:reset_void_message_state!)
+      TravelExpansionFramework.normalize_void_message_window!(msgwindow) if TravelExpansionFramework.respond_to?(:normalize_void_message_window!)
+      letterbyletter = true
+    end
+  end
+  ret = nil
+  begin
+    ret = tef_new_projects_original_pbMessageDisplay(msgwindow, message, letterbyletter, commandProc, withSound, &block)
+  ensure
+    if void_message && defined?(TravelExpansionFramework) &&
+       TravelExpansionFramework.respond_to?(:dispose_void_textbox_backdrop!)
+      TravelExpansionFramework.dispose_void_textbox_backdrop!(msgwindow)
+    end
+  end
+  return ret
 end
 
 if defined?(pbMessageChooseNumber) && !defined?(tef_new_projects_original_pbMessageChooseNumber)
@@ -5519,6 +7143,84 @@ class Interpreter
   WildBattle = ::WildBattle if defined?(::WildBattle) && !const_defined?(:WildBattle)
   GameMode_Scene = ::GameMode_Scene if defined?(::GameMode_Scene) && !const_defined?(:GameMode_Scene)
   GameModeScreen = ::GameModeScreen if defined?(::GameModeScreen) && !const_defined?(:GameModeScreen)
+
+  def pbStartQuest(quest = nil, *args)
+    return TravelExpansionFramework.new_project_start_quest!(quest, *args) if defined?(TravelExpansionFramework) &&
+                                                                              TravelExpansionFramework.respond_to?(:new_project_start_quest!)
+    return true
+  rescue
+    return true
+  end unless method_defined?(:pbStartQuest)
+
+  def pbCompleteQuest(quest = nil, *args)
+    return TravelExpansionFramework.new_project_complete_quest!(quest, *args) if defined?(TravelExpansionFramework) &&
+                                                                                 TravelExpansionFramework.respond_to?(:new_project_complete_quest!)
+    return true
+  rescue
+    return true
+  end unless method_defined?(:pbCompleteQuest)
+
+  def pbQuestStatus(quest = nil, *_args)
+    return TravelExpansionFramework.new_project_quest_stage(quest) if defined?(TravelExpansionFramework) &&
+                                                                      TravelExpansionFramework.respond_to?(:new_project_quest_stage)
+    return 0
+  rescue
+    return 0
+  end unless method_defined?(:pbQuestStatus)
+
+  def pbQuestStarted?(quest = nil, *_args)
+    return TravelExpansionFramework.new_project_quest_started?(quest) if defined?(TravelExpansionFramework) &&
+                                                                         TravelExpansionFramework.respond_to?(:new_project_quest_started?)
+    return false
+  rescue
+    return false
+  end unless method_defined?(:pbQuestStarted?)
+
+  def pbQuestComplete?(quest = nil, *_args)
+    return TravelExpansionFramework.new_project_quest_completed?(quest) if defined?(TravelExpansionFramework) &&
+                                                                           TravelExpansionFramework.respond_to?(:new_project_quest_completed?)
+    return false
+  rescue
+    return false
+  end unless method_defined?(:pbQuestComplete?)
+
+  def pbQuestKnown?(quest = nil, *_args)
+    return pbQuestStarted?(quest)
+  rescue
+    return false
+  end unless method_defined?(:pbQuestKnown?)
+
+  def pbSetRivalDialoguePortrait(rival_slot = nil, *args)
+    return TravelExpansionFramework.void_set_rival_dialogue_portrait!(rival_slot, @event_id, *args) if defined?(TravelExpansionFramework) &&
+                                                                                                       TravelExpansionFramework.respond_to?(:void_set_rival_dialogue_portrait!)
+    return true
+  rescue
+    return true
+  end unless method_defined?(:pbSetRivalDialoguePortrait)
+
+  def pbVoidApplyRivalGraphic(target_event_id = nil, rival_slot = nil, *args)
+    return TravelExpansionFramework.void_apply_rival_graphic!(target_event_id, rival_slot, @event_id, *args) if defined?(TravelExpansionFramework) &&
+                                                                                                                TravelExpansionFramework.respond_to?(:void_apply_rival_graphic!)
+    return true
+  rescue
+    return true
+  end unless method_defined?(:pbVoidApplyRivalGraphic)
+
+  def pbVoidClearRivalGraphic(target_event_id = nil, *args)
+    return TravelExpansionFramework.void_clear_rival_graphic!(target_event_id, @event_id, *args) if defined?(TravelExpansionFramework) &&
+                                                                                                   TravelExpansionFramework.respond_to?(:void_clear_rival_graphic!)
+    return true
+  rescue
+    return true
+  end unless method_defined?(:pbVoidClearRivalGraphic)
+
+  def pbWalkCharacterTo(character_ref, target_x, target_y, wait = false, skippable = false)
+    return TravelExpansionFramework.void_walk_character_to!(character_ref, target_x, target_y, wait, skippable, @event_id) if defined?(TravelExpansionFramework) &&
+                                                                                                                              TravelExpansionFramework.respond_to?(:void_walk_character_to!)
+    return true
+  rescue
+    return true
+  end unless method_defined?(:pbWalkCharacterTo)
 
   alias tef_new_projects_original_command_102 command_102 unless method_defined?(:tef_new_projects_original_command_102)
   alias tef_new_projects_original_command_111 command_111 unless method_defined?(:tef_new_projects_original_command_111)
@@ -5931,6 +7633,8 @@ if defined?(Game_Map)
       result = tef_empyrean_original_setup(map_id)
       TravelExpansionFramework.opalo_repair_starter_room_state!(map_id, "map_setup") if defined?(TravelExpansionFramework) &&
                                                                                        TravelExpansionFramework.respond_to?(:opalo_repair_starter_room_state!)
+      TravelExpansionFramework.void_prepare_map_runtime!(self, "map_setup") if defined?(TravelExpansionFramework) &&
+                                                                              TravelExpansionFramework.respond_to?(:void_prepare_map_runtime!)
       if defined?(TravelExpansionFramework) &&
          TravelExpansionFramework.respond_to?(:empyrean_map?) &&
          TravelExpansionFramework.respond_to?(:empyrean_prepare_bridge_cache!) &&

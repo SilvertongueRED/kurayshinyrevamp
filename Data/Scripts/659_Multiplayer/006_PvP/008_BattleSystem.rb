@@ -312,6 +312,9 @@ module PvPActionSync
         :turn => turn_num,
         :actions => actions
       }
+      if defined?(MultiplayerClient) && MultiplayerClient.respond_to?(:pvp_packet_meta)
+        data[:pvp_meta] = MultiplayerClient.pvp_packet_meta(battle_id)
+      end
 
       json_str = SafeJSON.dump(data)
 
@@ -362,6 +365,10 @@ module PvPActionSync
       end
 
       turn = data[:turn]
+      meta = data[:pvp_meta] || data["pvp_meta"]
+      if defined?(MultiplayerClient) && MultiplayerClient.respond_to?(:pvp_packet_for_me?)
+        return false unless MultiplayerClient.pvp_packet_for_me?(meta)
+      end
 
       actions_data = nil
       if data[:actions]
@@ -490,7 +497,9 @@ module PvPSwitchSync
     end
 
     # In PvP, we only send party index (battler index is irrelevant)
-    message = "PVP_SWITCH:#{battle_id}|#{idxParty}"
+    sender_sid = (MultiplayerClient.session_id rescue nil).to_s
+    target_sid = (MultiplayerClient.pvp_target_sid rescue nil).to_s
+    message = "PVP_SWITCH:#{battle_id}|#{idxParty}|#{sender_sid}|#{target_sid}"
 
     if defined?(MultiplayerDebug)
       MultiplayerDebug.info("PVP-SWITCH", "  Message: #{message}")
@@ -697,7 +706,9 @@ module PvPForfeitSync
     return unless defined?(MultiplayerClient)
     return unless defined?(PvPBattleState) && PvPBattleState.in_pvp_battle?
 
-    message = "PVP_FORFEIT:#{battle_id}"
+    sender_sid = (MultiplayerClient.session_id rescue nil).to_s
+    target_sid = (MultiplayerClient.pvp_target_sid rescue nil).to_s
+    message = "PVP_FORFEIT:#{battle_id}|#{sender_sid}|#{target_sid}"
     MultiplayerClient.send_data(message)
 
     if defined?(MultiplayerDebug)

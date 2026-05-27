@@ -56,7 +56,9 @@ module PvPRNGSync
 
     # Send to opponent
     begin
-      message = "PVP_RNG_SEED:#{battle_id}|#{turn_num}|#{seed}"
+      sender_sid = (MultiplayerClient.session_id rescue nil).to_s
+      target_sid = (MultiplayerClient.pvp_target_sid rescue nil).to_s
+      message = "PVP_RNG_SEED:#{battle_id}|#{turn_num}|#{seed}|#{sender_sid}|#{target_sid}"
       MultiplayerClient.send_data(message, rate_limit_type: :RNG) if defined?(MultiplayerClient)
 
       if defined?(MultiplayerDebug)

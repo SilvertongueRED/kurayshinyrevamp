@@ -14,24 +14,25 @@ This Github allows you to see the game (open-source), but also to contribute to 
 
 # Experimental Full Tester Build
 
-This branch now reflects the current local merged tester build rather than the older lighter `no-csf` package. It includes the current KIF/PIF merge work, the Custom Species Framework stack, the modded multiplayer files, travel expansion support pieces, and the current packaged mod set from this install.
+This checkout now reflects the current local merged tester build rather than the older lighter public package. It includes the current KIF/PIF merge work, the Custom Species Framework stack, the modded multiplayer files, travel expansion support pieces, the GBA Player scaffold, and the current packaged mod set from this install.
 
-This is a human-directed, AI-assisted experimental upgrade branch. It is meant to help testers inspect the real source/content changes on GitHub and install the current tester build more easily.
+This is a human-directed, AI-assisted experimental upgrade build. It is meant to help testers inspect the real source/content changes and install the current tester build more easily.
 
 ## Important Warnings
 
 - This is not an official stable upstream build.
 - It may break progression, conflict with future upstream changes, or corrupt saves.
-- Your saves do **not** live inside the game folder. They live under `%APPDATA%\\kurayinfinitefusion`, so using a separate install folder alone does not fully isolate save risk.
-- `player_identity_bedroom`, `custom_species_framework`, imported species content, and the modded multiplayer stack are included in this tester build.
-- The GitHub repo is for source visibility and contribution. The full playable install still comes from the release assets because the sprite payload is too large for normal Git history.
+- Your saves do **not** live inside the game folder. They live under `%APPDATA%\kurayinfinitefusion`, so using a separate install folder alone does not fully isolate save risk.
+- `player_identity_bedroom`, `custom_species_framework`, imported species content, the modded multiplayer stack, and the experimental `zzz_gba_player` scaffold are included in this tester build.
+- This GitHub checkout now mirrors the current experimental tester code, data, mod, and installer-tooling content from the live workspace.
+- The release assets are still the easiest player path because they provide the one-click installer, the full sprite-heavy playable package, checksums, and the split portable archive fallback.
 
 ## Current Install Path
 
-- Release page: [2026-05-12 Full Current Tester Build](https://github.com/this-is-neat/kurayshinyrevamp/releases/tag/2026-05-12-full-current)
-- Direct installer: [PIF-player-build-20260512-full-current-WebSetup.exe](https://github.com/this-is-neat/kurayshinyrevamp/releases/download/2026-05-12-full-current/PIF-player-build-20260512-full-current-WebSetup.exe)
+- Release page: [2026-05-12 Full Current Tester Build (Experimental)](https://github.com/this-is-neat/kurayshinyrevamp/releases/tag/2026-05-12-full-current)
+- Direct installer: [PIF-player-build-20260527-full-current-WebSetup.exe](https://github.com/this-is-neat/kurayshinyrevamp/releases/download/2026-05-12-full-current/PIF-player-build-20260527-full-current-WebSetup.exe)
+- Portable archive fallback: download all `PIF-player-build-20260527-full-current.7z.001` release parts from the same release page, then extract the first part.
 - Release notes and checksums in-repo: [`Releases/2026-05-12-full-current/README.md`](./Releases/2026-05-12-full-current/README.md)
-- Previous comparison note: [`Releases/2026-04-22-no-csf/LOCAL-VS-GITHUB-DIFF.md`](./Releases/2026-04-22-no-csf/LOCAL-VS-GITHUB-DIFF.md)
 
 # Official Links
 Website: https://www.kurayinfinitefusion.com/
@@ -61,25 +62,15 @@ Pokemon Essential Github: https://github.com/Maruno17/pokemon-essentials
 -----------------------------------------------
 
 # Installation
-_Do not use `Source Code.zip` as the player install for this experimental branch. Use the release installer instead: [PIF-player-build-20260512-full-current-WebSetup.exe](https://github.com/this-is-neat/kurayshinyrevamp/releases/download/2026-05-12-full-current/PIF-player-build-20260512-full-current-WebSetup.exe)_
+_The repo now mirrors the current experimental install content, but the recommended player path is still the release installer: [PIF-player-build-20260527-full-current-WebSetup.exe](https://github.com/this-is-neat/kurayshinyrevamp/releases/download/2026-05-12-full-current/PIF-player-build-20260527-full-current-WebSetup.exe)._
+
+_If Windows blocks the installer, use the portable archive fallback from the same release page by downloading all `PIF-player-build-20260527-full-current.7z.001` parts and extracting the first part._
 
 _The current one-click install/reinstall notes and checksums are in [`Releases/2026-05-12-full-current/README.md`](./Releases/2026-05-12-full-current/README.md)._
 
 _Text instruction on how to Install KIF are available on our Discord: https://discord.gg/UFxQkUZeyE_
 
 __Google Docs of the game (OBSOLETE, but some informations are still useful):__ https://docs.google.com/document/d/1O6pKKL62dbLcapO0c2zDG2UI-eN6uatYlt_0GSk1dbE/edit
-
-## Multi-World Travel Framework
-
-This checkout now includes the release-candidate `travel_expansion_framework` mod under [`Mods/travel_expansion_framework`](./Mods/travel_expansion_framework). It lets one Kuray Infinite Fusion save enter supported external gameworld installs while keeping Infinite Fusion authoritative for save data, party, PC/storage, bag, dex progress, battle UI, and recovery.
-
-It also includes [`Mods/custom_species_framework`](./Mods/custom_species_framework), the paired custom Pokemon framework used for imported Fakemon/species registration, custom species save safety, sprite resolution, and missing-pack recovery.
-
-The other fangames are not bundled in this repo. Install or extract the games you own beside the KIF/PIF folder, then configure their paths in [`Mods/travel_expansion_framework/travel_expansion_sources.json`](./Mods/travel_expansion_framework/travel_expansion_sources.json) if your folders differ from the defaults.
-
-Full install and smoke-test instructions are here:
-
-- [`Mods/travel_expansion_framework/README_RELEASE_INSTALL.md`](./Mods/travel_expansion_framework/README_RELEASE_INSTALL.md)
 
 # List of Constant Features
 

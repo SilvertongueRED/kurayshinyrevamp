@@ -1,50 +1,72 @@
-# Kuray Infinite Fusion Full Current Tester Build - 2026-05-12
+# Kuray Infinite Fusion Full Current Tester Build
 
-This release upgrades the older public `2026-04-22-no-csf` base install into the current experimental full tester build from this workspace.
+Latest refresh pushed to the existing public experimental release page on 2026-05-27.
 
-## What this build includes
+## What this refresh is
 
-- Current local script/content changes reflected in this repo
-- `custom_species_framework` with creator assets and imported species data
-- modded multiplayer client/server files
-- `travel_expansion_framework`, `player_identity_bedroom`, `counterfeit_shinies`, `autoplay_bot`, and the rest of the packaged mod stack
-- `Libs/` and `ExpansionLinks/` from the current install
+This is the current experimental merged tester build from the live workspace behind this repo. It is a human-directed, AI-assisted KIF/PIF upgrade branch meant to help testers install the newest public-safe merged build, inspect the actual file changes on GitHub, and try the current mod stack in one place.
 
-## What stays out
+## Main warnings
 
-- personal save data
-- Discord/account link files
-- local cache, bot runtime state, and creator/importer debug logs
-- `ExpansionLibrary/` external game archives
+- This is not a stable upstream release.
+- It may break progression, conflict with future upstream updates, or corrupt saves.
+- Saves live in `%APPDATA%\\kurayinfinitefusion`, not inside the install folder.
+- `player_identity_bedroom`, current `custom_species_framework`, current travel-expansion compatibility work, modded multiplayer, and the experimental `zzz_gba_player` scaffold are included.
 
-## Warnings
+## What changed in the 2026-05-27 refresh
 
-- This is an experimental merged tester build, not a stable upstream release.
-- Saves live in `%APPDATA%\kurayinfinitefusion`, not inside the install folder.
-- Back up saves before testing this build.
+- Synced the current local gameplay/data/mod workspace into the public repo.
+- Added the current `zzz_gba_player` experimental scaffold to the public package and repo.
+- Added the current void-starter imported species content and TEF speech-bubble safety update.
+- Refreshed the web installer, the update overlay, the portable fallback archive, and the packaged mod credits/checksum files.
 
-## Install flow
+## Included public content
 
-1. Download `PIF-player-build-20260512-full-current-WebSetup.exe`.
-2. Run `Install / Repair` for a fresh setup.
-3. Use `Update Only` only when you already have an existing Kuray Infinite Fusion install in that folder.
+- Current merged KIF/PIF gameplay and data changes from this workspace
+- Current `custom_species_framework`
+- Current `travel_expansion_framework`
+- Imported void-starter species assets/data
+- modded multiplayer files
+- current packaged mod stack from this install
+- `zzz_gba_player` scaffold with bundled public runtime files, including the curated `mGBA-0.10.5-win64` runtime and the native helper/core runtime files used by the bridge flow
 
-## How the installer works
+## Intentionally excluded
 
-- The web installer keeps the one-click flow.
-- Fresh installs still download the older `2026-04-22-no-csf` base package first.
-- The installer then applies the embedded `2026-05-12` full-current overlay on top.
-- Existing installs can skip the base download and apply just the embedded full-current overlay.
+- save files
+- ROM files
+- Discord/account-link files
+- local cache, histories, logs, creator/importer state, and machine-specific runtime leftovers
+- `Mods\\zzz_gba_player\\ROMs`
+- `Mods\\zzz_gba_player\\Saves`
+- `Mods\\zzz_gba_player\\mirror_runtime`
+- `Mods\\zzz_gba_player\\launch.log`
+- `Mods\\zzz_gba_player\\Emulator\\mGBA-0.10.5-win64\\qt.ini`
+- `Mods\\zzz_gba_player\\native\\**\\bin`
+- `Mods\\zzz_gba_player\\native\\**\\obj`
+
+## Download paths
+
+- One-click installer: `PIF-player-build-20260527-full-current-WebSetup.exe`
+- Portable fallback: download all `PIF-player-build-20260527-full-current.7z.001` through `.007` assets from the same release page, then extract the `.001` file
+- Update overlay archive: `PIF-player-build-20260527-full-current-update1.7z`
+
+## Installer behavior
+
+- `Install / Repair` is the main path for fresh installs or repairs.
+- `Update Only` applies the embedded changed-file overlay without forcing the full base download when the target folder already contains the expected public install.
+- The portable split archive is the fallback for testers who hit SmartScreen or antivirus friction with the installer.
 
 ## Credits
 
-- The installed build writes `PACKAGED_MOD_CREDITS.txt` into the game folder with the included mod authors and imported-species credit notes.
-- Imported Mongratis species credits currently include work by Princess-Phoenix and KajiAtsui, with pack maintenance by Plouton, as required by the packaged credit manifest.
-- Project-wide/base-game credits remain in `PIF_Credits.txt` and the main `README.md`.
+- The install writes `PACKAGED_MOD_CREDITS.txt` into the game folder and the same file is stored in this release folder.
+- The packaged credits include the bundled mod authors, imported-species credits, and third-party runtime credit for the bundled mGBA runtime and GBA Player bridge/runtime files.
+- The GBA Player scaffold is public-safe only: testers must add their own ROMs and saves locally after install.
 
-## Files in this release folder
+## Files in this folder
 
-- `PIF-player-build-20260512-full-current-WebSetup.sha256.txt`
-- `PIF-player-build-20260512-full-current-update1.sha256.txt`
-- `PIF-player-build-20260512-full-current-update1.manifest.txt`
 - `PACKAGED_MOD_CREDITS.txt`
+- `PIF-player-build-20260527-full-current-WebSetup.sha256.txt`
+- `PIF-player-build-20260527-full-current-update1.sha256.txt`
+- `PIF-player-build-20260527-full-current-update1.manifest.txt`
+- `PIF-player-build-20260527-full-current.sha256.txt`
+- `PIF-player-build-20260527-full-current.manifest.txt`

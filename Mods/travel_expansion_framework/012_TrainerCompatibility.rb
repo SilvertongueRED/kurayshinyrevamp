@@ -29,6 +29,12 @@ module TravelExpansionFramework
       return @travel_expansion_external_trainer_type_data || {}
     end
 
+    def travel_expansion_external_trainer_version
+      return TravelExpansionFramework.integer(@travel_expansion_external_trainer_version, 0)
+    rescue
+      return 0
+    end
+
     def travel_expansion_expansion_id
       return @travel_expansion_expansion_id.to_s
     rescue
@@ -274,6 +280,23 @@ module TravelExpansionFramework
     return false
   end
 
+  def normalize_host_trainer_type_for_data_lookup(value)
+    return nil if value.nil?
+    return value.id if defined?(GameData::TrainerType) && value.is_a?(GameData::TrainerType)
+    return value if value.is_a?(Symbol) || value.is_a?(String)
+    if value.is_a?(Integer) && defined?(GameData::TrainerType)
+      data = nil
+      if GameData::TrainerType.respond_to?(:tef_imported_trainer_original_try_get)
+        data = GameData::TrainerType.tef_imported_trainer_original_try_get(value) rescue nil
+      end
+      data ||= GameData::TrainerType.try_get(value) rescue nil
+      return data.id if data && data.respond_to?(:id)
+    end
+    return nil
+  rescue
+    return nil
+  end
+
   def imported_trainer_game_data(other, preferred_expansion_id = nil)
     data = imported_trainer_type_data(other, preferred_expansion_id)
     return nil if !data.is_a?(Hash)
@@ -444,12 +467,392 @@ module TravelExpansionFramework
       uranium_paths = uranium_dat_trainer_paths(expansion_id, root)
       return load_uranium_dat_trainer_catalog(expansion_id, root, uranium_paths) if uranium_paths
     end
+    rejuvenation_paths = rejuvenation_script_trainer_paths(root)
+    return load_rejuvenation_script_trainer_catalog(expansion_id, root, rejuvenation_paths) if rejuvenation_paths
     reborn_paths = reborn_text_export_paths(root)
     return load_reborn_text_export_catalog(expansion_id, root, reborn_paths) if reborn_paths
     dat_paths = generic_dat_trainer_paths(expansion_id, root)
     return load_generic_dat_trainer_catalog(expansion_id, root, dat_paths) if dat_paths
     generic_paths = generic_pbs_trainer_paths(root)
     return load_generic_pbs_trainer_catalog(expansion_id, root, generic_paths) if generic_paths
+    return nil
+  end
+
+  def rejuvenation_script_trainer_paths(root)
+    script_root = File.join(root.to_s, "Scripts", "Rejuv")
+    type_path = File.join(script_root, "ttypetext.rb")
+    team_path = File.join(script_root, "trainertext.rb")
+    return nil if !File.file?(type_path) || !File.file?(team_path)
+    return {
+      :script_root => script_root,
+      :type_path   => type_path,
+      :team_path   => team_path
+    }
+  rescue
+    return nil
+  end
+
+  def load_rejuvenation_script_trainer_catalog(expansion_id, root, paths)
+    type_text = File.read(paths[:type_path]).gsub(/^=begin.*?^=end/m, "")
+    type_map = {}
+    id_map = {}
+    rejuvenation_script_type_blocks(type_text).each do |type_id, body|
+      normalized = normalize_rejuvenation_script_trainer_type(expansion_id, root, type_id, body)
+      next if !normalized
+      normalized = register_imported_trainer_type(expansion_id, normalized)
+      type_map[normalized[:id]] = normalized
+      id_map[normalized[:id_number]] = normalized[:id] if integer(normalized[:id_number], 0) > 0
+    end
+
+    return nil if type_map.empty?
+
+    log("Loaded Rejuvenation script trainer catalog for #{expansion_id} from #{paths[:script_root]} (#{type_map.length} trainer types, lazy teams)")
+    return {
+      :adapter        => :rejuvenation_script,
+      :root           => root,
+      :types          => type_map,
+      :id_map         => id_map,
+      :teams          => {},
+      :lazy_team_path => paths[:team_path]
+    }
+  rescue => e
+    log("Failed to load Rejuvenation script trainer catalog for #{expansion_id} from #{paths[:script_root]}: #{e.class}: #{e.message}")
+    return nil
+  end
+
+  def rejuvenation_script_type_blocks(text)
+    blocks = []
+    index = 0
+    while index < text.length
+      match = text.match(/:([A-Za-z0-9_]+)\s*=>\s*\{/, index)
+      break if !match
+      type_id = match[1].to_sym
+      open_index = match.end(0) - 1
+      extracted = rejuvenation_extract_balanced_body(text, open_index, "{", "}")
+      if extracted
+        body, close_index = extracted
+        blocks << [type_id, body]
+        index = close_index + 1
+      else
+        index = match.end(0)
+      end
+    end
+    return blocks
+  rescue
+    return []
+  end
+
+  def rejuvenation_script_hash_blocks(text, marker = nil)
+    blocks = []
+    depth = 0
+    start_index = nil
+    quote = nil
+    escaped = false
+    comment = false
+    index = 0
+    while index < text.length
+      char = text[index]
+      if quote
+        if escaped
+          escaped = false
+        elsif char == "\\"
+          escaped = true
+        elsif char == quote
+          quote = nil
+        end
+      elsif comment
+        comment = false if char == "\n"
+      elsif char == "#"
+        comment = true
+      elsif char == "\"" || char == "'"
+        quote = char
+      elsif char == "{"
+        start_index = index if depth == 0
+        depth += 1
+      elsif char == "}"
+        depth -= 1 if depth > 0
+        if depth == 0 && start_index
+          block = text[start_index..index].to_s
+          blocks << block if marker.nil? || block.include?(marker)
+          start_index = nil
+        end
+      end
+      index += 1
+    end
+    return blocks
+  rescue
+    return []
+  end
+
+  def rejuvenation_extract_balanced_body(text, open_index, open_char, close_char)
+    return nil if text.to_s[open_index] != open_char
+    depth = 0
+    quote = nil
+    escaped = false
+    comment = false
+    body_start = nil
+    index = open_index
+    while index < text.length
+      char = text[index]
+      if quote
+        if escaped
+          escaped = false
+        elsif char == "\\"
+          escaped = true
+        elsif char == quote
+          quote = nil
+        end
+      elsif comment
+        comment = false if char == "\n"
+      elsif char == "#"
+        comment = true
+      elsif char == "\"" || char == "'"
+        quote = char
+      elsif char == open_char
+        depth += 1
+        body_start = index + 1 if depth == 1
+      elsif char == close_char
+        depth -= 1 if depth > 0
+        return [text[body_start...index].to_s, index] if depth == 0 && body_start
+      end
+      index += 1
+    end
+    return nil
+  rescue
+    return nil
+  end
+
+  def rejuvenation_script_value(block, key)
+    return nil if block.nil?
+    escaped = Regexp.escape(key.to_s)
+    match = block.match(/:#{escaped}\s*=>\s*("(?:\\.|[^"])*"|'(?:\\.|[^'])*'|:[A-Za-z0-9_]+|-?\d+|true|false|nil)/m)
+    return nil if !match
+    return rejuvenation_script_token_value(match[1])
+  rescue
+    return nil
+  end
+
+  def rejuvenation_script_token_value(token)
+    text = token.to_s.strip
+    return nil if text.empty? || text == "nil"
+    return true if text == "true"
+    return false if text == "false"
+    return integer(text, 0) if text =~ /\A-?\d+\z/
+    return text[1..-1].to_sym if text =~ /\A:[A-Za-z0-9_]+\z/
+    if (text.start_with?("\"") && text.end_with?("\"")) || (text.start_with?("'") && text.end_with?("'"))
+      body = text[1...-1].to_s
+      return body.gsub("\\\"", "\"").gsub("\\'", "'").gsub("\\\\", "\\")
+    end
+    return text
+  rescue
+    return nil
+  end
+
+  def rejuvenation_script_array_values(block, key)
+    key_index = block.to_s.index(":#{key}")
+    return [] if key_index.nil?
+    open_index = block.index("[", key_index)
+    return [] if open_index.nil?
+    extracted = rejuvenation_extract_balanced_body(block, open_index, "[", "]")
+    return [] if !extracted
+    body = extracted[0]
+    body.scan(/"(?:\\.|[^"])*"|'(?:\\.|[^'])*'|:[A-Za-z0-9_]+|-?\d+|true|false|nil/).map do |token|
+      rejuvenation_script_token_value(token)
+    end.compact
+  rescue
+    return []
+  end
+
+  def normalize_rejuvenation_script_trainer_type(expansion_id, root, type_id, body)
+    symbol_id = external_identifier(type_id)
+    return nil if symbol_id.nil?
+    id_number = integer(rejuvenation_script_value(body, :ID), 0)
+    title = normalize_string_or_nil(rejuvenation_script_value(body, :title)) || symbol_id.to_s
+    sprite_keys = [symbol_id, title]
+    if id_number > 0
+      padded = format("%03d", id_number)
+      sprite_keys.unshift("trainer#{padded}", "Trainer#{padded}", id_number.to_s)
+    end
+    return {
+      :id               => symbol_id,
+      :runtime_id       => imported_trainer_runtime_id(expansion_id, symbol_id),
+      :id_number        => id_number,
+      :title            => title,
+      :skill_level      => integer(rejuvenation_script_value(body, :skill), 90),
+      :base_money       => integer(rejuvenation_script_value(body, :moneymult), 30),
+      :battle_BGM       => normalize_string_or_nil(rejuvenation_script_value(body, :battleBGM)),
+      :victory_ME       => normalize_string_or_nil(rejuvenation_script_value(body, :victoryME)),
+      :intro_BGM        => normalize_string_or_nil(rejuvenation_script_value(body, :introBGM)),
+      :sprite           => sprite_keys.first.to_s,
+      :front_sprite     => first_existing_logical_asset(root, sprite_keys.flat_map { |key|
+        [
+          asset_basename_path("Graphics/Trainers", key),
+          asset_basename_path("Graphics/Characters", key)
+        ]
+      }),
+      :overworld_sprite => first_existing_logical_asset(root, sprite_keys.flat_map { |key|
+        [
+          asset_basename_path("Graphics/Characters", key),
+          asset_basename_path("Graphics/Trainers", key)
+        ]
+      }),
+      :gender           => integer(rejuvenation_script_value(body, :gender), 2)
+    }
+  rescue => e
+    log("Rejuvenation trainer type normalize failed for #{type_id}: #{e.class}: #{e.message}")
+    return nil
+  end
+
+  def normalize_rejuvenation_script_trainer_record(block)
+    match = block.match(/:teamid\s*=>\s*\[\s*("(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^,\]]+)\s*,\s*:([A-Za-z0-9_]+)(?:\s*,\s*(-?\d+))?/m)
+    return nil if !match
+    name = normalize_string(rejuvenation_script_token_value(match[1]), "")
+    trainer_type = match[2].to_sym
+    version = integer(match[3], 0)
+    pokemon = normalize_rejuvenation_script_trainer_pokemon_list(block)
+    return nil if name.empty? || pokemon.empty?
+    return {
+      :trainer_type => trainer_type,
+      :name         => name,
+      :version      => version,
+      :lose_text    => normalize_string_or_nil(rejuvenation_script_value(block, :defeat)),
+      :items        => rejuvenation_script_array_values(block, :items).map { |item| external_identifier(item) }.compact,
+      :pokemon      => pokemon
+    }
+  rescue => e
+    log("Rejuvenation trainer record normalize failed: #{e.class}: #{e.message}")
+    return nil
+  end
+
+  def rejuvenation_lazy_team_text(catalog)
+    return nil if !catalog.is_a?(Hash)
+    path = catalog[:lazy_team_path] || (catalog[:paths].is_a?(Hash) ? catalog[:paths][:team_path] : nil)
+    path = path.to_s
+    return nil if path.empty? || !File.file?(path)
+    catalog[:lazy_team_text] ||= File.read(path)
+    return catalog[:lazy_team_text]
+  rescue => e
+    log("Rejuvenation lazy trainer text load failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def normalize_rejuvenation_team_lookup_name(value)
+    return normalize_string(value, "").to_s.downcase
+  rescue
+    return value.to_s.downcase
+  end
+
+  def rejuvenation_team_record_block(text, teamid_index)
+    open_index = text.to_s.rindex("{", teamid_index)
+    return nil if open_index.nil?
+    extracted = rejuvenation_extract_balanced_body(text, open_index, "{", "}")
+    return extracted[0] if extracted
+    return nil
+  rescue
+    return nil
+  end
+
+  def cache_rejuvenation_trainer_record(catalog, record)
+    return record if !catalog.is_a?(Hash) || !record.is_a?(Hash)
+    catalog[:teams] = {} if !catalog[:teams].is_a?(Hash)
+    key = [
+      external_identifier(record[:trainer_type]) || record[:trainer_type],
+      record[:name].to_s,
+      integer(record[:version], 0)
+    ]
+    catalog[:teams][key] = record
+    return record
+  rescue
+    return record
+  end
+
+  def find_rejuvenation_script_trainer_record(catalog, type_candidates, name_candidates, version)
+    return nil if !catalog.is_a?(Hash) || catalog[:adapter] != :rejuvenation_script
+    text = rejuvenation_lazy_team_text(catalog)
+    return nil if text.nil? || text.empty?
+    names = {}
+    Array(name_candidates).each do |name|
+      normalized = normalize_rejuvenation_team_lookup_name(name)
+      names[normalized] = true if !normalized.empty?
+    end
+    return nil if names.empty?
+    type_ids = Array(type_candidates).map { |value| external_identifier(value) }.compact
+    type_keys = {}
+    type_ids.each { |value| type_keys[value.to_s] = true }
+    requested_version = integer(version, 0)
+    exact_matches = []
+    name_matches = []
+    pattern = /:teamid\s*=>\s*\[\s*("(?:\\.|[^"])*"|'(?:\\.|[^'])*'|[^,\]]+)\s*,\s*:([A-Za-z0-9_]+)(?:\s*,\s*(-?\d+))?/m
+    index = 0
+    while index < text.length
+      match = pattern.match(text, index)
+      break if !match
+      index = match.end(0)
+      name = normalize_string(rejuvenation_script_token_value(match[1]), "")
+      next if !names[normalize_rejuvenation_team_lookup_name(name)]
+      candidate_version = integer(match[3], 0)
+      next if candidate_version != requested_version
+      trainer_type = external_identifier(match[2])
+      next if trainer_type.nil?
+      body = rejuvenation_team_record_block(text, match.begin(0))
+      next if body.nil? || body.empty?
+      record = normalize_rejuvenation_script_trainer_record(body)
+      next if !record
+      cache_rejuvenation_trainer_record(catalog, record)
+      if type_keys.empty? || type_keys[trainer_type.to_s]
+        exact_matches << record
+        break if type_keys[trainer_type.to_s]
+      else
+        name_matches << record
+      end
+    end
+    return exact_matches.first if exact_matches.length == 1
+    return name_matches.first if exact_matches.empty? && name_matches.length == 1
+    return nil
+  rescue => e
+    log("Rejuvenation lazy trainer lookup failed for #{type_candidates.inspect}/#{name_candidates.inspect}/#{version}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def normalize_rejuvenation_script_trainer_pokemon_list(block)
+    key_index = block.to_s.index(":mons")
+    return [] if key_index.nil?
+    open_index = block.index("[", key_index)
+    return [] if open_index.nil?
+    extracted = rejuvenation_extract_balanced_body(block, open_index, "[", "]")
+    return [] if !extracted
+    rejuvenation_script_hash_blocks(extracted[0]).map { |mon_block|
+      normalize_rejuvenation_script_trainer_pokemon(mon_block)
+    }.compact
+  rescue
+    return []
+  end
+
+  def normalize_rejuvenation_script_trainer_pokemon(block)
+    species = external_identifier(rejuvenation_script_value(block, :species))
+    return nil if species.nil?
+    level = integer(rejuvenation_script_value(block, :level), 1)
+    return nil if level <= 0
+    return {
+      :species       => species,
+      :level         => level,
+      :item          => external_identifier(rejuvenation_script_value(block, :item)),
+      :moves         => rejuvenation_script_array_values(block, :moves).map { |move| external_identifier(move) }.compact,
+      :ability       => external_identifier(rejuvenation_script_value(block, :ability)),
+      :ability_index => rejuvenation_script_value(block, :ability_index),
+      :gender        => normalize_string_or_nil(rejuvenation_script_value(block, :gender)),
+      :form          => rejuvenation_script_value(block, :form),
+      :shininess     => boolean(rejuvenation_script_value(block, :shiny), false),
+      :nature        => external_identifier(rejuvenation_script_value(block, :nature)),
+      :iv            => rejuvenation_script_array_values(block, :iv).empty? ? rejuvenation_script_value(block, :iv) : rejuvenation_script_array_values(block, :iv),
+      :ev            => rejuvenation_script_array_values(block, :ev),
+      :happiness     => rejuvenation_script_value(block, :happiness),
+      :name          => normalize_string_or_nil(rejuvenation_script_value(block, :name)),
+      :shadowness    => boolean(rejuvenation_script_value(block, :shadow), false),
+      :poke_ball     => external_identifier(rejuvenation_script_value(block, :ball))
+    }
+  rescue => e
+    log("Rejuvenation trainer Pokemon normalize failed: #{e.class}: #{e.message}")
     return nil
   end
 
@@ -515,6 +918,11 @@ module TravelExpansionFramework
       next if !normalized
       key = [normalized[:trainer_type], normalized[:name], normalized[:version]]
       team_map[key] = normalized
+    end
+
+    if team_map.empty?
+      log("Skipped generic compiled trainer catalog for #{expansion_id} from #{paths[:data_root]} because it had no trainer teams")
+      return nil
     end
 
     log("Loaded generic compiled trainer catalog for #{expansion_id} from #{paths[:data_root]} (#{type_map.length} trainer types, #{team_map.length} teams)")
@@ -1048,14 +1456,20 @@ module TravelExpansionFramework
       :intro_BGM      => normalize_string_or_nil(entry[6]),
       :sprite         => sprintf("trainer%03d", id_number),
       :front_sprite   => first_existing_logical_asset(root, [
+        sprintf("Graphics/Trainers/trainer%03d", id_number),
+        sprintf("Graphics/Trainers/HGSS_%03d", id_number),
         sprintf("Graphics/Characters/trainer%03d", id_number),
         sprintf("Graphics/Characters/HGSS_%03d", id_number),
         asset_basename_path("Graphics/Characters", entry[1]),
-        asset_basename_path("Graphics/Characters", entry[2])
+        asset_basename_path("Graphics/Characters", entry[2]),
+        asset_basename_path("Graphics/Trainers", entry[1]),
+        asset_basename_path("Graphics/Trainers", entry[2])
       ]),
       :back_sprite    => first_existing_logical_asset(root, [
+        sprintf("Graphics/Trainers/trback%03d", id_number),
         sprintf("Graphics/Characters/trback%03d", id_number),
-        asset_basename_path("Graphics/Characters", "#{entry[1]}_back")
+        asset_basename_path("Graphics/Characters", "#{entry[1]}_back"),
+        asset_basename_path("Graphics/Trainers", "#{entry[1]}_back")
       ]),
       :overworld_sprite => first_existing_logical_asset(root, [
         asset_basename_path("Graphics/Characters", entry[1]),
@@ -1672,6 +2086,8 @@ module TravelExpansionFramework
         return team_map[key] if team_map.has_key?(key)
       end
     end
+    lazy_record = find_rejuvenation_script_trainer_record(catalog, type_candidates, name_candidates, version)
+    return lazy_record if lazy_record
     name_candidates.each do |name|
       matches = team_map.values.find_all { |entry| entry[:name] == name && entry[:version] == version }
       return matches.first if matches.length == 1
@@ -1727,6 +2143,7 @@ module TravelExpansionFramework
       trainer.sprite_override = nil
     end
     trainer.instance_variable_set(:@travel_expansion_external_trainer_type, record[:trainer_type])
+    trainer.instance_variable_set(:@travel_expansion_external_trainer_version, integer(record[:version], 0))
     trainer.instance_variable_set(:@travel_expansion_external_trainer_type_data, type_data || {})
     trainer.instance_variable_set(:@travel_expansion_expansion_id, expansion_id.to_s)
     trainer.extend(ImportedTrainerBehavior)
@@ -2340,19 +2757,31 @@ module TravelExpansionFramework
       define_method(:exists?) do |tr_type, tr_name, tr_version = 0|
         proxy = TravelExpansionFramework.external_trainer_record_proxy(tr_type, tr_name, tr_version)
         return true if proxy
-        return tef_imported_trainer_data_original_exists(tr_type, tr_name, tr_version)
+        lookup_type = TravelExpansionFramework.normalize_host_trainer_type_for_data_lookup(tr_type)
+        return false if lookup_type.nil?
+        return tef_imported_trainer_data_original_exists(lookup_type, tr_name, tr_version)
+      rescue ArgumentError => e
+        TravelExpansionFramework.log("Trainer data exists? ignored invalid trainer type #{tr_type.inspect}: #{e.message}")
+        return false
       end
 
       define_method(:try_get) do |tr_type, tr_name, tr_version = 0|
         proxy = TravelExpansionFramework.external_trainer_record_proxy(tr_type, tr_name, tr_version)
         return proxy if proxy
-        return tef_imported_trainer_data_original_try_get(tr_type, tr_name, tr_version)
+        lookup_type = TravelExpansionFramework.normalize_host_trainer_type_for_data_lookup(tr_type)
+        return nil if lookup_type.nil?
+        return tef_imported_trainer_data_original_try_get(lookup_type, tr_name, tr_version)
+      rescue ArgumentError => e
+        TravelExpansionFramework.log("Trainer data try_get ignored invalid trainer type #{tr_type.inspect}: #{e.message}")
+        return nil
       end
 
       define_method(:get) do |tr_type, tr_name, tr_version = 0|
         proxy = TravelExpansionFramework.external_trainer_record_proxy(tr_type, tr_name, tr_version)
         return proxy if proxy
-        return tef_imported_trainer_data_original_get(tr_type, tr_name, tr_version)
+        lookup_type = TravelExpansionFramework.normalize_host_trainer_type_for_data_lookup(tr_type)
+        raise ArgumentError, "Unknown trainer type #{tr_type.inspect}" if lookup_type.nil?
+        return tef_imported_trainer_data_original_get(lookup_type, tr_name, tr_version)
       end
     end
   rescue => e
@@ -2375,6 +2804,7 @@ end
 TravelExpansionFramework.patch_imported_trainer_data_lookup!(GameData::Trainer) if defined?(GameData::Trainer)
 TravelExpansionFramework.patch_imported_trainer_data_lookup!(GameData::TrainerModern) if defined?(GameData::TrainerModern)
 TravelExpansionFramework.patch_imported_trainer_data_lookup!(GameData::TrainerExpert) if defined?(GameData::TrainerExpert)
+TravelExpansionFramework.patch_imported_trainer_data_lookup!(GameData::TrainerChallenge) if defined?(GameData::TrainerChallenge)
 
 alias tef_original_pbLoadTrainer pbLoadTrainer if defined?(pbLoadTrainer) && !defined?(tef_original_pbLoadTrainer)
 def pbLoadTrainer(tr_type, tr_name, tr_version = 0)

@@ -411,6 +411,35 @@ module AutoplayBot
       nil
     end
 
+    def note_static_coast_block!(dir, reason = "static_coast_blocked")
+      dir = dir.to_i
+      return false unless [2, 4, 6, 8].include?(dir)
+      snap = (SceneObserver.snapshot rescue nil) || SceneObserver.last_snapshot
+      return false unless snap && snap["scene"].to_s == "map"
+      @trying = {
+        "frame" => snap["frame"].to_i,
+        "map_id" => snap["map_id"],
+        "x" => snap["x"],
+        "y" => snap["y"],
+        "dir" => dir,
+        "run" => 1,
+        "moved" => 0
+      }
+      remember_blocked_try!(reason)
+      @recovery_reason = reason.to_s
+      @path = nil
+      @path_index = 0
+      @coast_watch = nil
+      @escape_queue = escape_dirs(reason, snap)
+      @trying = nil
+      @last_progress_pos = [snap["map_id"], snap["x"], snap["y"]]
+      @last_progress_frame = snap["frame"].to_i
+      @last_action = "blocked #{dir_label(dir)}"
+      true
+    rescue
+      false
+    end
+
     def follow(goal, snap)
       return false unless goal && snap
       observe_scene(snap)
@@ -584,9 +613,7 @@ module AutoplayBot
     def straight_run_cap(goal)
       speed = navigation_speedup_multiplier
       if speed >= 7
-        return 1 if ["nearby_collect", "nearby_npc", "nearby_building", "battle", "shop", "heal"].include?(goal["kind"].to_s)
-        return 1 if goal["kind"].to_s =~ /building|shop|heal/
-        return 2
+        return 1
       elsif speed >= 3
         return 1 if ["nearby_collect", "nearby_npc", "nearby_building", "battle", "shop", "heal"].include?(goal["kind"].to_s)
         return 2 if goal["kind"].to_s =~ /building|shop|heal/
@@ -619,7 +646,11 @@ module AutoplayBot
       run.to_i.times { path_segment << @path[@path_index.to_i].to_i }
       if defined?(AutoplayBot::Director) &&
          AutoplayBot::Director.respond_to?(:movement_hold_frames)
-        return AutoplayBot::Director.movement_hold_frames(path_segment, goal["kind"].to_s == "progress" ? 5 : 4)
+        minimum = goal["kind"].to_s == "progress" ? 5 : 4
+        minimum = 4 if navigation_speedup_multiplier >= 7
+        frames = AutoplayBot::Director.movement_hold_frames(path_segment, minimum)
+        return [[frames.to_i, minimum].max, 12].min if navigation_speedup_multiplier >= 7
+        return frames
       end
       [run.to_i * 8, 4].max
     rescue
@@ -633,7 +664,7 @@ module AutoplayBot
         dir = goal["exit_dir"].to_i
         @last_action = "exit #{dir_label(dir)}"
         @pending_completion = completion_record(goal, snap)
-        AutoplayBot::InputQueue.hold_dir(dir, 8) if defined?(AutoplayBot::InputQueue)
+        AutoplayBot::InputQueue.hold_dir(dir, transfer_hold_frames) if defined?(AutoplayBot::InputQueue)
         AutoplayBot.status("exit #{goal_label(goal)}") if AutoplayBot.respond_to?(:status)
         return true
       end
@@ -647,6 +678,15 @@ module AutoplayBot
     rescue => e
       @last_action = "activate error #{e.class}"
       false
+    end
+
+    def transfer_hold_frames
+      speed = navigation_speedup_multiplier
+      return 4 if speed >= 7
+      return 5 if speed >= 3
+      8
+    rescue
+      6
     end
 
     def face_and_use(goal, record, snap)
@@ -2383,10 +2423,30 @@ module AutoplayBot
       @adapter_progress_state = nil
       @static_coast_watch = nil
       @rail_action = "#{reason}: waiting"
-      clear_static_map_coast_watch! if respond_to?(:clear_static_map_coast_watch?)
-      reset_adapter_motion_state!(nil, reason) if respond_to?(:reset_adapter_motion_state?)
+      clear_static_map_coast_watch! if respond_to?(:clear_static_map_coast_watch!)
+      reset_adapter_motion_state!(nil, reason) if respond_to?(:reset_adapter_motion_state!)
     rescue
       nil
+    end
+
+    def note_static_coast_block!(dir, reason = "static coast")
+      snap = (SceneObserver.snapshot rescue nil) || SceneObserver.last_snapshot
+      return false unless snap && snap["scene"].to_s == "map"
+      if @active_goal && @active_goal["kind"].to_s == "adapter"
+        block_adapter_goal!(adapter_progress_key(@active_goal, snap), snap, "static #{reason}")
+        reset_adapter_motion_state!(snap, reason)
+        @active_goal = nil
+        @active_goal_key = nil
+        @last_goal_choice_frame = nil
+      end
+      clear_static_map_coast_watch! if respond_to?(:clear_static_map_coast_watch!)
+      @rail_path_cache = nil
+      @route_motion_guard = nil
+      @route_axis_history = nil
+      @rail_action = "blocked #{dir}: #{reason}"
+      true
+    rescue
+      false
     end
 
     def tick(coast = false)

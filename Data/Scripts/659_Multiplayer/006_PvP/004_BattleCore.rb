@@ -680,6 +680,12 @@ end
 #===============================================================================
 # Party Exchange Functions
 #===============================================================================
+def pvp_valid_received_party?(party)
+  return false unless party.is_a?(Array)
+  return false if party.empty?
+  party.all? { |pkmn| pkmn.is_a?(Pokemon) }
+end
+
 def pvp_exchange_parties_as_initiator(battle_id, opponent_sid, my_selections)
   if defined?(MultiplayerDebug)
     MultiplayerDebug.info("PVP-PARTY-EXCHANGE", "Initiator sending party to #{opponent_sid}")
@@ -733,7 +739,10 @@ def pvp_exchange_parties_as_initiator(battle_id, opponent_sid, my_selections)
       ev = MultiplayerClient.next_pvp_event
       if ev && ev[:type] == :party_received
         # Party already decoded by client
-        opponent_party = ev[:data][:party]
+        event_data = ev[:data] || {}
+        next if event_data[:battle_id].to_s != battle_id.to_s
+        opponent_party = event_data[:party]
+        next unless pvp_valid_received_party?(opponent_party)
 
         PvPBattleState.set_opponent_party(opponent_party)
 
@@ -788,7 +797,10 @@ def pvp_exchange_parties_as_receiver(battle_id, opponent_sid, my_selections)
       ev = MultiplayerClient.next_pvp_event
       if ev && ev[:type] == :party_received
         # Party already decoded by client
-        opponent_party = ev[:data][:party]
+        event_data = ev[:data] || {}
+        next if event_data[:battle_id].to_s != battle_id.to_s
+        opponent_party = event_data[:party]
+        next unless pvp_valid_received_party?(opponent_party)
 
         PvPBattleState.set_opponent_party(opponent_party)
 

@@ -227,6 +227,236 @@
       "default": "true",
       "note": "Imported tip-card scenes are acknowledged safely."
     },
+    "pbSetDialoguePortrait": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Void dialogue portrait state is acknowledged without loading the native portrait UI."
+    },
+    "pbSetPlayerDialoguePortrait": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Void player dialogue portrait state is acknowledged without replacing the host player UI."
+    },
+    "pbSetRivalDialoguePortrait": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Void rival portrait state is acknowledged without loading the native portrait UI."
+    },
+    "pbClearDialoguePortrait": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Void dialogue portrait state is cleared safely."
+    },
+    "pbPortraitMessage": {
+      "category": "menu_settings",
+      "default": "portrait_message",
+      "note": "Void portrait messages are shown through the host message box."
+    },
+    "pbPlayerPortraitMessage": {
+      "category": "menu_settings",
+      "default": "portrait_message",
+      "note": "Void player portrait messages are shown through the host message box."
+    },
+    "pbRivalPortraitMessage": {
+      "category": "menu_settings",
+      "default": "portrait_message",
+      "note": "Void rival portrait messages are shown through the host message box."
+    },
+    "pbVoidRivalPortrait": {
+      "category": "menu_settings",
+      "default": "empty_string",
+      "note": "Void rival portrait lookups return no portrait until the native UI is certified."
+    },
+    "pbVoidCharacterSetup": {
+      "category": "startup",
+      "default": "void_character_setup",
+      "note": "Void character setup writes safe startup variables while preserving the host player identity."
+    },
+    "pbVoidCharacterSelect": {
+      "category": "startup",
+      "default": "true",
+      "note": "Void character selection is skipped to preserve host player identity."
+    },
+    "pbVoidCharSel": {
+      "category": "startup",
+      "default": "zero",
+      "note": "Void compact character selection returns a safe default choice."
+    },
+    "pbVoidCharacterCustomization": {
+      "category": "startup",
+      "default": "true",
+      "note": "Void character customization is skipped to preserve host player identity."
+    },
+    "pbVoidCharCustomize": {
+      "category": "startup",
+      "default": "true",
+      "note": "Void compact character customization is skipped to preserve host player identity."
+    },
+    "pbApplyVoidCompositedPlayerSprite": {
+      "category": "startup",
+      "default": "true",
+      "note": "Void generated player sprites are ignored so the host outfit remains stable."
+    },
+    "pbWalkCharacterTo": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Void scripted pathfinding requests are acknowledged safely until certified."
+    },
+    "pbPlayerGender": {
+      "category": "menu_settings",
+      "default": "zero",
+      "note": "Void player gender lookups return a neutral host-safe default."
+    },
+    "pbPlayerPronouns": {
+      "category": "menu_settings",
+      "default": "hash",
+      "note": "Void player pronoun lookups return an empty host-safe token map."
+    },
+    "pbVoidRivalName": {
+      "category": "story_transfer",
+      "default": "void_rival_name",
+      "note": "Void rival names use safe release defaults until native rival setup is certified."
+    },
+    "pbVoidRivalPronoun": {
+      "category": "story_transfer",
+      "default": "void_rival_pronoun",
+      "note": "Void rival pronouns use safe release defaults until native rival setup is certified."
+    },
+    "pbVoidRivalTrainerType": {
+      "category": "trainer_battle",
+      "default": "empty_string",
+      "note": "Void rival trainer type lookups fail closed until native trainer data is certified."
+    },
+    "pbVoidRivalCharset": {
+      "category": "story_transfer",
+      "default": "empty_string",
+      "note": "Void rival charset lookups fail closed without replacing map graphics."
+    },
+    "pbVoidRivalStarter": {
+      "category": "startup",
+      "default": "starter_species",
+      "note": "Void rival starter lookups use a valid host species fallback."
+    },
+    "pbVoidRivalStarterFromVariable": {
+      "category": "startup",
+      "default": "starter_species",
+      "note": "Void rival starter variable lookups use a valid host species fallback."
+    },
+    "pbVoidRivalStarterVersion": {
+      "category": "startup",
+      "default": "zero",
+      "note": "Void rival starter version lookups use the first safe release version."
+    },
+    "pbVoidRivalStarterVersionFromVariable": {
+      "category": "startup",
+      "default": "zero",
+      "note": "Void rival starter version variable lookups use the first safe release version."
+    },
+    "pbVoidRivalBattle": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Void rival battle helpers fail closed until native trainer mapping is certified."
+    },
+    "pbVoidRivalBattleFromVariable": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Void rival battle helpers fail closed until native trainer mapping is certified."
+    },
+    "pbVoidRivalBattleStage": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Void rival staged battle helpers fail closed until native trainer mapping is certified."
+    },
+    "pbVoidRivalBattleStageFromVariable": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Void rival staged battle helpers fail closed until native trainer mapping is certified."
+    },
+    "pbVoidRivalBattleStageVersion": {
+      "category": "trainer_battle",
+      "default": "zero",
+      "note": "Void rival staged battle version lookups use the first safe release version."
+    },
+    "pbVoidRivalBattleStageVersionFromVariable": {
+      "category": "trainer_battle",
+      "default": "zero",
+      "note": "Void rival staged battle version variable lookups use the first safe release version."
+    },
+    "pbVoidApplyRivalGraphic": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Void rival graphic swaps are skipped to preserve host/player graphics."
+    },
+    "pbVoidClearRivalGraphic": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Void rival graphic cleanup is acknowledged safely."
+    },
+    "pbStartQuest": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Void quest starts are mirrored only into host-safe release metadata."
+    },
+    "pbCompleteQuest": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Void quest completions are mirrored only into host-safe release metadata."
+    },
+    "pbQuestStatus": {
+      "category": "menu_settings",
+      "default": "zero",
+      "note": "Void quest status reads return a safe inactive stage until bridged."
+    },
+    "pbQuestStarted?": {
+      "category": "menu_settings",
+      "default": "false",
+      "note": "Void quest started checks fail closed until bridged."
+    },
+    "pbQuestComplete?": {
+      "category": "menu_settings",
+      "default": "false",
+      "note": "Void quest completion checks fail closed until bridged."
+    },
+    "pbQuestKnown?": {
+      "category": "menu_settings",
+      "default": "false",
+      "note": "Void quest known checks fail closed until bridged."
+    },
+    "pbFishing": {
+      "category": "encounters",
+      "default": "false",
+      "note": "Void fishing helper fails closed until native encounter mapping is certified."
+    },
+    "pbVoidFishingMinigame": {
+      "category": "encounters",
+      "default": "false",
+      "note": "Void fishing minigame fails closed until certified."
+    },
+    "pbVoidFishingSuccessCue": {
+      "category": "encounters",
+      "default": "true",
+      "note": "Void fishing success cues are acknowledged safely."
+    },
+    "pbVoidFishingChooseEncounter": {
+      "category": "encounters",
+      "default": "nil",
+      "note": "Void fishing encounter choice returns no encounter until mapped."
+    },
+    "pbVoidFishingSeaTransition": {
+      "category": "encounters",
+      "default": "false",
+      "note": "Void fishing sea transition fails closed until certified."
+    },
+    "pbExclaim": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Void exclamation animation requests are acknowledged safely."
+    },
+    "pbTurnTowardEvent": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Void event-facing helper is acknowledged safely."
+    },
     "pbCharacterSelect": {
       "category": "startup",
       "default": "true",
@@ -356,6 +586,241 @@
       "category": "item_handlers",
       "default": "zero",
       "note": "Missing item storage queries fail closed."
+    },
+    "PokemonEntryScene": {
+      "category": "startup",
+      "default": "safe_scene",
+      "note": "Rejuvenation password-entry scenes use a host-safe empty input fallback."
+    },
+    "PokemonEntry": {
+      "category": "startup",
+      "default": "safe_scene",
+      "note": "Rejuvenation password-entry scenes use a host-safe empty input fallback."
+    },
+    "PokemonEntry.pbStartScreen": {
+      "category": "startup",
+      "default": "empty_string",
+      "note": "Unsupported password prompts return no password instead of looping or crashing."
+    },
+    "MessageConfig.pbSetSpeechFrame": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported speech-frame requests are acknowledged without leaking UI state."
+    },
+    "PokemonSelection.restore": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported selection cleanup is acknowledged safely."
+    },
+    "colorQuest": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported quest coloring is logged and skipped when the native quest UI is absent."
+    },
+    "activateQuestSilent": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported quest activation is stored in the host-safe quest shim state."
+    },
+    "advanceQuestSilent": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported quest progress is stored in the host-safe quest shim state."
+    },
+    "advanceQuestToStage": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported quest stage progress is stored in the host-safe quest shim state."
+    },
+    "completeQuestSilent": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported quest completion is stored in the host-safe quest shim state."
+    },
+    "getQuestStage": {
+      "category": "menu_settings",
+      "default": "zero",
+      "note": "Imported quest stage reads use the host-safe quest shim state."
+    },
+    "pbFieldDamage": {
+      "category": "encounters",
+      "default": "true",
+      "note": "Imported map hazard damage is skipped unless a world-specific adapter owns it."
+    },
+    "pbCaveEntrance": {
+      "category": "map_visual",
+      "default": "true",
+      "note": "Imported cave-entry visual hooks are acknowledged safely."
+    },
+    "pbCaveEntranceEx": {
+      "category": "map_visual",
+      "default": "true",
+      "note": "Imported cave-entry visual hooks are acknowledged safely."
+    },
+    "pbCaveExit": {
+      "category": "map_visual",
+      "default": "true",
+      "note": "Imported cave-exit visual hooks are acknowledged safely."
+    },
+    "pbSetEscapePoint": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Imported escape points are recorded only by certified world adapters."
+    },
+    "pbEraseEscapePoint": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Imported escape points are erased only by certified world adapters."
+    },
+    "pbTransferSurfing": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Imported surfing transfer requests use the guarded transfer path when available."
+    },
+    "pbTransferUnderwater": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Imported underwater transfer requests use the guarded transfer path when available."
+    },
+    "pbTransferLavaSurfing": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Imported lava-surfing transfer requests use the guarded transfer path when available."
+    },
+    "pbTransferWithTransition": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Imported scripted transfer requests use the guarded transfer path while preserving story state."
+    },
+    "characterRestore": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported character restore requests preserve the host player identity."
+    },
+    "characterSwitch": {
+      "category": "startup",
+      "default": "true",
+      "note": "Imported character switch requests preserve the host player identity."
+    },
+    "characterSwtich": {
+      "category": "startup",
+      "default": "true",
+      "note": "Misspelled imported character switch requests preserve the host player identity."
+    },
+    "pbRefreshCustomDuel": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported custom duel UI refreshes are acknowledged safely."
+    },
+    "pbStartCustomDuel": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported custom duel setup is acknowledged safely."
+    },
+    "pbEndCustomDuel": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported custom duel teardown is acknowledged safely."
+    },
+    "pbRentReturn": {
+      "category": "trainer_battle",
+      "default": "true",
+      "note": "Imported rental-battle cleanup is skipped to preserve host party/storage."
+    },
+    "pbInfoBox": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported info-box popups are acknowledged safely."
+    },
+    "pbSlotMachine": {
+      "category": "item_handlers",
+      "default": "false",
+      "note": "Unsupported imported minigames fail closed."
+    },
+    "pbRoulette": {
+      "category": "item_handlers",
+      "default": "false",
+      "note": "Unsupported imported minigames fail closed."
+    },
+    "pbVoltorbFlip": {
+      "category": "item_handlers",
+      "default": "false",
+      "note": "Unsupported imported minigames fail closed."
+    },
+    "pbLottery": {
+      "category": "item_handlers",
+      "default": "false",
+      "note": "Unsupported imported lotteries fail closed."
+    },
+    "pbSetLotteryNumber": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Unsupported imported lottery setup is acknowledged safely."
+    },
+    "pbBerryPlant": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported berry plant interactions are acknowledged safely until native berry state is bridged."
+    },
+    "pbPickBerry": {
+      "category": "item_handlers",
+      "default": "true",
+      "note": "Imported berry pickup interactions are acknowledged safely until native berry state is bridged."
+    },
+    "pbPushThisBoulder": {
+      "category": "story_transfer",
+      "default": "true",
+      "note": "Imported boulder helpers are acknowledged safely."
+    },
+    "pbPartialHeal": {
+      "category": "item_handlers",
+      "default": "heal_party",
+      "note": "Imported partial heals fall back to a host-safe party heal."
+    },
+    "pbDayCareDeposited": {
+      "category": "item_handlers",
+      "default": "zero",
+      "note": "Imported daycare reads use a host-safe empty daycare fallback."
+    },
+    "pbDayCareGetDeposited": {
+      "category": "item_handlers",
+      "default": "nil",
+      "note": "Imported daycare reads use a host-safe empty daycare fallback."
+    },
+    "pbDayCareGetCompatibility": {
+      "category": "item_handlers",
+      "default": "zero",
+      "note": "Imported daycare compatibility checks fail closed."
+    },
+    "pbDayCareDeposit": {
+      "category": "item_handlers",
+      "default": "false",
+      "note": "Imported daycare deposit screens are disabled until a native adapter owns storage."
+    },
+    "pbDayCareWithdraw": {
+      "category": "item_handlers",
+      "default": "false",
+      "note": "Imported daycare withdraw screens are disabled until a native adapter owns storage."
+    },
+    "pbDayCareChoose": {
+      "category": "item_handlers",
+      "default": "nil",
+      "note": "Imported daycare selection screens are disabled until a native adapter owns storage."
+    },
+    "pbDayCareGenerateEgg": {
+      "category": "item_handlers",
+      "default": "false",
+      "note": "Imported daycare egg generation is disabled until a native adapter owns storage."
+    },
+    "pbDayCareChooseOffspringBall": {
+      "category": "item_handlers",
+      "default": "nil",
+      "note": "Imported daycare ball selection is disabled until a native adapter owns storage."
+    },
+    "pbSetEventTime": {
+      "category": "menu_settings",
+      "default": "true",
+      "note": "Imported event timers are acknowledged without writing unsupported timer state."
     }
   }
 }

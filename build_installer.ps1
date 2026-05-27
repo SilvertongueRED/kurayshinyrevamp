@@ -18,8 +18,8 @@ $scriptRoot = if ($PSScriptRoot) {
 }
 
 $projectRoot = [System.IO.Path]::GetFullPath($scriptRoot)
-$defaultPayloadArchiveName = "PIF-player-build-20260512-full-current-update1.7z"
-$defaultInstallerName = "PIF-player-build-20260512-full-current-WebSetup"
+$defaultPayloadArchiveName = "PIF-player-build-20260527-full-current-update1.7z"
+$defaultInstallerName = "PIF-player-build-20260527-full-current-WebSetup"
 $defaultPayloadBuilderScript = "package_overlay_release.ps1"
 $bootstrapProjectPath = Join-Path $projectRoot "InstallerBootstrap\InstallerBootstrap.csproj"
 $trailerMagic = [System.Text.Encoding]::ASCII.GetBytes("PIFINST1")

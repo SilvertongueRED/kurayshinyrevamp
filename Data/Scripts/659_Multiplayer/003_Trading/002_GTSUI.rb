@@ -1809,8 +1809,8 @@ module GTSUI
       pk = party[sel]
       pj = nil
       begin
-        pj = pk.to_json
-        TradeUI.ensure_complete_stat_maps!(pj) if defined?(TradeUI)
+        pj = (defined?(TradeUI) && TradeUI.respond_to?(:serialize_pokemon_for_trade)) ? TradeUI.serialize_pokemon_for_trade(pk) : pk.to_json
+        raise "serialize returned nil" unless pj.is_a?(Hash)
       rescue
         toast("This Pokemon cannot be serialized.", true); return
       end
@@ -1835,11 +1835,12 @@ module GTSUI
     def build_temp_pokemon_from_json(pj)
       return nil unless pj && defined?(Pokemon)
       begin
-        TradeUI.ensure_complete_stat_maps!(pj) if defined?(TradeUI) && TradeUI.respond_to?(:ensure_complete_stat_maps!)
+        if defined?(TradeUI) && TradeUI.respond_to?(:build_pokemon_from_payload)
+          return TradeUI.build_pokemon_from_payload(pj)
+        end
         sid = GTSUI.resolve_species_id(pj["species"])
         p = Pokemon.new(sid, [(pj["level"] || 1).to_i, 1].max)
         p.load_json(pj)
-        TradeUI.force_species_id!(p) if defined?(TradeUI) && TradeUI.respond_to?(:force_species_id!)
         return p
       rescue; return nil; end
     end

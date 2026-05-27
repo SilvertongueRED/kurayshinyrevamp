@@ -3822,11 +3822,13 @@ module AutoplayBot
       unless moving
         unless static_coast_dir_passable?(dir)
           AutoplayBot.status("coast blocked: #{@last_static_coast_block_reason || 'blocked'}") if AutoplayBot.respond_to?(:status)
+          notify_static_coast_block!(dir, @last_static_coast_block_reason || "blocked")
           AutoplayBot::InputQueue.clear
           clear_static_coast_input!
           return false
         end
         if stale_static_coast_input?(dir)
+          notify_static_coast_block!(dir, "stale coast #{dir}")
           AutoplayBot::InputQueue.clear
           clear_static_coast_input!
           return false
@@ -3922,6 +3924,19 @@ module AutoplayBot
     def event_numeric_attr(event, method_name, ivar)
       return event.send(method_name) if event.respond_to?(method_name)
       event.instance_variable_defined?(ivar) ? event.instance_variable_get(ivar) : nil
+    rescue
+      nil
+    end
+
+    def notify_static_coast_block!(dir, reason)
+      if defined?(AutoplayBot::Navigator) &&
+         AutoplayBot::Navigator.respond_to?(:note_static_coast_block!)
+        AutoplayBot::Navigator.note_static_coast_block!(dir, reason)
+      end
+      if defined?(AutoplayBot::BotCore) &&
+         AutoplayBot::BotCore.respond_to?(:note_static_coast_block!)
+        AutoplayBot::BotCore.note_static_coast_block!(dir, reason)
+      end
     rescue
       nil
     end
@@ -6483,7 +6498,13 @@ if defined?(PokeBattle_BattleCommon)
         end
         autoplay_bot_original_pbHandleCaughtPokemonStorage(caughtPokemon)
       ensure
-        AutoplayBot::TeamBuilder.record_roster_plan!("after catch storage") if defined?(AutoplayBot::TeamBuilder)
+        if defined?(AutoplayBot::TeamBuilder)
+          if AutoplayBot::TeamBuilder.respond_to?(:request_roster_plan_refresh!)
+            AutoplayBot::TeamBuilder.request_roster_plan_refresh!("after catch storage")
+          else
+            AutoplayBot::TeamBuilder.record_roster_plan!("after catch storage")
+          end
+        end
         AutoplayBot::TeamBuilder.request_training_rotation!("catch storage") if defined?(AutoplayBot::TeamBuilder) &&
                                                                                 AutoplayBot::TeamBuilder.respond_to?(:request_training_rotation!)
       end
@@ -6512,7 +6533,13 @@ if defined?(PokeBattle_BattleCommon)
                                                                  AutoplayBot::BattlePolicy.respond_to?(:note_caught_pokemon)
         end
       end
-      AutoplayBot::TeamBuilder.record_roster_plan!("after catch") if defined?(AutoplayBot::TeamBuilder)
+      if defined?(AutoplayBot::TeamBuilder)
+        if AutoplayBot::TeamBuilder.respond_to?(:request_roster_plan_refresh!)
+          AutoplayBot::TeamBuilder.request_roster_plan_refresh!("after catch")
+        else
+          AutoplayBot::TeamBuilder.record_roster_plan!("after catch")
+        end
+      end
       AutoplayBot::TeamBuilder.request_training_rotation!("catch") if defined?(AutoplayBot::TeamBuilder) &&
                                                                       AutoplayBot::TeamBuilder.respond_to?(:request_training_rotation!)
       ret

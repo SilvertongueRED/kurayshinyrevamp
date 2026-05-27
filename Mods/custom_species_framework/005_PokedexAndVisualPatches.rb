@@ -1461,11 +1461,26 @@ module CustomSpeciesFramework
   CUSTOM_BATTLER_MAX_VISIBLE_SIZE = 180 unless const_defined?(:CUSTOM_BATTLER_MAX_VISIBLE_SIZE)
   CUSTOM_BATTLER_SMALL_FRAME_MAX = 160 unless const_defined?(:CUSTOM_BATTLER_SMALL_FRAME_MAX)
   CUSTOM_BATTLER_MAX_UPSCALE = 3.0 unless const_defined?(:CUSTOM_BATTLER_MAX_UPSCALE)
+  CUSTOM_EBDX_BATTLER_FRAME_SIZE = 96 unless const_defined?(:CUSTOM_EBDX_BATTLER_FRAME_SIZE)
+  CUSTOM_EBDX_BATTLER_MAX_VISIBLE_SIZE = 88 unless const_defined?(:CUSTOM_EBDX_BATTLER_MAX_VISIBLE_SIZE)
+  CUSTOM_EBDX_BATTLER_CACHE_DIR = "_normalized_ebdx" unless const_defined?(:CUSTOM_EBDX_BATTLER_CACHE_DIR)
+  CUSTOM_EBDX_BATTLER_CACHE_VERSION = "v2" unless const_defined?(:CUSTOM_EBDX_BATTLER_CACHE_VERSION)
 
   def self.battler_asset_path(species, back = false)
+    asset_kind = back ? :back : :front
+    metadata = metadata_for(species)
+    if metadata
+      direct_path = asset_path(asset_kind, species)
+      return direct_path if direct_path
+      return asset_path(:front, species) if back
+
+      fallback_species = fallback_species_for(species)
+      return nil if fallback_species.nil?
+      return battler_asset_path(fallback_species, back)
+    end
+
     runtime_path = runtime_battler_path(species, back)
     return runtime_path if runtime_path
-    asset_kind = back ? :back : :front
     direct_path = asset_path(asset_kind, species)
     return direct_path if direct_path
     return asset_path(:front, species) if back
@@ -1563,6 +1578,209 @@ module CustomSpeciesFramework
     return sprite
   end
 
+  def self.custom_species_battler_target?(pokemon_or_species)
+    return false if pokemon_or_species.nil?
+    species = nil
+    species = pokemon_or_species.species if pokemon_or_species.respond_to?(:species)
+    if species.nil? && pokemon_or_species.respond_to?(:pokemon)
+      inner = pokemon_or_species.pokemon
+      species = inner.species if inner && inner.respond_to?(:species)
+    end
+    species ||= pokemon_or_species
+    return custom_species?(species)
+  rescue
+    return false
+  end
+
+  def self.runtime_battler_engine_scale(back = false)
+    scale = if back
+              defined?(Settings::BACKRPSPRITE_SCALE) ? Settings::BACKRPSPRITE_SCALE : 1
+            else
+              defined?(Settings::FRONTSPRITE_SCALE) ? Settings::FRONTSPRITE_SCALE : 1
+            end
+    scale = scale.to_f
+    return scale > 0 ? scale : 1.0
+  rescue
+    return 1.0
+  end
+
+  def self.runtime_battler_final_canvas_size(back = false)
+    return [(CUSTOM_BATTLER_CANVAS_SIZE * runtime_battler_engine_scale(back)).round, 1].max
+  rescue
+    return CUSTOM_BATTLER_CANVAS_SIZE
+  end
+
+  def self.runtime_battler_final_visible_size(back = false)
+    return [(CUSTOM_BATTLER_MAX_VISIBLE_SIZE * runtime_battler_engine_scale(back)).round, 1].max
+  rescue
+    return CUSTOM_BATTLER_MAX_VISIBLE_SIZE
+  end
+
+  def self.normalized_runtime_battler_bitmap_from(animated_bitmap, back = false)
+    return nil if animated_bitmap.nil? || !animated_bitmap.respond_to?(:bitmap)
+    source_bitmap = animated_bitmap.bitmap
+    return nil if source_bitmap.nil?
+    source_rect = Rect.new(0, 0, source_bitmap.width.to_i, source_bitmap.height.to_i)
+    bounds = bitmap_alpha_bounds(source_bitmap, source_rect)
+    return nil if bounds.width <= 0 || bounds.height <= 0
+
+    canvas_size = runtime_battler_final_canvas_size(back)
+    max_visible = runtime_battler_final_visible_size(back).to_f
+    scale = [
+      max_visible / [bounds.width.to_f, 1.0].max,
+      max_visible / [bounds.height.to_f, 1.0].max
+    ].min
+    scale = CUSTOM_BATTLER_MAX_UPSCALE if scale > CUSTOM_BATTLER_MAX_UPSCALE
+    scale = 1.0 if scale <= 0
+
+    dest_width = [(bounds.width * scale).round, 1].max
+    dest_height = [(bounds.height * scale).round, 1].max
+    dest_x = ((canvas_size - dest_width) / 2.0).round
+    bottom_margin = [(canvas_size * 0.06).round, 2].max
+    dest_y = canvas_size - dest_height - bottom_margin
+    dest_y = ((canvas_size - dest_height) / 2.0).round if dest_y < 0
+
+    normalized = Bitmap.new(canvas_size, canvas_size)
+    normalized.clear if normalized.respond_to?(:clear)
+    normalized.stretch_blt(Rect.new(dest_x, dest_y, dest_width, dest_height), source_bitmap, bounds)
+    return AnimatedBitmap.from_bitmap(normalized)
+  rescue => e
+    log("Runtime battler sprite normalization failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def self.normalize_runtime_battler_sprite!(sprite, pokemon_or_species, back = false)
+    return false if sprite.nil?
+    return false if !custom_species_battler_target?(pokemon_or_species)
+    current = sprite.instance_variable_get(:@_iconBitmap) if sprite.instance_variable_defined?(:@_iconBitmap)
+    normalized = normalized_runtime_battler_bitmap_from(current, back)
+    return false if normalized.nil?
+    current.dispose if current && current != normalized && current.respond_to?(:dispose) &&
+                       (!current.respond_to?(:disposed?) || !current.disposed?)
+    sprite.instance_variable_set(:@_iconBitmap, normalized)
+    sprite.bitmap = normalized.bitmap if sprite.respond_to?(:bitmap=)
+    if sprite.respond_to?(:src_rect=) && defined?(Rect) && normalized.bitmap
+      sprite.src_rect = Rect.new(0, 0, normalized.bitmap.width, normalized.bitmap.height)
+    end
+    sprite.pbSetPosition if sprite.respond_to?(:pbSetPosition)
+    sprite.pbSetOrigin if sprite.respond_to?(:pbSetOrigin)
+    return true
+  rescue => e
+    log("Runtime battler sprite application failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def self.custom_battler_ebdx_cache_dir(back = false)
+    root = const_defined?(:GAME_ROOT) ? GAME_ROOT : Dir.pwd
+    return File.join(root, "Graphics", "Pokemon", "Imported", CUSTOM_EBDX_BATTLER_CACHE_DIR, CUSTOM_EBDX_BATTLER_CACHE_VERSION, back ? "Back" : "Front")
+  end
+
+  def self.custom_battler_ebdx_cache_path(source_path, back = false)
+    source_stat = File.stat(source_path) rescue nil
+    base_name = File.basename(source_path.to_s, ".*").gsub(/[^A-Za-z0-9_.-]/, "_")
+    stamp = source_stat ? "#{source_stat.size}_#{source_stat.mtime.to_i}" : "unknown"
+    return File.join(custom_battler_ebdx_cache_dir(back), "#{base_name}_#{stamp}.png")
+  end
+
+  def self.normalized_custom_battler_ebdx_path(source_path, back = false)
+    return nil if blank?(source_path) || !File.exist?(source_path)
+    cache_path = custom_battler_ebdx_cache_path(source_path, back)
+    return cache_path if File.exist?(cache_path)
+
+    source = nil
+    normalized = nil
+    animated = nil
+    source = AnimatedBitmap.new(source_path)
+    source_rect = custom_battler_source_rect(source)
+    bounds = bitmap_alpha_bounds(source.bitmap, source_rect)
+    return nil if bounds.width <= 0 || bounds.height <= 0
+
+    frame_size = CUSTOM_EBDX_BATTLER_FRAME_SIZE
+    max_visible = CUSTOM_EBDX_BATTLER_MAX_VISIBLE_SIZE.to_f
+    scale = [
+      max_visible / [bounds.width.to_f, 1.0].max,
+      max_visible / [bounds.height.to_f, 1.0].max
+    ].min
+    scale = CUSTOM_BATTLER_MAX_UPSCALE if scale > CUSTOM_BATTLER_MAX_UPSCALE
+    scale = 1.0 if scale <= 0
+
+    dest_width = [(bounds.width * scale).round, 1].max
+    dest_height = [(bounds.height * scale).round, 1].max
+    dest_x = ((frame_size - dest_width) / 2.0).round
+    dest_y = ((frame_size - dest_height) / 2.0).round
+
+    normalized = Bitmap.new(frame_size, frame_size)
+    normalized.clear if normalized.respond_to?(:clear)
+    normalized.stretch_blt(Rect.new(dest_x, dest_y, dest_width, dest_height), source.bitmap, bounds)
+    animated = AnimatedBitmap.from_bitmap(normalized)
+    normalized = nil
+
+    if respond_to?(:write_bitmap_png_if_needed)
+      write_bitmap_png_if_needed(animated, cache_path)
+    else
+      ensure_directory!(File.dirname(cache_path)) if respond_to?(:ensure_directory!)
+      animated.bitmap_to_png(cache_path)
+    end
+    return File.exist?(cache_path) ? cache_path : nil
+  rescue => e
+    log("EBDX custom battler normalization failed for #{source_path.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  ensure
+    source.dispose if source && source.respond_to?(:dispose) && (!source.respond_to?(:disposed?) || !source.disposed?)
+    animated.dispose if animated && animated.respond_to?(:dispose) && (!animated.respond_to?(:disposed?) || !animated.disposed?)
+    normalized.dispose if normalized && normalized.respond_to?(:dispose) && (!normalized.respond_to?(:disposed?) || !normalized.disposed?)
+  end
+
+  def self.resolved_ebdx_bitmap_source_path(source_path)
+    return nil if blank?(source_path)
+    resolved = pbResolveBitmap(source_path) rescue nil
+    return resolved if !blank?(resolved) && File.exist?(resolved)
+    return source_path if File.exist?(source_path)
+    return nil
+  rescue
+    return nil
+  end
+
+  def self.ebdx_back_battler_source?(source_path)
+    normalized = source_path.to_s.tr("\\", "/")
+    return true if normalized.include?("/Back/")
+    base = File.basename(normalized)
+    return true if base =~ /b(?:_\d+)?\.(?:png|bmp|gif)$/i
+    return false
+  rescue
+    return false
+  end
+
+  def self.imported_ebdx_battler_source?(source_path, resolved_path = nil)
+    candidates = [source_path, resolved_path].compact.map { |entry| entry.to_s.tr("\\", "/") }
+    return false if candidates.empty?
+    return false if candidates.any? { |entry| entry.include?("/#{CUSTOM_EBDX_BATTLER_CACHE_DIR}/") }
+    return true if candidates.any? { |entry| entry.include?("/Graphics/Pokemon/Imported/") }
+    return true if candidates.any? do |entry|
+      entry.include?("/Graphics/Pokemon/") && File.basename(entry).upcase.start_with?("CSF_")
+    end
+    return true if candidates.any? do |entry|
+      entry.include?("/ExpansionLibrary/LinkedProjects/") && entry.include?("/Graphics/Battlers/")
+    end
+    game_root = const_defined?(:GAME_ROOT) ? GAME_ROOT.to_s.tr("\\", "/") : nil
+    return true if candidates.any? do |entry|
+      entry.include?("/Graphics/Battlers/") && (blank?(game_root) || !entry.start_with?(game_root))
+    end
+    return false
+  rescue
+    return false
+  end
+
+  def self.normalized_ebdx_bitmap_source_path(source_path)
+    resolved_path = resolved_ebdx_bitmap_source_path(source_path)
+    return nil if blank?(resolved_path)
+    return nil if !imported_ebdx_battler_source?(source_path, resolved_path)
+    return normalized_custom_battler_ebdx_path(resolved_path, ebdx_back_battler_source?(resolved_path || source_path))
+  rescue => e
+    log("EBDX imported battler path normalization failed for #{source_path.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
   def self.load_custom_battler_bitmap_for_ebdx(species, back = false, scale = nil, speed = 2)
     battler_path = battler_asset_path(species, back)
     return nil if battler_path.nil?
@@ -1573,7 +1791,8 @@ module CustomSpeciesFramework
                     else
                       back ? Settings::BACKRPSPRITE_SCALE : Settings::FRONTSPRITE_SCALE
                     end
-    return BitmapEBDX.new(battler_path, scale || default_scale, speed)
+    normalized_path = normalized_custom_battler_ebdx_path(battler_path, back)
+    return BitmapEBDX.new(normalized_path || battler_path, scale || default_scale, speed)
   rescue
     return nil
   end
@@ -1582,6 +1801,21 @@ module CustomSpeciesFramework
     caller_locations(2, 12).any? { |location| location.path.to_s.include?("660_EBDX") }
   rescue
     return false
+  end
+end
+
+if defined?(BitmapEBDX)
+  class BitmapEBDX
+    alias csf_original_initialize initialize unless method_defined?(:csf_original_initialize)
+
+    def initialize(file, scale = 2, skip = 1)
+      if file.is_a?(String) && defined?(CustomSpeciesFramework) &&
+         CustomSpeciesFramework.respond_to?(:normalized_ebdx_bitmap_source_path)
+        normalized_file = CustomSpeciesFramework.normalized_ebdx_bitmap_source_path(file)
+        file = normalized_file if normalized_file
+      end
+      csf_original_initialize(file, scale, skip)
+    end
   end
 end
 
@@ -1687,12 +1921,25 @@ def pbPokemonBitmapFile(species, *args)
   return csf_original_pbPokemonBitmapFile(species, *args)
 end
 
+if defined?(PokemonBattlerSprite)
+  class PokemonBattlerSprite
+    alias csf_original_setPokemonBitmap setPokemonBitmap unless method_defined?(:csf_original_setPokemonBitmap)
+
+    def setPokemonBitmap(pkmn, back = false)
+      result = csf_original_setPokemonBitmap(pkmn, back)
+      CustomSpeciesFramework.normalize_runtime_battler_sprite!(self, pkmn, back) if defined?(CustomSpeciesFramework)
+      return result
+    end
+  end
+end
+
 alias csf_original_pbCheckPokemonIconFiles pbCheckPokemonIconFiles unless defined?(csf_original_pbCheckPokemonIconFiles)
 def pbCheckPokemonIconFiles(speciesID, egg = false, dna = false)
   return csf_original_pbCheckPokemonIconFiles(speciesID, egg, dna) if egg || dna
   custom_path = CustomSpeciesFramework.preferred_icon_path(speciesID)
   custom_path ||= CustomSpeciesFramework.resolve_graphic(:icon, speciesID)
   return custom_path if custom_path.is_a?(String)
+  return csf_original_pbCheckPokemonIconFiles(custom_path, egg, dna) if custom_path.is_a?(Symbol)
   return csf_original_pbCheckPokemonIconFiles(speciesID, egg, dna)
 end
 
@@ -1842,10 +2089,10 @@ end
 module CustomSpeciesFramework
   POKEDEX_SPRITE_PAGE_CANVAS_SIZE = 288 unless const_defined?(:POKEDEX_SPRITE_PAGE_CANVAS_SIZE)
   POKEDEX_SPRITE_PAGE_MAX_VISIBLE_SIZE = 198 unless const_defined?(:POKEDEX_SPRITE_PAGE_MAX_VISIBLE_SIZE)
-  STORAGE_BOX_ICON_CANVAS_SIZE = 52 unless const_defined?(:STORAGE_BOX_ICON_CANVAS_SIZE)
-  STORAGE_BOX_ICON_MAX_VISIBLE_SIZE = 48 unless const_defined?(:STORAGE_BOX_ICON_MAX_VISIBLE_SIZE)
-  STORAGE_BOX_ICON_MIN_SHORT_EDGE = 36 unless const_defined?(:STORAGE_BOX_ICON_MIN_SHORT_EDGE)
-  STORAGE_BOX_ICON_MAX_WIDE_VISIBLE_SIZE = 50 unless const_defined?(:STORAGE_BOX_ICON_MAX_WIDE_VISIBLE_SIZE)
+  STORAGE_BOX_ICON_CANVAS_SIZE = 64 unless const_defined?(:STORAGE_BOX_ICON_CANVAS_SIZE)
+  STORAGE_BOX_ICON_MAX_VISIBLE_SIZE = 62 unless const_defined?(:STORAGE_BOX_ICON_MAX_VISIBLE_SIZE)
+  STORAGE_BOX_ICON_MIN_SHORT_EDGE = 40 unless const_defined?(:STORAGE_BOX_ICON_MIN_SHORT_EDGE)
+  STORAGE_BOX_ICON_MAX_WIDE_VISIBLE_SIZE = 64 unless const_defined?(:STORAGE_BOX_ICON_MAX_WIDE_VISIBLE_SIZE)
   STORAGE_BOX_ICON_MAX_UPSCALE = 2.0 unless const_defined?(:STORAGE_BOX_ICON_MAX_UPSCALE)
 
   def self.pokedex_sprite_page_source_rect(animated_bitmap)
@@ -1966,16 +2213,46 @@ module CustomSpeciesFramework
     source.dispose if source && source.respond_to?(:dispose) && !source.disposed?
   end
 
-  def self.storage_box_icon_bitmap_from_source(source)
+  def self.storage_box_icon_frame_rects(source)
     source_bitmap = source.respond_to?(:bitmap) ? source.bitmap : source
-    return nil if source_bitmap.nil?
-    return nil if source_bitmap.respond_to?(:disposed?) && source_bitmap.disposed?
-    source_rect = if source.respond_to?(:width) && source.respond_to?(:height)
+    return [Rect.new(0, 0, 1, 1)] if source_bitmap.nil?
+    bitmap_width = source_bitmap.respond_to?(:width) ? source_bitmap.width.to_i : 0
+    bitmap_height = source_bitmap.respond_to?(:height) ? source_bitmap.height.to_i : 0
+    reported_width = source.respond_to?(:width) ? source.width.to_i : bitmap_width
+    reported_height = source.respond_to?(:height) ? source.height.to_i : bitmap_height
+    width = bitmap_width > 0 ? bitmap_width : reported_width
+    height = bitmap_height > 0 ? bitmap_height : reported_height
+    return [Rect.new(0, 0, 1, 1)] if width <= 0 || height <= 0
+    if width > height && (width % height) == 0
+      frame_count = [width / height, 1].max
+      return Array.new(frame_count) { |i| Rect.new(i * height, 0, height, height) }
+    end
+    source_rect = if reported_width == width && reported_height == height && source.respond_to?(:width) && source.respond_to?(:height)
                     pokedex_sprite_page_source_rect(source)
                   else
-                    Rect.new(0, 0, source_bitmap.width, source_bitmap.height)
+                    Rect.new(0, 0, width, height)
                   end
-    bounds = bitmap_alpha_bounds(source_bitmap, source_rect)
+    return [source_rect]
+  rescue
+    return [Rect.new(0, 0, 1, 1)]
+  end
+
+  def self.storage_box_icon_clamp_rect(rect, bitmap)
+    bitmap_width = bitmap.respond_to?(:width) ? bitmap.width.to_i : 0
+    bitmap_height = bitmap.respond_to?(:height) ? bitmap.height.to_i : 0
+    return Rect.new(0, 0, 1, 1) if bitmap_width <= 0 || bitmap_height <= 0
+    x = [[rect.x.to_i, 0].max, bitmap_width].min
+    y = [[rect.y.to_i, 0].max, bitmap_height].min
+    width = [[rect.width.to_i, 1].max, bitmap_width - x].min
+    height = [[rect.height.to_i, 1].max, bitmap_height - y].min
+    width = 1 if width <= 0
+    height = 1 if height <= 0
+    return Rect.new(x, y, width, height)
+  rescue
+    return Rect.new(0, 0, 1, 1)
+  end
+
+  def self.storage_box_icon_scale_for_bounds(bounds)
     max_visible = STORAGE_BOX_ICON_MAX_VISIBLE_SIZE.to_f
     longest_edge = [bounds.width.to_f, bounds.height.to_f, 1.0].max
     shortest_edge = [[bounds.width.to_f, bounds.height.to_f].min, 1.0].max
@@ -1988,26 +2265,57 @@ module CustomSpeciesFramework
     end
     scale = STORAGE_BOX_ICON_MAX_UPSCALE if scale > STORAGE_BOX_ICON_MAX_UPSCALE
     scale = 1.0 if scale <= 0
+    return scale
+  rescue
+    return 1.0
+  end
 
-    dest_width = [(bounds.width * scale).round, 1].max
-    dest_height = [(bounds.height * scale).round, 1].max
+  def self.storage_box_icon_bitmap_from_source(source)
+    source_bitmap = source.respond_to?(:bitmap) ? source.bitmap : source
+    return nil if source_bitmap.nil?
+    return nil if source_bitmap.respond_to?(:disposed?) && source_bitmap.disposed?
+    frame_rects = storage_box_icon_frame_rects(source)
+    frame_rects = [Rect.new(0, 0, source_bitmap.width, source_bitmap.height)] if frame_rects.empty?
     canvas_size = STORAGE_BOX_ICON_CANVAS_SIZE
-    dest_x = ((canvas_size - dest_width) / 2.0).round
-    dest_y = ((canvas_size - dest_height) / 2.0).round
-
-    normalized = Bitmap.new(canvas_size, canvas_size)
+    normalized = Bitmap.new(canvas_size * frame_rects.length, canvas_size)
     normalized.clear if normalized.respond_to?(:clear)
-    normalized.stretch_blt(Rect.new(dest_x, dest_y, dest_width, dest_height), source_bitmap, bounds)
+
+    frame_rects.each_with_index do |source_rect, index|
+      source_rect = storage_box_icon_clamp_rect(source_rect, source_bitmap)
+      bounds = bitmap_alpha_bounds(source_bitmap, source_rect)
+      scale = storage_box_icon_scale_for_bounds(bounds)
+      dest_width = [(bounds.width * scale).round, 1].max
+      dest_height = [(bounds.height * scale).round, 1].max
+      dest_x = index * canvas_size + ((canvas_size - dest_width) / 2.0).round
+      dest_y = ((canvas_size - dest_height) / 2.0).round
+      normalized.stretch_blt(Rect.new(dest_x, dest_y, dest_width, dest_height), source_bitmap, bounds)
+    end
     return AnimatedBitmap.from_bitmap(normalized)
   rescue => e
     log("Storage box icon normalization failed: #{e.class}: #{e.message}") if respond_to?(:log)
     return nil
   end
 
+  def self.storage_box_icon_source_for_pokemon(pokemon)
+    return nil if pokemon.nil?
+    species = pokemon.species rescue nil
+    return nil if species.nil? || !metadata_for(species)
+    path = preferred_icon_path(species) rescue nil
+    path = (resolve_graphic(:icon, species) rescue nil) if blank?(path)
+    return nil if blank?(path)
+    return AnimatedBitmap.new(path)
+  rescue => e
+    log("Storage box custom icon source failed for #{species.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
   def self.normalize_storage_box_icon_sprite!(sprite)
     return if sprite.nil? || sprite.disposed?
+    pokemon = sprite.respond_to?(:pokemon) ? sprite.pokemon : nil
+    return if pokemon && !metadata_for(pokemon.species)
+    temporary_source = storage_box_icon_source_for_pokemon(pokemon)
     animated_bitmap = sprite.respond_to?(:getBitmap) ? sprite.getBitmap : nil
-    source = animated_bitmap || sprite.bitmap
+    source = temporary_source || animated_bitmap || sprite.bitmap
     normalized = storage_box_icon_bitmap_from_source(source)
     return if normalized.nil?
     sprite.instance_variable_set(:@icon_offset_x, 0) if sprite.instance_variable_defined?(:@icon_offset_x)
@@ -2024,11 +2332,41 @@ module CustomSpeciesFramework
     sprite.y = logical_y if !logical_y.nil?
   rescue => e
     log("Storage box icon sprite normalization failed: #{e.class}: #{e.message}") if respond_to?(:log)
+  ensure
+    temporary_source.dispose if temporary_source && temporary_source.respond_to?(:dispose) && !temporary_source.disposed?
   end
 end
 
 if defined?(PokemonPokedexInfo_Scene)
   class PokemonPokedexInfo_Scene
+    if method_defined?(:update_displayed)
+      alias csf_original_sprite_page_update_displayed update_displayed unless method_defined?(:csf_original_sprite_page_update_displayed)
+
+      def update_displayed
+        result = csf_original_sprite_page_update_displayed
+        csf_normalize_sprite_page_slot!("selectedSprite", X_POSITION_SELECTED, Y_POSITION_BIG, 1.0)
+        csf_normalize_sprite_page_slot!("previousSprite", X_POSITION_PREVIOUS, Y_POSITION_SMALL)
+        csf_normalize_sprite_page_slot!("nextSprite", X_POSITION_NEXT, Y_POSITION_SMALL)
+        return result
+      end
+    end
+
+    def csf_normalize_sprite_page_slot!(key, x, y, zoom = nil)
+      sprite = @sprites[key] if @sprites
+      return if !sprite || (sprite.respond_to?(:disposed?) && sprite.disposed?)
+      bitmap = sprite.bitmap rescue nil
+      return if !bitmap || (bitmap.respond_to?(:disposed?) && bitmap.disposed?)
+      sprite.src_rect = Rect.new(0, 0, bitmap.width, bitmap.height) if sprite.respond_to?(:src_rect=)
+      sprite.x = x if sprite.respond_to?(:x=)
+      sprite.y = y if sprite.respond_to?(:y=)
+      if zoom
+        sprite.zoom_x = zoom if sprite.respond_to?(:zoom_x=)
+        sprite.zoom_y = zoom if sprite.respond_to?(:zoom_y=)
+      end
+    rescue => e
+      CustomSpeciesFramework.log("Pokedex sprite page slot normalization failed: #{e.class}: #{e.message}") if defined?(CustomSpeciesFramework) && CustomSpeciesFramework.respond_to?(:log)
+    end
+
     def setAvailableBitmaps(available_alts)
       available_alts = [] if !available_alts.is_a?(Array)
       available_alts = available_alts.compact

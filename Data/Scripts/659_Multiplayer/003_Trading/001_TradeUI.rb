@@ -248,6 +248,127 @@ module TradeUI
     end
   end
 
+  # Newer framework Pokemon payloads are generic instance snapshots rather than
+  # the older fixed key list. Keep the old methods above for compatibility, but
+  # route live trade/GTS transfers through the shared network serializer.
+  def self.symbol_marker_value(value)
+    if value.is_a?(Hash)
+      marked = value["__sym__"] || value[:__sym__]
+      return marked.to_s.to_sym if marked
+    end
+    value
+  rescue
+    value
+  end
+
+  def self.normalize_pokemon_payload(poke_hash)
+    payload = poke_hash
+    if payload.is_a?(String)
+      payload = defined?(MiniJSON) ? MiniJSON.parse(payload) : nil
+    end
+    return nil unless payload.is_a?(Hash)
+    if defined?(PokemonSerializer) && PokemonSerializer.respond_to?(:convert_from_json_safe_keep_string_keys)
+      return PokemonSerializer.convert_from_json_safe_keep_string_keys(payload) rescue payload
+    end
+    payload
+  rescue
+    nil
+  end
+
+  def self.serialize_pokemon_for_trade(pokemon)
+    return nil unless pokemon.is_a?(Pokemon)
+    if defined?(PokemonSerializer) && PokemonSerializer.respond_to?(:serialize_pokemon)
+      data = PokemonSerializer.serialize_pokemon(pokemon)
+      return data if data.is_a?(Hash)
+    end
+    data = pokemon.to_json
+    ensure_complete_stat_maps!(data)
+    data
+  rescue => e
+    MultiplayerDebug.error("UI-TRADE", "serialize_pokemon_for_trade failed: #{e.class} - #{e.message}") if defined?(MultiplayerDebug)
+    nil
+  end
+
+  def self.resolve_species_id(val)
+    return nil if val.nil?
+    val = symbol_marker_value(val)
+    if defined?(CustomSpeciesFramework) && CustomSpeciesFramework.respond_to?(:canonical_species_id)
+      begin
+        canonical = CustomSpeciesFramework.canonical_species_id(val)
+        return canonical if canonical
+      rescue; end
+    end
+    begin; return GameData::Species.get(val).id; rescue; end
+    return val.to_i if val.is_a?(String) && val.to_i.to_s == val
+    return val if val.is_a?(Integer) || val.is_a?(Symbol)
+    val.to_s.to_sym
+  end
+
+  def self.force_species_id!(pokemon_obj)
+    return unless pokemon_obj
+    begin
+      cur = pokemon_obj.instance_variable_get(:@species)
+      coerced = resolve_species_id(cur)
+      pokemon_obj.instance_variable_set(:@species, coerced) unless coerced.nil?
+    rescue; end
+  end
+
+  def self.build_pokemon_from_payload(poke_hash)
+    return nil unless defined?(Pokemon)
+    payload = normalize_pokemon_payload(poke_hash)
+    return nil unless payload.is_a?(Hash)
+
+    if defined?(PokemonSerializer) && PokemonSerializer.respond_to?(:deserialize_pokemon)
+      p = PokemonSerializer.deserialize_pokemon(payload) rescue nil
+      if p.is_a?(Pokemon)
+        force_species_id!(p)
+        return p
+      end
+    end
+
+    ensure_complete_stat_maps!(payload)
+    normalize_stat_maps!(payload)
+    sid   = resolve_species_id(payload["species"] || payload[:species])
+    level = [(payload["level"] || payload[:level] || 1).to_i, 1].max
+    p = Pokemon.new(sid, level, nil, false, false) rescue Pokemon.new(sid, level)
+    p.load_json(payload)
+    force_species_id!(p)
+    p.calc_stats rescue nil
+    p
+  rescue => e
+    MultiplayerDebug.error("UI-TRADE", "build_pokemon_from_payload failed: #{e.class} - #{e.message}") if defined?(MultiplayerDebug)
+    nil
+  end
+
+  def self.validate_pokemon_payload!(poke_hash)
+    payload = normalize_pokemon_payload(poke_hash)
+    raise "TRADE_RECEIVE_BAD_POKEMON" unless payload.is_a?(Hash)
+    species = symbol_marker_value(payload["species"] || payload[:species])
+    raise "TRADE_RECEIVE_BAD_POKEMON" if species.nil?
+    moves = payload["moves"] || payload[:moves]
+    raise "TRADE_RECEIVE_BAD_POKEMON" if moves && !moves.is_a?(Array)
+    pokemon = build_pokemon_from_payload(payload)
+    raise "TRADE_RECEIVE_BAD_POKEMON" unless pokemon.is_a?(Pokemon)
+    true
+  rescue => e
+    MultiplayerDebug.error("UI-TRADE-POKERECV", "Invalid Pokemon payload: #{e.class} - #{e.message}") if defined?(MultiplayerDebug)
+    raise "TRADE_RECEIVE_BAD_POKEMON"
+  end
+
+  def self.add_pokemon_from_json(poke_hash)
+    return false unless defined?(Pokemon)
+    begin
+      p = build_pokemon_from_payload(poke_hash)
+      return false unless p.is_a?(Pokemon)
+      return false if party_count >= 6
+      $Trainer.party << p
+      true
+    rescue => e
+      MultiplayerDebug.error("UI-TRADE", "add_pokemon_from_json failed: #{e.class} - #{e.message}") if defined?(MultiplayerDebug)
+      false
+    end
+  end
+
   def self.money; (defined?($Trainer) && $Trainer.respond_to?(:money)) ? ($Trainer.money || 0) : 0; end
   def self.has_money?(amt); money >= amt.to_i; end
   def self.add_money(delta)
@@ -850,8 +971,8 @@ module TradeUI
       end
       pk = TradeUI.party[sel]
       begin
-        pj = pk.to_json
-        TradeUI.ensure_complete_stat_maps!(pj)
+        pj = TradeUI.serialize_pokemon_for_trade(pk)
+        raise "serialize returned nil" unless pj.is_a?(Hash)
       rescue
         pbMessage(_INTL("This Pokémon cannot be serialized.")); return
       end

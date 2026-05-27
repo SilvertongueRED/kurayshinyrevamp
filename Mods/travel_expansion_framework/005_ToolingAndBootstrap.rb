@@ -231,6 +231,7 @@ module TravelExpansionFramework
     repair_missing_pokemon_references!
     restore_dormant_item_references!
     repair_missing_item_references!
+    repair_imported_item_aliases! if respond_to?(:repair_imported_item_aliases!)
     rebuild_host_dex_shadow_from_storage! if respond_to?(:rebuild_host_dex_shadow_from_storage!)
     restore_host_dex_shadow_to_player! if respond_to?(:restore_host_dex_shadow_to_player!)
     ensure_save_root.release_last_safe_load_at = timestamp_string if ensure_save_root.respond_to?(:release_last_safe_load_at=)

@@ -1071,12 +1071,22 @@ module TravelExpansionFramework
   end
 end
 
-def pbTrainerPCMenu
-  return TravelExpansionFramework.pbBedroomPCMenu
+alias tef_original_pbTrainerPCMenu pbTrainerPCMenu unless defined?(tef_original_pbTrainerPCMenu)
+def pbTrainerPCMenu(*args)
+  return TravelExpansionFramework.pbBedroomPCMenu if defined?(TravelExpansionFramework) &&
+                                                     TravelExpansionFramework.respond_to?(:pbBedroomPCMenu)
+  return tef_original_pbTrainerPCMenu(*args) if defined?(tef_original_pbTrainerPCMenu)
+  return nil
 end
 
 alias tef_original_pbTrainerPC pbTrainerPC unless defined?(tef_original_pbTrainerPC)
 def pbTrainerPC
+  if defined?(TravelExpansionFramework) &&
+     TravelExpansionFramework.respond_to?(:void_active_now?) &&
+     TravelExpansionFramework.void_active_now?(($game_map.map_id rescue nil))
+    TravelExpansionFramework.record_release_shim_hit("void.pbTrainerPC", "startup", "skipped imported intro PC") if TravelExpansionFramework.respond_to?(:record_release_shim_hit)
+    return true
+  end
   if TravelExpansionFramework.home_pc_reentry_blocked?
     Input.update if defined?(Input) && Input.respond_to?(:update)
     return
@@ -1180,6 +1190,63 @@ class PokemonTrainerCard_Scene
     return @tef_pages[@tef_page_index] || @tef_pages.first
   end
 
+  def tef_card_text_width(bitmap, text)
+    return bitmap.text_size(text.to_s).width if bitmap && bitmap.respond_to?(:text_size)
+    return text.to_s.length * 12
+  rescue
+    return text.to_s.length * 12
+  end
+
+  def tef_fit_card_text(bitmap, text, max_width)
+    value = text.to_s
+    return value if max_width.to_i <= 0
+    return value if tef_card_text_width(bitmap, value) <= max_width
+    suffix = "..."
+    trim = value.length
+    while trim > 0
+      candidate = value[0, trim].to_s.rstrip + suffix
+      return candidate if tef_card_text_width(bitmap, candidate) <= max_width
+      trim -= 1
+    end
+    return suffix
+  rescue
+    return text.to_s
+  end
+
+  def tef_wrap_card_text(bitmap, text, max_width, max_lines = 2)
+    words = text.to_s.split(/\s+/)
+    return [""] if words.empty?
+    lines = []
+    current = ""
+    words.each do |word|
+      trial = current.empty? ? word : "#{current} #{word}"
+      if current.empty? || tef_card_text_width(bitmap, trial) <= max_width || lines.length >= max_lines - 1
+        current = trial
+      else
+        lines << current
+        current = word
+      end
+    end
+    lines << current if !current.empty?
+    lines = lines[0, max_lines]
+    lines.map { |line| tef_fit_card_text(bitmap, line, max_width) }
+  rescue
+    [tef_fit_card_text(bitmap, text, max_width)]
+  end
+
+  def tef_trainer_card_id_text
+    raw_id = $Trainer.id rescue 0
+    if $Trainer.respond_to?(:public_ID)
+      public_id = $Trainer.public_ID(raw_id) rescue nil
+      return sprintf("%05d", public_id.to_i) if public_id
+    end
+    return sprintf("%05d", raw_id.to_i % 100000)
+  rescue
+    return "00000"
+  end
+
+  alias tef_original_pbDrawTrainerCardFront pbDrawTrainerCardFront unless method_defined?(:tef_original_pbDrawTrainerCardFront)
+
   def pbDrawTrainerCardFront
     overlay = @sprites["overlay"].bitmap
     overlay.clear
@@ -1189,25 +1256,31 @@ class PokemonTrainerCard_Scene
     starttime = "#{pbGetAbbrevMonthName($PokemonGlobal.startTime.mon)} #{$PokemonGlobal.startTime.day}, #{$PokemonGlobal.startTime.year}"
     page = tef_current_card_page
     global_badges = $Trainer.respond_to?(:global_badge_count) ? $Trainer.global_badge_count : ($Trainer.badges || []).count(true)
-    textPositions = [
-      [_INTL("Campaign"), 34, 58, 0, baseColor, shadowColor],
-      [page[:label].to_s, 302, 58, 1, baseColor, shadowColor],
+    title_lines = tef_wrap_card_text(overlay, page[:label].to_s, 300, 2)
+    title_y = title_lines.length > 1 ? 42 : 58
+    textPositions = []
+    title_lines.each_with_index do |line, index|
+      textPositions << [line, 34, title_y + (index * 30), 0, baseColor, shadowColor]
+    end
+    textPositions.concat([
       [_INTL("Name"), 34, 106, 0, baseColor, shadowColor],
-      [$Trainer.name, 302, 106, 1, baseColor, shadowColor],
+      [tef_fit_card_text(overlay, $Trainer.name, 190), 302, 106, 1, baseColor, shadowColor],
       [_INTL("Money"), 34, 154, 0, baseColor, shadowColor],
-      [_INTL("${1}", $Trainer.money.to_s_formatted), 302, 154, 1, baseColor, shadowColor],
+      [tef_fit_card_text(overlay, _INTL("${1}", $Trainer.money.to_s_formatted), 190), 302, 154, 1, baseColor, shadowColor],
       [_INTL("Pokedex"), 34, 202, 0, baseColor, shadowColor],
       [sprintf("%d/%d", page[:owned_count], page[:seen_count]), 302, 202, 1, baseColor, shadowColor],
-      [_INTL("Global"), 34, 250, 0, baseColor, shadowColor],
-      [_INTL("Badges {1}  Dex {2}/{3}", global_badges, page[:global_owned], page[:global_seen]), 302, 250, 1, baseColor, shadowColor],
-      [_INTL("Started"), 34, 298, 0, baseColor, shadowColor],
-      [starttime, 302, 298, 1, baseColor, shadowColor],
-      [_INTL("Page {1}/{2}", @tef_page_index + 1, @tef_pages.length), 462, 28, 1, baseColor, shadowColor],
-      [_INTL("Trainer ID"), 352, 58, 0, baseColor, shadowColor],
-      [sprintf("%05d", $Trainer.id), 462, 88, 1, baseColor, shadowColor],
-      [_INTL("Badges"), 352, 122, 0, baseColor, shadowColor],
-      [_INTL("{1}/{2}", page[:badge_obtained], page[:badge_total]), 462, 152, 1, baseColor, shadowColor]
-    ]
+      [_INTL("Global Dex"), 34, 250, 0, baseColor, shadowColor],
+      [sprintf("%d/%d", page[:global_owned], page[:global_seen]), 302, 250, 1, baseColor, shadowColor],
+      [_INTL("Trainer ID"), 352, 28, 0, baseColor, shadowColor],
+      [tef_fit_card_text(overlay, tef_trainer_card_id_text, 118), 462, 58, 1, baseColor, shadowColor],
+      [_INTL("Badges"), 352, 252, 0, baseColor, shadowColor],
+      [_INTL("{1}/{2}", page[:badge_obtained], page[:badge_total]), 462, 252, 1, baseColor, shadowColor],
+      [_INTL("All Badges"), 352, 282, 0, baseColor, shadowColor],
+      [global_badges.to_s, 462, 282, 1, baseColor, shadowColor],
+      [_INTL("Started"), 34, 344, 0, baseColor, shadowColor],
+      [tef_fit_card_text(overlay, starttime, 190), 302, 344, 1, baseColor, shadowColor],
+      [_INTL("Page {1}/{2}", @tef_page_index + 1, @tef_pages.length), 462, 344, 1, baseColor, shadowColor]
+    ])
     pbDrawTextPositions(overlay, textPositions)
     imagePositions = []
     x = 72
@@ -1216,12 +1289,14 @@ class PokemonTrainerCard_Scene
       row = index < 8 ? 0 : 1
       badge_graphic_x = row == 0 ? index * 32 : (index - 8) * 32
       badge_graphic_y = row * 32
-      draw_y = row == 0 ? 346 : 380
+      draw_y = page[:badge_values].length > 8 ? (row == 0 ? 310 : 344) : 312
       imagePositions << ["Graphics/Pictures/Trainer Card/icon_badges", x, draw_y, badge_graphic_x, badge_graphic_y, 32, 32]
       x += 48
       x = 72 if index == 7
     end
     pbDrawImagePositions(overlay, imagePositions)
+    request_platinum_balance_from_server if respond_to?(:request_platinum_balance_from_server)
+    draw_platinum_display if respond_to?(:draw_platinum_display)
   end
 
   def pbTrainerCard

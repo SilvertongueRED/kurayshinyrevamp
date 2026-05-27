@@ -41,6 +41,18 @@ module TravelExpansionFramework
   end
 
   def bushido_item(value)
+    metadata = direct_imported_item_metadata(value, false) if respond_to?(:direct_imported_item_metadata)
+    runtime_symbol = imported_item_metadata_value(metadata, :runtime_symbol) if metadata && respond_to?(:imported_item_metadata_value)
+    return runtime_symbol if runtime_symbol
+    if value.is_a?(Integer)
+      raw_name = bushido_item_raw_name_from_number(value)
+      if raw_name
+        bushido_expansion_ids.each do |expansion_id|
+          resolved = ensure_external_item_registered(expansion_id, raw_name) if respond_to?(:ensure_external_item_registered)
+          return resolved if resolved
+        end
+      end
+    end
     identifier = bushido_identifier(value)
     resolved = ensure_external_item_registered("bushido", identifier) if identifier && respond_to?(:ensure_external_item_registered)
     return resolved if resolved
@@ -49,6 +61,133 @@ module TravelExpansionFramework
     return identifier
   rescue
     return bushido_identifier(value)
+  end
+
+  def bushido_item_raw_name_from_number(value)
+    target = value.to_i
+    return nil if target <= 0
+    bushido_expansion_ids.each do |expansion_id|
+      catalog = generic_pbs_item_catalog(expansion_id) if respond_to?(:generic_pbs_item_catalog)
+      next if !catalog.is_a?(Hash) || catalog.empty?
+      catalog.each_value do |entry|
+        next if !entry.is_a?(Hash)
+        raw = entry[:raw_name] || entry["raw_name"]
+        next if raw.to_s.empty?
+        native_id = integer(entry[:native_id_number] || entry["native_id_number"] || entry[:id_number] || entry["id_number"], 0) if respond_to?(:integer)
+        return raw.to_s if native_id.to_i == target
+        generated_id = imported_item_id_number(expansion_id, raw) if respond_to?(:imported_item_id_number)
+        return raw.to_s if generated_id.to_i == target
+      end
+    end
+    return nil
+  rescue => e
+    log("[bushido] numeric item lookup failed for #{value.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def bushido_normalize_text(text)
+    value = text.to_s.dup
+    value = value.encode("UTF-8", invalid: :replace, undef: :replace, replace: "") if value.respond_to?(:encode)
+    replacements = {
+      0x2018 => "'",
+      0x2019 => "'",
+      0x201A => "'",
+      0x201B => "'",
+      0x02BC => "'",
+      0xFF07 => "'",
+      0x201C => "\"",
+      0x201D => "\"",
+      0x201E => "\"",
+      0x00AB => "\"",
+      0x00BB => "\"",
+      0x2013 => "-",
+      0x2014 => "-",
+      0x2212 => "-",
+      0x2026 => "...",
+      0x00A0 => " "
+    }
+    replacements.each do |codepoint, replacement|
+      value.gsub!([codepoint].pack("U"), replacement) rescue nil
+    end
+    value.gsub!(/\s+\n/, "\n")
+    return value
+  rescue
+    return text.to_s
+  end
+
+  def bushido_preserve_party_noop!(source = nil)
+    log("[bushido] suppressed host party reset from #{source}") if respond_to?(:log)
+    $game_system.menu_disabled = false if defined?($game_system) && $game_system && $game_system.respond_to?(:menu_disabled=)
+    return true
+  rescue
+    return true
+  end
+
+  def bushido_sanitize_event_script(script)
+    return script if !bushido_active_now?
+    text = script.to_s
+    sanitized = text.dup
+    sanitized.gsub!(/^\s*\$Trainer\.party\s*=\s*\[\]\s*$/i, "TravelExpansionFramework.bushido_preserve_party_noop!('$Trainer.party=[]')")
+    sanitized.gsub!(/^\s*\$Trainer\.party\.compact!\s*$/i, "TravelExpansionFramework.bushido_preserve_party_noop!('$Trainer.party.compact!')")
+    return sanitized
+  rescue => e
+    log("[bushido] script sanitization failed: #{e.class}: #{e.message}") if respond_to?(:log)
+    return script
+  end
+
+  def bushido_create_pokemon(species, level)
+    return species if defined?(Pokemon) && species.is_a?(Pokemon)
+    return Pokemon.new(species, bushido_safe_level(level)) if defined?(Pokemon)
+    return nil
+  rescue => e
+    log("[bushido] failed to create Pokemon #{species.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def bushido_record_owned_pokemon(pkmn, see_form = true)
+    return if !$Trainer || pkmn.nil? || !$Trainer.respond_to?(:pokedex) || !$Trainer.pokedex
+    $Trainer.pokedex.register(pkmn) if see_form && $Trainer.pokedex.respond_to?(:register)
+    $Trainer.pokedex.set_seen(pkmn.species) if $Trainer.pokedex.respond_to?(:set_seen)
+    $Trainer.pokedex.set_owned(pkmn.species) if $Trainer.pokedex.respond_to?(:set_owned)
+  rescue
+  end
+
+  def bushido_give_pokemon_safely(species, level, silent = false, prefer_party = true)
+    resolved = bushido_species(species)
+    pkmn = bushido_create_pokemon(resolved, level)
+    return false if pkmn.nil? || !$Trainer
+    party = $Trainer.party if $Trainer.respond_to?(:party)
+    party = [] if !party.is_a?(Array)
+    party_full = $Trainer.respond_to?(:party_full?) ? $Trainer.party_full? : party.length >= 6
+    if prefer_party && !party_full
+      pkmn.record_first_moves if pkmn.respond_to?(:record_first_moves)
+      bushido_record_owned_pokemon(pkmn)
+      party << pkmn
+      $Trainer.party = party if $Trainer.respond_to?(:party=)
+      pbMessage(_INTL("{1} obtained {2}!\\me[Pkmn get]\\wtnp[20]", $Trainer.name, pkmn.speciesName)) if !silent && defined?(pbMessage)
+      $game_system.menu_disabled = false if defined?($game_system) && $game_system && $game_system.respond_to?(:menu_disabled=)
+      return true
+    end
+
+    if defined?($PokemonStorage) && $PokemonStorage && $PokemonStorage.respond_to?(:pbStoreCaught)
+      pkmn.record_first_moves if pkmn.respond_to?(:record_first_moves)
+      bushido_record_owned_pokemon(pkmn)
+      stored_box = $PokemonStorage.pbStoreCaught(pkmn)
+      if stored_box && stored_box.to_i >= 0
+        if !silent && defined?(pbMessage)
+          box_name = ($PokemonStorage[stored_box].name rescue "a PC Box")
+          pbMessage(_INTL("{1} was sent to {2}.", pkmn.name, box_name))
+        end
+        $game_system.menu_disabled = false if defined?($game_system) && $game_system && $game_system.respond_to?(:menu_disabled=)
+        return true
+      end
+    end
+
+    pbMessage(_INTL("There is no more room for Pokemon.")) if !silent && defined?(pbMessage)
+    return false
+  rescue => e
+    log("[bushido] safe Pokemon gift failed for #{species.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
   end
 
   def bushido_safe_level(level)
@@ -106,6 +245,94 @@ module TravelExpansionFramework
     return max
   rescue
     return 2048
+  end
+
+  def install_bushido_legacy_player_accessors!(klass)
+    return false if klass.nil?
+    klass.class_eval do
+      def tef_bushido_runtime_array_attr(name)
+        ivar = :"@tef_bushido_#{name}"
+        value = instance_variable_get(ivar)
+        value = [] if !value.is_a?(Array)
+        instance_variable_set(ivar, value)
+        return value
+      end unless method_defined?(:tef_bushido_runtime_array_attr)
+    end
+    [:seen, :owned, :formseen, :formlastseen, :shadowcaught].each do |name|
+      klass.class_eval do
+        define_method(name) do
+          tef_bushido_runtime_array_attr(name)
+        end unless method_defined?(name)
+
+        define_method("#{name}=") do |value|
+          ivar = :"@tef_bushido_#{name}"
+          instance_variable_set(ivar, value.is_a?(Array) ? value.clone : [])
+        end unless method_defined?("#{name}=")
+      end
+    end
+    return true
+  rescue => e
+    log("[bushido] failed to install legacy player accessors on #{klass}: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def ensure_bushido_player_runtime_fields!(player = nil)
+    install_bushido_legacy_player_accessors!(::Trainer) if defined?(::Trainer)
+    install_bushido_legacy_player_accessors!(::Player) if defined?(::Player)
+    player ||= (defined?($Trainer) ? $Trainer : nil)
+    return false if player.nil?
+    install_bushido_legacy_player_accessors!(class << player; self; end)
+    return true
+  rescue => e
+    log("[bushido] failed to ensure player runtime fields: #{e.class}: #{e.message}") if respond_to?(:log)
+    return false
+  end
+
+  def bushido_dependent_events
+    return nil if !defined?($PokemonTemp) || !$PokemonTemp || !$PokemonTemp.respond_to?(:dependentEvents)
+    return $PokemonTemp.dependentEvents
+  rescue
+    return nil
+  end
+
+  def bushido_follower_event(dependent_events = nil)
+    dependent_events ||= bushido_dependent_events
+    if defined?(pbGetDependency)
+      event = pbGetDependency("FollowerPkmn") rescue nil
+      return event if event
+    end
+    if dependent_events && dependent_events.respond_to?(:getEventByName)
+      event = dependent_events.getEventByName("FollowerPkmn") rescue nil
+      return event if event
+    end
+    global_events = (defined?($PokemonGlobal) && $PokemonGlobal && $PokemonGlobal.respond_to?(:dependentEvents)) ? $PokemonGlobal.dependentEvents : []
+    real_events = dependent_events.respond_to?(:realEvents) ? dependent_events.realEvents : []
+    global_events.each_with_index do |data, index|
+      next if !data || data[8].to_s != "FollowerPkmn"
+      event = real_events[index] rescue nil
+      return event if event
+    end
+    return real_events.find { |event| event } rescue nil
+  rescue => e
+    log("[bushido] follower lookup failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
+  end
+
+  def bushido_following_move_route(commands = [], wait_complete = false)
+    dependent_events = bushido_dependent_events
+    event = bushido_follower_event(dependent_events)
+    route_commands = Array(commands).compact
+    return nil if route_commands.empty?
+    if event && defined?(pbMoveRoute)
+      route = pbMoveRoute(event, route_commands, wait_complete)
+      dependent_events.refresh_sprite(false) if dependent_events && dependent_events.respond_to?(:refresh_sprite)
+      return route
+    end
+    record_release_shim_hit("followingMoveRoute", "follower_system", "missing_follower_noop") if respond_to?(:record_release_shim_hit)
+    return nil
+  rescue => e
+    log("[bushido] followingMoveRoute failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return nil
   end
 
   class BushidoDexProxy
@@ -221,6 +448,61 @@ module TravelExpansionFramework
     rescue
       return false
     end
+  end
+
+  def bushido_transfer_with_transition(map_id, x, y, transition = nil, direction = nil)
+    return false if !$game_temp
+    if $game_temp.player_transferring || $game_temp.message_window_showing || $game_temp.transition_processing
+      log("[bushido] deferred pbTransferWithTransition while transfer/message/transition was active") if respond_to?(:log)
+      return false
+    end
+    source_map_id = ($game_map.map_id rescue nil)
+    expansion_id = active_project_expansion_id(bushido_expansion_ids, source_map_id) if respond_to?(:active_project_expansion_id)
+    expansion_id = BUSHIDO_EXPANSION_ID if (!expansion_id || expansion_id.to_s.empty?) && const_defined?(:BUSHIDO_EXPANSION_ID)
+    expansion_id = "bushido" if !expansion_id || expansion_id.to_s.empty?
+    target_map_id = integer(map_id, 0)
+    target_map_id = translate_expansion_map_id(expansion_id, target_map_id) if respond_to?(:translate_expansion_map_id)
+    target_direction = integer(direction, 0)
+    target_direction = ($game_player.direction rescue 2) if target_direction <= 0
+    anchor = {
+      :map_id    => target_map_id,
+      :x         => integer(x, 0),
+      :y         => integer(y, 0),
+      :direction => target_direction
+    }
+    log("[bushido] pbTransferWithTransition #{map_id.inspect} -> #{anchor[:map_id]} #{anchor[:x]},#{anchor[:y]} #{transition.inspect}") if respond_to?(:log)
+    if respond_to?(:safe_transfer_to_anchor)
+      result = safe_transfer_to_anchor(anchor, {
+        :source            => :bushido_transition_transfer,
+        :expansion_id      => expansion_id,
+        :allow_story_state => true,
+        :immediate         => true,
+        :auto_rescue       => false
+      })
+      return true if result
+    end
+    pbFadeOutIn {
+      $game_temp.player_transferring = true if $game_temp.respond_to?(:player_transferring=)
+      $game_temp.player_new_map_id = anchor[:map_id]
+      $game_temp.player_new_x = anchor[:x]
+      $game_temp.player_new_y = anchor[:y]
+      $game_temp.player_new_direction = anchor[:direction]
+      if defined?(pbUpdateSceneMap)
+        pbUpdateSceneMap
+      elsif $scene && $scene.respond_to?(:transfer_player)
+        $scene.transfer_player(false)
+      end
+      $game_map.autoplay if $game_map && $game_map.respond_to?(:autoplay)
+      $game_map.refresh if $game_map && $game_map.respond_to?(:refresh)
+    }
+    release_player_movement_lock if respond_to?(:release_player_movement_lock)
+    return true
+  rescue => e
+    log("[bushido] pbTransferWithTransition failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    $game_temp.player_transferring = false if $game_temp && $game_temp.respond_to?(:player_transferring=)
+    $game_temp.transition_processing = false if $game_temp && $game_temp.respond_to?(:transition_processing=)
+    release_player_movement_lock if respond_to?(:release_player_movement_lock)
+    return false
   end
 end
 
@@ -655,19 +937,16 @@ rescue
 end
 
 def vGP(species, level)
-  resolved = TravelExpansionFramework.bushido_species(species)
-  level = TravelExpansionFramework.bushido_safe_level(level)
-  return pbAddPokemon(resolved, level) if respond_to?(:pbAddPokemon, true)
+  return TravelExpansionFramework.bushido_give_pokemon_safely(species, level, false, true) if defined?(TravelExpansionFramework) &&
+                                                                                            TravelExpansionFramework.respond_to?(:bushido_give_pokemon_safely)
   return false
 rescue
   return false
 end
 
 def vAP(species, level)
-  resolved = TravelExpansionFramework.bushido_species(species)
-  level = TravelExpansionFramework.bushido_safe_level(level)
-  return pbAddToParty(resolved, level) if respond_to?(:pbAddToParty, true)
-  return pbAddPokemon(resolved, level) if respond_to?(:pbAddPokemon, true)
+  return TravelExpansionFramework.bushido_give_pokemon_safely(species, level, false, true) if defined?(TravelExpansionFramework) &&
+                                                                                            TravelExpansionFramework.respond_to?(:bushido_give_pokemon_safely)
   return false
 rescue
   return false
@@ -684,6 +963,12 @@ rescue
 end
 
 def vDP(index = 0)
+  if defined?(TravelExpansionFramework) &&
+     TravelExpansionFramework.respond_to?(:bushido_active_now?) &&
+     TravelExpansionFramework.bushido_active_now?
+    return TravelExpansionFramework.bushido_preserve_party_noop!("vDP(#{index.inspect})") if TravelExpansionFramework.respond_to?(:bushido_preserve_party_noop!)
+    return true
+  end
   return pbRemovePokemonAt(index.to_i) if respond_to?(:pbRemovePokemonAt, true)
   return false
 rescue
@@ -691,21 +976,16 @@ rescue
 end
 
 def vGPS(species, level)
-  resolved = TravelExpansionFramework.bushido_species(species)
-  level = TravelExpansionFramework.bushido_safe_level(level)
-  return pbAddPokemonSilent(resolved, level) if respond_to?(:pbAddPokemonSilent, true)
-  return pbAddPokemon(resolved, level) if respond_to?(:pbAddPokemon, true)
+  return TravelExpansionFramework.bushido_give_pokemon_safely(species, level, true, true) if defined?(TravelExpansionFramework) &&
+                                                                                          TravelExpansionFramework.respond_to?(:bushido_give_pokemon_safely)
   return false
 rescue
   return false
 end
 
 def vAPS(species, level)
-  resolved = TravelExpansionFramework.bushido_species(species)
-  level = TravelExpansionFramework.bushido_safe_level(level)
-  return pbAddToPartySilent(resolved, level) if respond_to?(:pbAddToPartySilent, true)
-  return pbAddToParty(resolved, level) if respond_to?(:pbAddToParty, true)
-  return pbAddPokemonSilent(resolved, level) if respond_to?(:pbAddPokemonSilent, true)
+  return TravelExpansionFramework.bushido_give_pokemon_safely(species, level, true, true) if defined?(TravelExpansionFramework) &&
+                                                                                          TravelExpansionFramework.respond_to?(:bushido_give_pokemon_safely)
   return false
 rescue
   return false
@@ -731,6 +1011,8 @@ rescue
 end
 
 def vTB(trainer_type, trainer_name, end_speech = "...", double_battle = false, trainer_version = 0, can_lose = false, outcome_variable = 0)
+  TravelExpansionFramework.ensure_bushido_player_runtime_fields! if defined?(TravelExpansionFramework) &&
+                                                                 TravelExpansionFramework.respond_to?(:ensure_bushido_player_runtime_fields!)
   type = trainer_type.is_a?(Symbol) ? trainer_type : trainer_type.to_s.upcase.gsub(/[^A-Z0-9_]+/, "_").to_sym
   return pbTrainerBattle(type, trainer_name, end_speech, double_battle, trainer_version.to_i, can_lose, outcome_variable.to_i) if respond_to?(:pbTrainerBattle, true)
   return false
@@ -827,6 +1109,59 @@ rescue
   return false
 end
 
+if defined?(DependentEvents)
+  class DependentEvents
+    def setMoveRoute(commands, waitComplete = true)
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:bushido_active_now?) &&
+         TravelExpansionFramework.bushido_active_now?
+        return TravelExpansionFramework.bushido_following_move_route(commands, waitComplete) if TravelExpansionFramework.respond_to?(:bushido_following_move_route)
+      end
+      return nil
+    end unless method_defined?(:setMoveRoute)
+  end
+end
+
+if defined?(followingMoveRoute) && !defined?(tef_bushido_original_followingMoveRoute)
+  alias tef_bushido_original_followingMoveRoute followingMoveRoute
+end
+
+def followingMoveRoute(commands, waitComplete = false)
+  if defined?(TravelExpansionFramework) &&
+     TravelExpansionFramework.respond_to?(:bushido_active_now?) &&
+     TravelExpansionFramework.bushido_active_now?
+    route = TravelExpansionFramework.bushido_following_move_route(commands, waitComplete) if TravelExpansionFramework.respond_to?(:bushido_following_move_route)
+    return route
+  end
+  return send(:tef_bushido_original_followingMoveRoute, commands, waitComplete) if respond_to?(:tef_bushido_original_followingMoveRoute, true)
+  return FollowingMoveRoute(commands, waitComplete) if respond_to?(:FollowingMoveRoute, true)
+  return nil
+end
+
+def pbTransferWithTransition(map_id, x, y, transition = nil, dir = ($game_player.direction rescue 2))
+  if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:bushido_transfer_with_transition)
+    return TravelExpansionFramework.bushido_transfer_with_transition(map_id, x, y, transition, dir)
+  end
+  return false if !$game_temp || $game_temp.player_transferring || $game_temp.message_window_showing || $game_temp.transition_processing
+  pbFadeOutIn {
+    $game_temp.player_transferring = true
+    $game_temp.player_new_map_id = map_id.to_i
+    $game_temp.player_new_x = x.to_i
+    $game_temp.player_new_y = y.to_i
+    $game_temp.player_new_direction = dir.to_i
+    if defined?(pbUpdateSceneMap)
+      pbUpdateSceneMap
+    elsif $scene && $scene.respond_to?(:transfer_player)
+      $scene.transfer_player(false)
+    end
+  }
+  return true
+rescue
+  $game_temp.player_transferring = false if $game_temp && $game_temp.respond_to?(:player_transferring=)
+  $game_temp.transition_processing = false if $game_temp && $game_temp.respond_to?(:transition_processing=)
+  return false
+end unless defined?(pbTransferWithTransition)
+
 [
   [:vReceiveItem, :vRI], [:vItemReceive, :vRI], [:vGI, :vRI], [:vGetItem, :vRI], [:vItemGet, :vRI],
   [:vFindItem, :vFI], [:vItemFind, :vFI], [:vItemBall, :vFI],
@@ -856,3 +1191,59 @@ end
   Object.send(:define_method, alias_name) { |*args| send(target_name, *args) }
   Object.send(:private, alias_name)
 end
+
+if defined?(Interpreter)
+  class Interpreter
+    alias tef_bushido_original_execute_script execute_script unless method_defined?(:tef_bushido_original_execute_script)
+    alias tef_bushido_original_command_135 command_135 unless method_defined?(:tef_bushido_original_command_135) || !method_defined?(:command_135)
+
+    def execute_script(script)
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:ensure_bushido_player_runtime_fields!) &&
+         (script.to_s.include?("$Trainer.owned") ||
+          script.to_s.include?("$Trainer.seen") ||
+          (TravelExpansionFramework.respond_to?(:bushido_active_now?) && TravelExpansionFramework.bushido_active_now?))
+        TravelExpansionFramework.ensure_bushido_player_runtime_fields!
+      end
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:bushido_sanitize_event_script) &&
+         TravelExpansionFramework.respond_to?(:bushido_active_now?) &&
+         TravelExpansionFramework.bushido_active_now?
+        script = TravelExpansionFramework.bushido_sanitize_event_script(script)
+      end
+      return tef_bushido_original_execute_script(script)
+    end
+
+    def command_135
+      if defined?(TravelExpansionFramework) &&
+         TravelExpansionFramework.respond_to?(:bushido_active_now?) &&
+         TravelExpansionFramework.bushido_active_now? &&
+         @parameters && @parameters[0].to_i == 0
+        $game_system.menu_disabled = false if $game_system && $game_system.respond_to?(:menu_disabled=)
+        TravelExpansionFramework.log("[bushido] suppressed menu disable during imported starter/story setup") if TravelExpansionFramework.respond_to?(:log)
+        return true
+      end
+      return tef_bushido_original_command_135 if respond_to?(:tef_bushido_original_command_135, true)
+      $game_system.menu_disabled = (@parameters[0] == 0) if $game_system
+      return true
+    end
+  end
+end
+
+if defined?(pbMessageDisplay) && !defined?(tef_bushido_original_pbMessageDisplay)
+  alias tef_bushido_original_pbMessageDisplay pbMessageDisplay
+end
+
+def pbMessageDisplay(msgwindow, message, letterbyletter = true, commandProc = nil, withSound = true)
+  if defined?(TravelExpansionFramework) &&
+     TravelExpansionFramework.respond_to?(:bushido_normalize_text) &&
+     TravelExpansionFramework.respond_to?(:bushido_active_now?) &&
+     TravelExpansionFramework.bushido_active_now?
+    message = TravelExpansionFramework.bushido_normalize_text(message)
+  end
+  return tef_bushido_original_pbMessageDisplay(msgwindow, message, letterbyletter, commandProc, withSound) if respond_to?(:tef_bushido_original_pbMessageDisplay, true)
+  return nil
+end
+
+TravelExpansionFramework.ensure_bushido_player_runtime_fields! if defined?(TravelExpansionFramework) &&
+                                                                 TravelExpansionFramework.respond_to?(:ensure_bushido_player_runtime_fields!)

@@ -1,0 +1,7 @@
+b6f8c8256791aae4c409c6043783fb1e9ef5f247497a06dc07f749d341cb32f3 *PIF-player-build-20260527-full-current.7z.001
+117b11e6b211c9ba8f9fedbf4cfe1a59fc3fcc3ea8c82a7a79535dd0842e302b *PIF-player-build-20260527-full-current.7z.002
+f13595585e9e4eaaea6dd55a174365b322bafdc445603abd58b3f8c63139f148 *PIF-player-build-20260527-full-current.7z.003
+de8adde6056ef315fa310c1f849d32efeee60cd9fc95f0e74d88e1022551a576 *PIF-player-build-20260527-full-current.7z.004
+f69c780fa58e4d7a6b3953e23d525af07d81663a39e6a955f4c3cc2d56336436 *PIF-player-build-20260527-full-current.7z.005
+1cea4cb7969957bff281f6322af4ca3cb03215b6bb252ef4fdd5c0715b7b12c3 *PIF-player-build-20260527-full-current.7z.006
+4a3b85e50bb1c646b0628b4f1d2bc9ff9262731a8cb6e11aa40256ac7acd6b8d *PIF-player-build-20260527-full-current.7z.007

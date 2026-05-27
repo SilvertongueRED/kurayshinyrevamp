@@ -1112,6 +1112,133 @@ if defined?(pbFancyMoveTo) && !defined?(tef_insurgence_original_pbFancyMoveTo)
   alias tef_insurgence_original_pbFancyMoveTo pbFancyMoveTo
 end
 
+module TravelExpansionFramework
+  module_function
+
+  def early_void_portrait_message(message = nil, *args)
+    text = message.to_s
+    begin
+      record_release_shim_hit("pbPortraitMessage", "menu_settings", "early_void_host_message") if respond_to?(:record_release_shim_hit)
+      return true if text.empty?
+      return Kernel.send(:pbMessage, text) if defined?(Kernel) && Kernel.respond_to?(:pbMessage, true)
+      return Object.new.send(:pbMessage, text) if Object.respond_to?(:private_method_defined?) && Object.private_method_defined?(:pbMessage)
+    rescue => e
+      log("[void] portrait message skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    end
+    return true
+  rescue => e
+    log("[void] portrait message failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def early_void_portrait_stub(name, *args)
+    if name.to_s == "pbSetRivalDialoguePortrait" && respond_to?(:void_set_rival_dialogue_portrait!)
+      rival_slot = args[0]
+      extra_args = args[1..-1] || []
+      return void_set_rival_dialogue_portrait!(rival_slot, nil, *extra_args)
+    end
+    record_release_shim_hit(name, "menu_settings", "early_void_noop") if respond_to?(:record_release_shim_hit)
+    log("[void] skipped #{name} #{args.inspect}") if respond_to?(:log) && args && args.length > 0
+    return true
+  rescue
+    return true
+  end
+
+  def early_void_character_setup(*args)
+    record_release_shim_hit("pbVoidCharacterSetup", "startup", "early_void_host_identity") if respond_to?(:record_release_shim_hit)
+    variable_ids = Array(args).flatten.compact
+    variable_ids.each do |raw_id|
+      variable_id = raw_id.to_i
+      next if variable_id <= 0
+      $game_variables[variable_id] = 1 if defined?($game_variables) && $game_variables
+    end
+    apply_host_player_visuals!("pokemon_void") if respond_to?(:apply_host_player_visuals!)
+    log("[void] skipped native character setup and preserved host identity #{variable_ids.inspect}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[void] character setup skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+end
+
+module VoidCharacterPortrait
+  def self.set(*args)
+    return TravelExpansionFramework.early_void_portrait_stub("VoidCharacterPortrait.set", *args) if defined?(TravelExpansionFramework) &&
+                                                                                                    TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+    return true
+  end
+
+  def self.set_player(*args)
+    return TravelExpansionFramework.early_void_portrait_stub("VoidCharacterPortrait.set_player", *args) if defined?(TravelExpansionFramework) &&
+                                                                                                           TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+    return true
+  end
+
+  def self.clear
+    return true
+  end
+
+  def self.active?
+    return false
+  end
+
+  def self.show_for_current_message
+    yield if block_given?
+    return true
+  end
+end unless defined?(VoidCharacterPortrait)
+
+def pbSetDialoguePortrait(*args)
+  return TravelExpansionFramework.early_void_portrait_stub("pbSetDialoguePortrait", *args) if defined?(TravelExpansionFramework) &&
+                                                                                             TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+  return true
+end unless defined?(pbSetDialoguePortrait)
+
+def pbSetPlayerDialoguePortrait(*args)
+  return TravelExpansionFramework.early_void_portrait_stub("pbSetPlayerDialoguePortrait", *args) if defined?(TravelExpansionFramework) &&
+                                                                                                   TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+  return true
+end unless defined?(pbSetPlayerDialoguePortrait)
+
+def pbSetRivalDialoguePortrait(rival_slot = nil, *args)
+  if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:void_set_rival_dialogue_portrait!)
+    return TravelExpansionFramework.void_set_rival_dialogue_portrait!(rival_slot, nil, *args)
+  end
+  return TravelExpansionFramework.early_void_portrait_stub("pbSetRivalDialoguePortrait", rival_slot, *args) if defined?(TravelExpansionFramework) &&
+                                                                                                               TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+  return true
+end unless defined?(pbSetRivalDialoguePortrait)
+
+def pbClearDialoguePortrait(*args)
+  return TravelExpansionFramework.early_void_portrait_stub("pbClearDialoguePortrait", *args) if defined?(TravelExpansionFramework) &&
+                                                                                               TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+  return true
+end unless defined?(pbClearDialoguePortrait)
+
+def pbPortraitMessage(message = nil, *args)
+  return TravelExpansionFramework.early_void_portrait_message(message, *args) if defined?(TravelExpansionFramework) &&
+                                                                                TravelExpansionFramework.respond_to?(:early_void_portrait_message)
+  return true
+end unless defined?(pbPortraitMessage)
+
+def pbPlayerPortraitMessage(message = nil, *args)
+  return TravelExpansionFramework.early_void_portrait_message(message, *args) if defined?(TravelExpansionFramework) &&
+                                                                                TravelExpansionFramework.respond_to?(:early_void_portrait_message)
+  return true
+end unless defined?(pbPlayerPortraitMessage)
+
+def pbRivalPortraitMessage(message = nil, *args)
+  return TravelExpansionFramework.early_void_portrait_message(message, *args) if defined?(TravelExpansionFramework) &&
+                                                                                TravelExpansionFramework.respond_to?(:early_void_portrait_message)
+  return true
+end unless defined?(pbRivalPortraitMessage)
+
+def pbVoidCharacterSetup(*args)
+  return TravelExpansionFramework.early_void_character_setup(*args) if defined?(TravelExpansionFramework) &&
+                                                                      TravelExpansionFramework.respond_to?(:early_void_character_setup)
+  return true
+end unless defined?(pbVoidCharacterSetup)
+
 def pbFancyMoveTo(follower, newX, newY, leader = :__tef_missing__)
   if leader == :__tef_missing__
     if TravelExpansionFramework.insurgence_expansion_id?
@@ -1127,6 +1254,57 @@ end
 class Interpreter
   alias tef_insurgence_original_command_102 command_102 unless method_defined?(:tef_insurgence_original_command_102)
   alias tef_insurgence_original_execute_script execute_script unless method_defined?(:tef_insurgence_original_execute_script)
+
+  def pbSetDialoguePortrait(*args)
+    return TravelExpansionFramework.early_void_portrait_stub("pbSetDialoguePortrait", *args) if defined?(TravelExpansionFramework) &&
+                                                                                               TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+    return true
+  end unless method_defined?(:pbSetDialoguePortrait)
+
+  def pbSetPlayerDialoguePortrait(*args)
+    return TravelExpansionFramework.early_void_portrait_stub("pbSetPlayerDialoguePortrait", *args) if defined?(TravelExpansionFramework) &&
+                                                                                                     TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+    return true
+  end unless method_defined?(:pbSetPlayerDialoguePortrait)
+
+  def pbSetRivalDialoguePortrait(rival_slot = nil, *args)
+    if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:void_set_rival_dialogue_portrait!)
+      return TravelExpansionFramework.void_set_rival_dialogue_portrait!(rival_slot, @event_id, *args)
+    end
+    return TravelExpansionFramework.early_void_portrait_stub("pbSetRivalDialoguePortrait", rival_slot, *args) if defined?(TravelExpansionFramework) &&
+                                                                                                                 TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+    return true
+  end unless method_defined?(:pbSetRivalDialoguePortrait)
+
+  def pbClearDialoguePortrait(*args)
+    return TravelExpansionFramework.early_void_portrait_stub("pbClearDialoguePortrait", *args) if defined?(TravelExpansionFramework) &&
+                                                                                                 TravelExpansionFramework.respond_to?(:early_void_portrait_stub)
+    return true
+  end unless method_defined?(:pbClearDialoguePortrait)
+
+  def pbPortraitMessage(message = nil, *args)
+    return TravelExpansionFramework.early_void_portrait_message(message, *args) if defined?(TravelExpansionFramework) &&
+                                                                                  TravelExpansionFramework.respond_to?(:early_void_portrait_message)
+    return true
+  end unless method_defined?(:pbPortraitMessage)
+
+  def pbPlayerPortraitMessage(message = nil, *args)
+    return TravelExpansionFramework.early_void_portrait_message(message, *args) if defined?(TravelExpansionFramework) &&
+                                                                                  TravelExpansionFramework.respond_to?(:early_void_portrait_message)
+    return true
+  end unless method_defined?(:pbPlayerPortraitMessage)
+
+  def pbRivalPortraitMessage(message = nil, *args)
+    return TravelExpansionFramework.early_void_portrait_message(message, *args) if defined?(TravelExpansionFramework) &&
+                                                                                  TravelExpansionFramework.respond_to?(:early_void_portrait_message)
+    return true
+  end unless method_defined?(:pbRivalPortraitMessage)
+
+  def pbVoidCharacterSetup(*args)
+    return TravelExpansionFramework.early_void_character_setup(*args) if defined?(TravelExpansionFramework) &&
+                                                                        TravelExpansionFramework.respond_to?(:early_void_character_setup)
+    return true
+  end unless method_defined?(:pbVoidCharacterSetup)
 
   def command_102
     if TravelExpansionFramework.insurgence_expansion_id?

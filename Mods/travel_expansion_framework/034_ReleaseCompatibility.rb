@@ -40,7 +40,9 @@ module TravelExpansionFramework
     "hollow_woods"      => "Pokemon Hollow Woods",
     "keishou"           => "Pokemon Keishou",
     "unbreakable_ties"  => "Pokemon Unbreakable Ties",
-    "decades"           => "Pokemon Decades"
+    "decades"           => "Pokemon Decades",
+    "rejuvenation"      => "Pokemon Rejuvenation",
+    "pokemon_void"      => "Pokemon Void"
   }.freeze unless const_defined?(:RELEASE_WORLD_DISPLAY_NAMES)
 
   RELEASE_REQUIRED_SHIMS = {
@@ -66,7 +68,9 @@ module TravelExpansionFramework
     "hollow_woods"      => ["startup", "story_transfer", "trainer_battle", "item_handlers", "menu_settings", "save_load_recovery"],
     "keishou"           => ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "bridge_passability", "encounters", "menu_settings", "save_load_recovery"],
     "unbreakable_ties"  => ["startup", "story_transfer", "trainer_battle", "menu_settings", "save_load_recovery"],
-    "decades"           => ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "follower_system", "encounters", "menu_settings", "save_load_recovery"]
+    "decades"           => ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "follower_system", "encounters", "menu_settings", "save_load_recovery"],
+    "rejuvenation"      => ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "follower_system", "bridge_passability", "encounters", "dex", "menu_settings", "save_load_recovery"],
+    "pokemon_void"      => ["startup", "story_transfer", "trainer_battle", "item_handlers", "town_map", "follower_system", "bridge_passability", "encounters", "dex", "menu_settings", "save_load_recovery"]
   }.freeze unless const_defined?(:RELEASE_REQUIRED_SHIMS)
 
   RELEASE_KNOWN_RISKS = {
@@ -82,7 +86,9 @@ module TravelExpansionFramework
     "vanguard"          => ["early Destiny intro switch handoff and stale battle-state cleanup"],
     "hollow_woods"      => ["game-mode screens, starter selection, and quest helpers"],
     "keishou"           => ["native item handlers, charm/crafting/storage, town map routing, bridge and encounter tags"],
-    "decades"           => ["Deluxe Battle Kit rules, form trader screens, battle-mode bag helpers, follower setup, and tip cards"]
+    "decades"           => ["Deluxe Battle Kit rules, form trader screens, battle-mode bag helpers, follower setup, and tip cards"],
+    "rejuvenation"      => ["Reborn/Rejuv quest flags, field effects, dependent followers, cave/surf transfers, password entry, berry plants, and Day Care helpers"],
+    "pokemon_void"      => ["packaged Essentials v21 archive, plugin scripts, compiled species data, custom fakemon graphics, and early story bootstrap"]
   }.freeze unless const_defined?(:RELEASE_KNOWN_RISKS)
 
   RELEASE_SMOKE_ROUTE = [
@@ -140,12 +146,103 @@ module TravelExpansionFramework
     "pbRemoveBagClutter"        => { "category" => "item_handlers",    "default" => "true",  "note" => "Imported bag cleanup is skipped unless a world-specific adapter owns it." },
     "pbRemoveStoryModeBagClutter" => { "category" => "item_handlers",  "default" => "true",  "note" => "Imported story-mode bag cleanup is skipped to preserve host inventory." },
     "pbShowTipCard"             => { "category" => "menu_settings",    "default" => "true",  "note" => "Imported tip-card scenes are acknowledged safely." },
+    "pbSetDialoguePortrait"     => { "category" => "menu_settings",    "default" => "true",  "note" => "Void dialogue portrait state is acknowledged without loading the native portrait UI." },
+    "pbSetPlayerDialoguePortrait" => { "category" => "menu_settings",  "default" => "true",  "note" => "Void player dialogue portrait state is acknowledged without replacing the host player UI." },
+    "pbSetRivalDialoguePortrait" => { "category" => "menu_settings",   "default" => "true",  "note" => "Void rival portrait state is acknowledged without loading the native portrait UI." },
+    "pbClearDialoguePortrait"   => { "category" => "menu_settings",    "default" => "true",  "note" => "Void dialogue portrait state is cleared safely." },
+    "pbPortraitMessage"         => { "category" => "menu_settings",    "default" => "portrait_message", "note" => "Void portrait messages are shown through the host message box." },
+    "pbPlayerPortraitMessage"   => { "category" => "menu_settings",    "default" => "portrait_message", "note" => "Void player portrait messages are shown through the host message box." },
+    "pbRivalPortraitMessage"    => { "category" => "menu_settings",    "default" => "portrait_message", "note" => "Void rival portrait messages are shown through the host message box." },
+    "pbVoidRivalPortrait"       => { "category" => "menu_settings",    "default" => "empty_string", "note" => "Void rival portrait lookups return no portrait until the native UI is certified." },
+    "pbVoidCharacterSetup"      => { "category" => "startup",          "default" => "void_character_setup", "note" => "Void character setup writes safe startup variables while preserving the host player identity." },
+    "pbVoidCharacterSelect"     => { "category" => "startup",          "default" => "true",  "note" => "Void character selection is skipped to preserve host player identity." },
+    "pbVoidCharSel"             => { "category" => "startup",          "default" => "zero",  "note" => "Void compact character selection returns a safe default choice." },
+    "pbVoidCharacterCustomization" => { "category" => "startup",       "default" => "true",  "note" => "Void character customization is skipped to preserve host player identity." },
+    "pbVoidCharCustomize"       => { "category" => "startup",          "default" => "true",  "note" => "Void compact character customization is skipped to preserve host player identity." },
+    "pbApplyVoidCompositedPlayerSprite" => { "category" => "startup",  "default" => "true",  "note" => "Void generated player sprites are ignored so the host outfit remains stable." },
+    "pbWalkCharacterTo"         => { "category" => "story_transfer",   "default" => "true",  "note" => "Void scripted pathfinding requests are acknowledged safely until certified." },
+    "pbPlayerGender"            => { "category" => "menu_settings",    "default" => "zero",  "note" => "Void player gender lookups return a neutral host-safe default." },
+    "pbPlayerPronouns"          => { "category" => "menu_settings",    "default" => "hash",  "note" => "Void player pronoun lookups return an empty host-safe token map." },
+    "pbVoidRivalName"           => { "category" => "story_transfer",   "default" => "void_rival_name", "note" => "Void rival names use safe release defaults until native rival setup is certified." },
+    "pbVoidRivalPronoun"        => { "category" => "story_transfer",   "default" => "void_rival_pronoun", "note" => "Void rival pronouns use safe release defaults until native rival setup is certified." },
+    "pbVoidRivalTrainerType"    => { "category" => "trainer_battle",   "default" => "empty_string", "note" => "Void rival trainer type lookups fail closed until native trainer data is certified." },
+    "pbVoidRivalCharset"        => { "category" => "story_transfer",   "default" => "empty_string", "note" => "Void rival charset lookups fail closed without replacing map graphics." },
+    "pbVoidRivalStarter"        => { "category" => "startup",          "default" => "starter_species", "note" => "Void rival starter lookups use a valid host species fallback." },
+    "pbVoidRivalStarterFromVariable" => { "category" => "startup",     "default" => "starter_species", "note" => "Void rival starter variable lookups use a valid host species fallback." },
+    "pbVoidRivalStarterVersion" => { "category" => "startup",          "default" => "zero",  "note" => "Void rival starter version lookups use the first safe release version." },
+    "pbVoidRivalStarterVersionFromVariable" => { "category" => "startup", "default" => "zero", "note" => "Void rival starter version variable lookups use the first safe release version." },
+    "pbVoidRivalBattle"         => { "category" => "trainer_battle",   "default" => "true",  "note" => "Void rival battle helpers fail closed until native trainer mapping is certified." },
+    "pbVoidRivalBattleFromVariable" => { "category" => "trainer_battle", "default" => "true", "note" => "Void rival battle helpers fail closed until native trainer mapping is certified." },
+    "pbVoidRivalBattleStage"    => { "category" => "trainer_battle",   "default" => "true",  "note" => "Void rival staged battle helpers fail closed until native trainer mapping is certified." },
+    "pbVoidRivalBattleStageFromVariable" => { "category" => "trainer_battle", "default" => "true", "note" => "Void rival staged battle helpers fail closed until native trainer mapping is certified." },
+    "pbVoidRivalBattleStageVersion" => { "category" => "trainer_battle", "default" => "zero", "note" => "Void rival staged battle version lookups use the first safe release version." },
+    "pbVoidRivalBattleStageVersionFromVariable" => { "category" => "trainer_battle", "default" => "zero", "note" => "Void rival staged battle version variable lookups use the first safe release version." },
+    "pbVoidApplyRivalGraphic"   => { "category" => "story_transfer",   "default" => "true",  "note" => "Void rival graphic swaps are skipped to preserve host/player graphics." },
+    "pbVoidClearRivalGraphic"   => { "category" => "story_transfer",   "default" => "true",  "note" => "Void rival graphic cleanup is acknowledged safely." },
+    "pbStartQuest"              => { "category" => "menu_settings",    "default" => "true",  "note" => "Void quest starts are mirrored only into host-safe release metadata." },
+    "pbCompleteQuest"           => { "category" => "menu_settings",    "default" => "true",  "note" => "Void quest completions are mirrored only into host-safe release metadata." },
+    "pbQuestStatus"             => { "category" => "menu_settings",    "default" => "zero",  "note" => "Void quest status reads return a safe inactive stage until bridged." },
+    "pbQuestStarted?"           => { "category" => "menu_settings",    "default" => "false", "note" => "Void quest started checks fail closed until bridged." },
+    "pbQuestComplete?"          => { "category" => "menu_settings",    "default" => "false", "note" => "Void quest completion checks fail closed until bridged." },
+    "pbQuestKnown?"             => { "category" => "menu_settings",    "default" => "false", "note" => "Void quest known checks fail closed until bridged." },
+    "pbFishing"                 => { "category" => "encounters",       "default" => "false", "note" => "Void fishing helper fails closed until native encounter mapping is certified." },
+    "pbVoidFishingMinigame"     => { "category" => "encounters",       "default" => "false", "note" => "Void fishing minigame fails closed until certified." },
+    "pbVoidFishingSuccessCue"   => { "category" => "encounters",       "default" => "true",  "note" => "Void fishing success cues are acknowledged safely." },
+    "pbVoidFishingChooseEncounter" => { "category" => "encounters",    "default" => "nil",   "note" => "Void fishing encounter choice returns no encounter until mapped." },
+    "pbVoidFishingSeaTransition" => { "category" => "encounters",      "default" => "false", "note" => "Void fishing sea transition fails closed until certified." },
+    "pbExclaim"                 => { "category" => "story_transfer",   "default" => "true",  "note" => "Void exclamation animation requests are acknowledged safely." },
+    "pbTurnTowardEvent"         => { "category" => "story_transfer",   "default" => "true",  "note" => "Void event-facing helper is acknowledged safely." },
     "pbCharacterSelect"         => { "category" => "startup",          "default" => "true",  "note" => "Imported character selector is skipped to preserve host player identity." },
     "startCharacterSelection"   => { "category" => "startup",          "default" => "zero",  "note" => "Imported character selection returns the first safe host-compatible choice." },
     "pbPokemonSelection"        => { "category" => "startup",          "default" => "starter_species", "note" => "Imported modular starter selection returns a rotating host-compatible starter species." },
     "pbGrantRandomPokemonSilent" => { "category" => "startup",         "default" => "true",  "note" => "Imported random starter helpers choose a valid host species when possible." },
     "pbGrantRandomPokemon"      => { "category" => "startup",          "default" => "true",  "note" => "Imported random starter helpers choose a valid host species when possible." },
     "pbGetRandomPokemon"        => { "category" => "startup",          "default" => "starter_species", "note" => "Imported random starter lookup returns a valid host species." },
+    "colorQuest"                => { "category" => "menu_settings",    "default" => "first_arg", "note" => "Rejuvenation quest color labels pass through safely." },
+    "advanceQuestSilent"        => { "category" => "menu_settings",    "default" => "true",  "note" => "Imported quest advancement is mirrored into the host-safe quest metadata." },
+    "advanceQuestToStage"       => { "category" => "menu_settings",    "default" => "true",  "note" => "Imported quest stage updates are mirrored into the host-safe quest metadata." },
+    "activateQuestSilent"       => { "category" => "menu_settings",    "default" => "true",  "note" => "Imported silent quest activation is mirrored into the host-safe quest metadata." },
+    "completeQuestSilent"       => { "category" => "menu_settings",    "default" => "true",  "note" => "Imported silent quest completion is mirrored into the host-safe quest metadata." },
+    "getQuestStage"             => { "category" => "menu_settings",    "default" => "zero",  "note" => "Imported quest stage checks read the host-safe quest metadata." },
+    "pbFieldDamage"             => { "category" => "encounters",       "default" => "true",  "note" => "Unsupported Rejuvenation field damage ticks are skipped safely." },
+    "pbCaveEntrance"            => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported cave-entrance visual/audio hooks are acknowledged safely." },
+    "pbCaveExit"                => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported cave-exit visual/audio hooks are acknowledged safely." },
+    "pbSetEscapePoint"          => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported escape-point bookkeeping is kept out of canonical host save location." },
+    "pbEraseEscapePoint"        => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported escape-point cleanup is acknowledged safely." },
+    "pbTransferSurfing"         => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported surfing transfer helper falls back to the guarded transfer path when available." },
+    "pbTransferUnderwater"      => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported underwater transfer helper falls back to the guarded transfer path when available." },
+    "pbTransferLavaSurfing"     => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported lava-surf transfer helper falls back to the guarded transfer path when available." },
+    "pbTransferWithTransition"  => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported scripted transfer helpers route through the guarded transfer path while preserving story state." },
+    "pbCancelVehicles"          => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported vehicle state is cleared without changing host canonical travel state." },
+    "characterRestore"          => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported character restore hooks are acknowledged safely." },
+    "characterSwitch"           => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported character switch hooks are acknowledged safely." },
+    "characterSwtich"           => { "category" => "story_transfer",   "default" => "true",  "note" => "Misspelled imported character switch hook is acknowledged safely." },
+    "pbRefreshCustomDuel"       => { "category" => "trainer_battle",   "default" => "true",  "note" => "Imported custom duel refresh is acknowledged safely." },
+    "pbStartCustomDuel"         => { "category" => "trainer_battle",   "default" => "true",  "note" => "Imported custom duel start is acknowledged safely until certified." },
+    "pbEndCustomDuel"           => { "category" => "trainer_battle",   "default" => "true",  "note" => "Imported custom duel cleanup is acknowledged safely." },
+    "pbRentReturn"              => { "category" => "trainer_battle",   "default" => "true",  "note" => "Imported rental-party cleanup is skipped to preserve host party/storage." },
+    "pbInfoBox"                 => { "category" => "menu_settings",    "default" => "true",  "note" => "Imported info boxes are acknowledged safely." },
+    "pbSlotMachine"             => { "category" => "item_handlers",    "default" => "false", "note" => "Unsupported casino minigame fails closed." },
+    "pbRoulette"                => { "category" => "item_handlers",    "default" => "false", "note" => "Unsupported casino minigame fails closed." },
+    "pbVoltorbFlip"             => { "category" => "item_handlers",    "default" => "false", "note" => "Unsupported casino minigame fails closed." },
+    "pbLottery"                 => { "category" => "item_handlers",    "default" => "false", "note" => "Unsupported lottery minigame fails closed." },
+    "pbSetLotteryNumber"        => { "category" => "item_handlers",    "default" => "true",  "note" => "Imported lottery seed bookkeeping is skipped safely." },
+    "pbBerryPlant"              => { "category" => "item_handlers",    "default" => "true",  "note" => "Imported berry plant handler is acknowledged safely until a native bridge owns it." },
+    "pbPickBerry"               => { "category" => "item_handlers",    "default" => "true",  "note" => "Imported berry pickup handler is acknowledged safely until a native bridge owns it." },
+    "pbPushThisBoulder"         => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported boulder helper is acknowledged safely." },
+    "pbPartialHeal"             => { "category" => "item_handlers",    "default" => "heal_party", "note" => "Imported partial heal uses the host party heal fallback." },
+    "pbDayCareGetDeposited"     => { "category" => "item_handlers",    "default" => "array", "note" => "Imported Day Care reads from an empty host-safe deposit list until bridged." },
+    "pbDayCareDeposited"        => { "category" => "item_handlers",    "default" => "zero",  "note" => "Imported Day Care reports no deposited Pokemon until bridged." },
+    "pbDayCareGetCompatibility" => { "category" => "item_handlers",    "default" => "zero",  "note" => "Imported Day Care compatibility fails closed." },
+    "pbDayCareDeposit"          => { "category" => "item_handlers",    "default" => "true",  "note" => "Imported Day Care deposit is skipped to protect host party." },
+    "pbDayCareWithdraw"         => { "category" => "item_handlers",    "default" => "true",  "note" => "Imported Day Care withdraw is skipped until a host-safe bridge owns it." },
+    "pbDayCareChoose"           => { "category" => "item_handlers",    "default" => "nil",   "note" => "Imported Day Care chooser returns no selected Pokemon until bridged." },
+    "pbDayCareGenerateEgg"      => { "category" => "item_handlers",    "default" => "true",  "note" => "Imported Day Care egg generation is skipped safely." },
+    "pbDayCareChooseOffspringBall" => { "category" => "item_handlers", "default" => "nil",   "note" => "Imported Day Care offspring-ball selection fails closed until bridged." },
+    "pbSetEventTime"            => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported event timer bookkeeping is acknowledged safely." },
+    "pbCaveEntranceEx"          => { "category" => "story_transfer",   "default" => "true",  "note" => "Imported cave transition visual helper is acknowledged safely." },
+    "PokemonSelection.restore"  => { "category" => "startup",          "default" => "true",  "note" => "Imported starter-selection restore hook is acknowledged safely." },
+    "MessageConfig.pbSetSpeechFrame" => { "category" => "menu_settings", "default" => "true", "note" => "Imported speech frame setting is acknowledged without leaking UI skins." },
     "pbBattleChallenge"        => { "category" => "trainer_battle",    "default" => "host_safe_challenge", "note" => "Imported battle challenge state uses a host-safe inert challenge wrapper." },
     "pbBattleChallengeBattle"  => { "category" => "trainer_battle",    "default" => "true",  "note" => "Imported Battle Frontier cup battles are acknowledged safely until certified." },
     "pbHasEligible?"           => { "category" => "trainer_battle",    "default" => "true",  "note" => "Imported challenge eligibility checks allow the shared host party through safely." },
@@ -478,6 +575,31 @@ module TravelExpansionFramework
       return []
     when "hash"
       return {}
+    when "first_arg"
+      return args[0]
+    when "empty_string"
+      return ""
+    when "portrait_message"
+      return release_portrait_message(args[0], *Array(args[1..-1]))
+    when "void_character_setup"
+      return release_void_character_setup(*args)
+    when "void_rival_name"
+      slot = integer(args[0], 1)
+      return ["Ronan", "Nia", "Seren"][slot - 1] || "Rival"
+    when "void_rival_pronoun"
+      key = args[1].respond_to?(:to_sym) ? args[1].to_sym : args[1]
+      pronouns = {
+        :subject => "they",
+        :object => "them",
+        :possessive_adjective => "their",
+        :possessive_pronoun => "theirs",
+        :reflexive => "themself",
+        :be_present => "are",
+        :be_past => "were",
+        :have_present => "have",
+        :do_present => "do"
+      }
+      return pronouns[key] || pronouns[:subject]
     when "party_present"
       party = ($Trainer.party rescue [])
       return Array(party).compact.length > 0
@@ -509,6 +631,38 @@ module TravelExpansionFramework
       return true
     end
   rescue
+    return true
+  end
+
+  def release_void_character_setup(*args)
+    record_release_shim_hit("pbVoidCharacterSetup", "startup", "host_identity")
+    variable_ids = Array(args).flatten.compact
+    variable_ids.each do |raw_id|
+      variable_id = integer(raw_id, 0)
+      next if variable_id <= 0
+      $game_variables[variable_id] = 1 if defined?($game_variables) && $game_variables
+    end
+    apply_host_player_visuals!("pokemon_void") if respond_to?(:apply_host_player_visuals!)
+    log("[release] Void character setup preserved host identity #{variable_ids.inspect}") if respond_to?(:log)
+    return true
+  rescue => e
+    log("[release] Void character setup skipped safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def release_portrait_message(message = nil, *args)
+    record_release_shim_hit("pbPortraitMessage", "menu_settings", "host_message")
+    text = message.to_s
+    return true if text.empty?
+    begin
+      return Kernel.send(:pbMessage, text) if defined?(Kernel) && Kernel.respond_to?(:pbMessage, true)
+      return Object.new.send(:pbMessage, text) if Object.respond_to?(:private_method_defined?) && Object.private_method_defined?(:pbMessage)
+    rescue => e
+      log("[release] portrait message fallback failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    end
+    return true
+  rescue => e
+    log("[release] portrait message failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
     return true
   end
 
@@ -677,12 +831,56 @@ module TravelExpansionFramework
   end
 
   def release_interpreter_method_shim_name?(name)
+    return true if [
+      "activateQuest", "activateQuestSilent", "advanceQuestSilent",
+      "advanceQuestToStage", "completeQuest", "completeQuestSilent",
+      "getQuestStage", "getCurrentStage", "getActiveQuests",
+      "getCompletedQuests", "colorQuest", "pbStartQuest",
+      "pbCompleteQuest", "pbQuestStatus", "pbQuestStarted?",
+      "pbQuestComplete?", "pbQuestKnown?"
+    ].include?(name.to_s)
     return !release_shim_entry(name.to_s).nil?
   rescue
     return false
   end
 
   def release_interpreter_method_shim(name, *args)
+    text = name.to_s
+    case text
+    when "activateQuest", "activateQuestSilent"
+      return {
+        :handled => true,
+        :value => release_activate_quest!(args[0], nil, text == "activateQuestSilent", *args[1..-1])
+      }
+    when "advanceQuestSilent"
+      return { :handled => true, :value => release_advance_quest!(args[0], nil, *args[1..-1]) }
+    when "advanceQuestToStage"
+      return { :handled => true, :value => release_advance_quest!(args[0], args[1], *args[2..-1]) }
+    when "completeQuest", "completeQuestSilent"
+      return {
+        :handled => true,
+        :value => release_complete_quest!(args[0], text == "completeQuestSilent", *args[1..-1])
+      }
+    when "getQuestStage", "getCurrentStage"
+      return { :handled => true, :value => release_quest_stage(args[0]) }
+    when "pbStartQuest"
+      return { :handled => true, :value => release_activate_quest!(args[0], nil, true, *args[1..-1]) }
+    when "pbCompleteQuest"
+      return { :handled => true, :value => release_complete_quest!(args[0], true, *args[1..-1]) }
+    when "pbQuestStatus"
+      return { :handled => true, :value => release_quest_stage(args[0]) }
+    when "pbQuestStarted?", "pbQuestKnown?"
+      return { :handled => true, :value => release_quest_started?(args[0]) }
+    when "pbQuestComplete?"
+      return { :handled => true, :value => release_quest_completed?(args[0]) }
+    when "getActiveQuests"
+      return { :handled => true, :value => release_quest_store(:active) }
+    when "getCompletedQuests"
+      return { :handled => true, :value => release_quest_store(:completed) }
+    when "colorQuest"
+      record_release_shim_hit("colorQuest", "menu_settings", "first_arg")
+      return { :handled => true, :value => args[0] }
+    end
     entry = release_shim_entry(name.to_s)
     return nil if !entry.is_a?(Hash)
     category = entry["category"] || "missing_api"
@@ -900,6 +1098,76 @@ module TravelExpansionFramework
     return []
   end
 
+  def release_quest_stage_store
+    return {} if !defined?($PokemonGlobal) || !$PokemonGlobal
+    ivar = :@tef_quest_stages
+    $PokemonGlobal.instance_variable_set(ivar, {}) if !$PokemonGlobal.instance_variable_defined?(ivar)
+    value = $PokemonGlobal.instance_variable_get(ivar)
+    value = {} if !value.is_a?(Hash)
+    $PokemonGlobal.instance_variable_set(ivar, value)
+    return value
+  rescue
+    return {}
+  end
+
+  def release_activate_quest!(quest, stage = nil, silent = false, *_args)
+    active = release_quest_store(:active)
+    active << quest if !quest.nil? && !active.include?(quest)
+    if !quest.nil? && !stage.nil?
+      release_quest_stage_store[quest] = integer(stage, 0)
+    end
+    record_release_shim_hit(silent ? "activateQuestSilent" : "activateQuest", "menu_settings", "host_quest_store")
+    return true
+  rescue => e
+    log("[release] quest activation failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def release_advance_quest!(quest, stage = nil, *_args)
+    active = release_quest_store(:active)
+    active << quest if !quest.nil? && !active.include?(quest)
+    release_quest_stage_store[quest] = integer(stage, 0) if !quest.nil? && !stage.nil?
+    record_release_shim_hit(stage.nil? ? "advanceQuestSilent" : "advanceQuestToStage", "menu_settings", "host_quest_store")
+    return true
+  rescue => e
+    log("[release] quest advance failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def release_complete_quest!(quest, silent = false, *_args)
+    completed = release_quest_store(:completed)
+    completed << quest if !quest.nil? && !completed.include?(quest)
+    active = release_quest_store(:active)
+    active.delete(quest)
+    record_release_shim_hit(silent ? "completeQuestSilent" : "completeQuest", "menu_settings", "host_quest_store")
+    return true
+  rescue => e
+    log("[release] quest completion failed safely: #{e.class}: #{e.message}") if respond_to?(:log)
+    return true
+  end
+
+  def release_quest_stage(quest)
+    return integer(release_quest_stage_store[quest], 0)
+  rescue
+    return 0
+  end
+
+  def release_quest_started?(quest)
+    return false if quest.nil?
+    return true if release_quest_store(:active).include?(quest)
+    return true if release_quest_store(:completed).include?(quest)
+    return release_quest_stage_store.has_key?(quest)
+  rescue
+    return false
+  end
+
+  def release_quest_completed?(quest)
+    return false if quest.nil?
+    return release_quest_store(:completed).include?(quest)
+  rescue
+    return false
+  end
+
   def release_constant_fallback(name)
     text = name.to_s
     record_release_shim_hit("constant #{text}", "missing_constant", "fallback")
@@ -914,6 +1182,10 @@ module TravelExpansionFramework
     return ::ChallengeModes if text == "ChallengeModes" && defined?(::ChallengeModes)
     return ::LevelCapsEX if text == "LevelCapsEX" && defined?(::LevelCapsEX)
     return ::EncounterTypes if text == "EncounterTypes" && defined?(::EncounterTypes)
+    return ::PokemonSelection if text == "PokemonSelection" && defined?(::PokemonSelection)
+    return ::MessageConfig if text == "MessageConfig" && defined?(::MessageConfig)
+    return ::PokemonEntryScene if text == "PokemonEntryScene" && defined?(::PokemonEntryScene)
+    return ::PokemonEntry if text == "PokemonEntry" && defined?(::PokemonEntry)
     return early_random_all_types_pool if text == "RANDOM_ALL_TYPES" && respond_to?(:early_random_all_types_pool)
     return [:BULBASAUR, :CHARMANDER, :SQUIRTLE, :PIKACHU, :EEVEE] if text == "RANDOM_ALL_TYPES"
     return :DrewQuest if text == "DrewQuest"
@@ -1138,6 +1410,139 @@ def pbCheckRoaming(*args)
   return TravelExpansionFramework.release_safe_stub("pbCheckRoaming", "false", "encounters", *args)
 end unless defined?(pbCheckRoaming)
 
+def pbFieldDamage(*args)
+  return TravelExpansionFramework.release_safe_stub("pbFieldDamage", "true", "encounters", *args)
+end unless defined?(pbFieldDamage)
+
+def pbCaveEntranceEx(*args)
+  return TravelExpansionFramework.release_safe_stub("pbCaveEntranceEx", "true", "story_transfer", *args)
+end unless defined?(pbCaveEntranceEx)
+
+def pbCaveEntrance(*args)
+  return TravelExpansionFramework.release_safe_stub("pbCaveEntrance", "true", "story_transfer", *args)
+end unless defined?(pbCaveEntrance)
+
+def pbCaveExit(*args)
+  return TravelExpansionFramework.release_safe_stub("pbCaveExit", "true", "story_transfer", *args)
+end unless defined?(pbCaveExit)
+
+def pbSetEscapePoint(*args)
+  return TravelExpansionFramework.release_safe_stub("pbSetEscapePoint", "true", "story_transfer", *args)
+end unless defined?(pbSetEscapePoint)
+
+def pbEraseEscapePoint(*args)
+  return TravelExpansionFramework.release_safe_stub("pbEraseEscapePoint", "true", "story_transfer", *args)
+end unless defined?(pbEraseEscapePoint)
+
+def pbSetEventTime(*args)
+  return TravelExpansionFramework.release_safe_stub("pbSetEventTime", "true", "story_transfer", *args)
+end unless defined?(pbSetEventTime)
+
+def characterRestore(*args)
+  return TravelExpansionFramework.release_safe_stub("characterRestore", "true", "story_transfer", *args)
+end unless defined?(characterRestore)
+
+def characterSwitch(*args)
+  return TravelExpansionFramework.release_safe_stub("characterSwitch", "true", "story_transfer", *args)
+end unless defined?(characterSwitch)
+
+def characterSwtich(*args)
+  return TravelExpansionFramework.release_safe_stub("characterSwtich", "true", "story_transfer", *args)
+end unless defined?(characterSwtich)
+
+def pbRefreshCustomDuel(*args)
+  return TravelExpansionFramework.release_safe_stub("pbRefreshCustomDuel", "true", "trainer_battle", *args)
+end unless defined?(pbRefreshCustomDuel)
+
+def pbStartCustomDuel(*args)
+  return TravelExpansionFramework.release_safe_stub("pbStartCustomDuel", "true", "trainer_battle", *args)
+end unless defined?(pbStartCustomDuel)
+
+def pbEndCustomDuel(*args)
+  return TravelExpansionFramework.release_safe_stub("pbEndCustomDuel", "true", "trainer_battle", *args)
+end unless defined?(pbEndCustomDuel)
+
+def pbRentReturn(*args)
+  return TravelExpansionFramework.release_safe_stub("pbRentReturn", "true", "trainer_battle", *args)
+end unless defined?(pbRentReturn)
+
+def pbInfoBox(*args)
+  return TravelExpansionFramework.release_safe_stub("pbInfoBox", "true", "menu_settings", *args)
+end unless defined?(pbInfoBox)
+
+def pbSlotMachine(*args)
+  return TravelExpansionFramework.release_safe_stub("pbSlotMachine", "false", "item_handlers", *args)
+end unless defined?(pbSlotMachine)
+
+def pbRoulette(*args)
+  return TravelExpansionFramework.release_safe_stub("pbRoulette", "false", "item_handlers", *args)
+end unless defined?(pbRoulette)
+
+def pbVoltorbFlip(*args)
+  return TravelExpansionFramework.release_safe_stub("pbVoltorbFlip", "false", "item_handlers", *args)
+end unless defined?(pbVoltorbFlip)
+
+def pbLottery(*args)
+  return TravelExpansionFramework.release_safe_stub("pbLottery", "false", "item_handlers", *args)
+end unless defined?(pbLottery)
+
+def pbSetLotteryNumber(*args)
+  return TravelExpansionFramework.release_safe_stub("pbSetLotteryNumber", "true", "item_handlers", *args)
+end unless defined?(pbSetLotteryNumber)
+
+def pbBerryPlant(*args)
+  return TravelExpansionFramework.release_safe_stub("pbBerryPlant", "true", "item_handlers", *args)
+end unless defined?(pbBerryPlant)
+
+def pbPickBerry(*args)
+  return TravelExpansionFramework.release_safe_stub("pbPickBerry", "true", "item_handlers", *args)
+end unless defined?(pbPickBerry)
+
+def pbPushThisBoulder(*args)
+  return TravelExpansionFramework.release_safe_stub("pbPushThisBoulder", "true", "story_transfer", *args)
+end unless defined?(pbPushThisBoulder)
+
+def pbPartialHeal(*args)
+  return TravelExpansionFramework.release_safe_stub("pbPartialHeal", "heal_party", "item_handlers", *args)
+end unless defined?(pbPartialHeal)
+
+def pbDayCareDeposited(*args)
+  return TravelExpansionFramework.release_safe_stub("pbDayCareDeposited", "zero", "item_handlers", *args)
+end unless defined?(pbDayCareDeposited)
+
+def pbDayCareGetDeposited(*args)
+  return TravelExpansionFramework.release_safe_stub("pbDayCareGetDeposited", "array", "item_handlers", *args)
+end unless defined?(pbDayCareGetDeposited)
+
+def pbDayCareGetCompatibility(*args)
+  return TravelExpansionFramework.release_safe_stub("pbDayCareGetCompatibility", "zero", "item_handlers", *args)
+end unless defined?(pbDayCareGetCompatibility)
+
+def pbDayCareDeposit(*args)
+  return TravelExpansionFramework.release_safe_stub("pbDayCareDeposit", "true", "item_handlers", *args)
+end unless defined?(pbDayCareDeposit)
+
+def pbDayCareWithdraw(*args)
+  return TravelExpansionFramework.release_safe_stub("pbDayCareWithdraw", "true", "item_handlers", *args)
+end unless defined?(pbDayCareWithdraw)
+
+def pbDayCareChoose(*args)
+  return TravelExpansionFramework.release_safe_stub("pbDayCareChoose", "nil", "item_handlers", *args)
+end unless defined?(pbDayCareChoose)
+
+if !defined?(pbDayCareGenerateEgg) && defined?(Kernel)
+  module Kernel
+    def pbDayCareGenerateEgg(*args)
+      return TravelExpansionFramework.release_safe_stub("pbDayCareGenerateEgg", "true", "item_handlers", *args)
+    end unless method_defined?(:pbDayCareGenerateEgg)
+    module_function :pbDayCareGenerateEgg if method_defined?(:pbDayCareGenerateEgg) && !respond_to?(:pbDayCareGenerateEgg)
+  end
+end
+
+def pbDayCareChooseOffspringBall(*args)
+  return TravelExpansionFramework.release_safe_stub("pbDayCareChooseOffspringBall", "nil", "item_handlers", *args)
+end unless defined?(pbDayCareChooseOffspringBall)
+
 module EncounterTypes
   Land          = :Land unless const_defined?(:Land)
   Land1         = :Land1 unless const_defined?(:Land1)
@@ -1229,16 +1634,40 @@ def getActiveQuests
 end unless defined?(getActiveQuests)
 
 def completeQuest(quest)
-  completed = TravelExpansionFramework.release_quest_store(:completed)
-  completed << quest if !completed.include?(quest)
-  return true
+  return TravelExpansionFramework.release_complete_quest!(quest, false)
 end unless defined?(completeQuest)
 
 def activateQuest(quest)
-  active = TravelExpansionFramework.release_quest_store(:active)
-  active << quest if !active.include?(quest)
-  return true
+  return TravelExpansionFramework.release_activate_quest!(quest, nil, false)
 end unless defined?(activateQuest)
+
+def activateQuestSilent(quest, *args)
+  return TravelExpansionFramework.release_activate_quest!(quest, nil, true, *args)
+end unless defined?(activateQuestSilent)
+
+def advanceQuestSilent(quest, *args)
+  return TravelExpansionFramework.release_advance_quest!(quest, nil, *args)
+end unless defined?(advanceQuestSilent)
+
+def advanceQuestToStage(quest, stage = nil, *args)
+  return TravelExpansionFramework.release_advance_quest!(quest, stage, *args)
+end unless defined?(advanceQuestToStage)
+
+def completeQuestSilent(quest, *args)
+  return TravelExpansionFramework.release_complete_quest!(quest, true, *args)
+end unless defined?(completeQuestSilent)
+
+def getQuestStage(quest)
+  return TravelExpansionFramework.release_quest_stage(quest)
+end unless defined?(getQuestStage)
+
+def colorQuest(color = nil, *_args)
+  TravelExpansionFramework.record_release_shim_hit("colorQuest", "menu_settings", "first_arg") if defined?(TravelExpansionFramework) &&
+                                                                                                  TravelExpansionFramework.respond_to?(:record_release_shim_hit)
+  return color
+rescue
+  return nil
+end unless defined?(colorQuest)
 
 def pbRandomItem(*args)
   return TravelExpansionFramework.release_safe_stub("pbRandomItem", "nil", "item_handlers", *args)
@@ -1369,6 +1798,73 @@ end unless defined?(pbRemoveStoryModeBagClutter)
 def pbShowTipCard(*args)
   return TravelExpansionFramework.release_safe_stub("pbShowTipCard", "true", "menu_settings", *args)
 end unless defined?(pbShowTipCard)
+
+module VoidCharacterPortrait
+  def self.set(*args); true; end
+  def self.set_player(*args); true; end
+  def self.clear; true; end
+  def self.active?; false; end
+  def self.show_for_current_message
+    yield if block_given?
+    return true
+  end
+end unless defined?(VoidCharacterPortrait)
+
+def pbSetDialoguePortrait(*args)
+  return TravelExpansionFramework.release_safe_stub("pbSetDialoguePortrait", "true", "menu_settings", *args)
+end unless defined?(pbSetDialoguePortrait)
+
+def pbSetPlayerDialoguePortrait(*args)
+  return TravelExpansionFramework.release_safe_stub("pbSetPlayerDialoguePortrait", "true", "menu_settings", *args)
+end unless defined?(pbSetPlayerDialoguePortrait)
+
+def pbSetRivalDialoguePortrait(*args)
+  return TravelExpansionFramework.release_safe_stub("pbSetRivalDialoguePortrait", "true", "menu_settings", *args)
+end unless defined?(pbSetRivalDialoguePortrait)
+
+def pbClearDialoguePortrait(*args)
+  return TravelExpansionFramework.release_safe_stub("pbClearDialoguePortrait", "true", "menu_settings", *args)
+end unless defined?(pbClearDialoguePortrait)
+
+def pbPortraitMessage(message = nil, *args)
+  return TravelExpansionFramework.release_portrait_message(message, *args)
+end unless defined?(pbPortraitMessage)
+
+def pbPlayerPortraitMessage(message = nil, *args)
+  return TravelExpansionFramework.release_portrait_message(message, *args)
+end unless defined?(pbPlayerPortraitMessage)
+
+def pbRivalPortraitMessage(message = nil, *args)
+  return TravelExpansionFramework.release_portrait_message(message, *args)
+end unless defined?(pbRivalPortraitMessage)
+
+def pbVoidCharacterSetup(*args)
+  return TravelExpansionFramework.release_safe_stub("pbVoidCharacterSetup", "void_character_setup", "startup", *args)
+end unless defined?(pbVoidCharacterSetup)
+
+def pbStartQuest(quest, *args)
+  return TravelExpansionFramework.release_activate_quest!(quest, nil, true, *args)
+end unless defined?(pbStartQuest)
+
+def pbCompleteQuest(quest, *args)
+  return TravelExpansionFramework.release_complete_quest!(quest, true, *args)
+end unless defined?(pbCompleteQuest)
+
+def pbQuestStatus(quest, *_args)
+  return TravelExpansionFramework.release_quest_stage(quest)
+end unless defined?(pbQuestStatus)
+
+def pbQuestStarted?(quest, *_args)
+  return TravelExpansionFramework.release_quest_started?(quest)
+end unless defined?(pbQuestStarted?)
+
+def pbQuestComplete?(quest, *_args)
+  return TravelExpansionFramework.release_quest_completed?(quest)
+end unless defined?(pbQuestComplete?)
+
+def pbQuestKnown?(quest, *_args)
+  return TravelExpansionFramework.release_quest_started?(quest)
+end unless defined?(pbQuestKnown?)
 
 def startCharacterSelection(*args)
   TravelExpansionFramework.record_release_shim_hit("startCharacterSelection", "startup", "zero") if defined?(TravelExpansionFramework) &&
@@ -1698,6 +2194,55 @@ class << LevelCapsEX
   end unless method_defined?(:toggle)
 end
 
+module PokemonSelection
+end unless defined?(PokemonSelection)
+
+class << PokemonSelection
+  def restore(*args)
+    TravelExpansionFramework.release_safe_stub("PokemonSelection.restore", "true", "startup", *args) if defined?(TravelExpansionFramework) &&
+                                                                                                        TravelExpansionFramework.respond_to?(:release_safe_stub)
+    return true
+  rescue
+    return true
+  end unless method_defined?(:restore)
+end if defined?(PokemonSelection)
+
+module MessageConfig
+end unless defined?(MessageConfig)
+
+class << MessageConfig
+  def pbSetSpeechFrame(*args)
+    TravelExpansionFramework.release_safe_stub("MessageConfig.pbSetSpeechFrame", "true", "menu_settings", *args) if defined?(TravelExpansionFramework) &&
+                                                                                                                   TravelExpansionFramework.respond_to?(:release_safe_stub)
+    return true
+  rescue
+    return true
+  end unless method_defined?(:pbSetSpeechFrame)
+end if defined?(MessageConfig)
+
+class PokemonEntryScene
+  def initialize(*_args)
+  end
+end unless defined?(PokemonEntryScene)
+
+class PokemonEntry
+  def initialize(scene = nil)
+    @scene = scene
+  end
+
+  def pbStartScreen(*args)
+    TravelExpansionFramework.record_release_shim_hit("PokemonEntry.pbStartScreen", "startup", "empty_string") if defined?(TravelExpansionFramework) &&
+                                                                                                                 TravelExpansionFramework.respond_to?(:record_release_shim_hit)
+    initial_text = args[3]
+    return initial_text.to_s if initial_text && !initial_text.to_s.empty?
+    mode = args[4].to_i rescue -1
+    return ($Trainer.name rescue "Player").to_s if mode == 1
+    return ""
+  rescue
+    return ""
+  end
+end unless defined?(PokemonEntry)
+
 Object.const_set(:RANDOM_ALL_TYPES, TravelExpansionFramework.early_random_all_types_pool) if defined?(TravelExpansionFramework) &&
                                                                                             TravelExpansionFramework.respond_to?(:early_random_all_types_pool) &&
                                                                                             !Object.const_defined?(:RANDOM_ALL_TYPES, false)
@@ -1822,6 +2367,119 @@ module Kernel
     return true
   end unless method_defined?(:doLegendEntrance)
 
+  def self.tef_release_object_call(name, *args)
+    if Object.private_method_defined?(name) || Object.method_defined?(name)
+      return Object.new.send(name, *args)
+    end
+    return nil
+  rescue
+    return nil
+  end unless respond_to?(:tef_release_object_call)
+
+  def self.pbReceiveItem(item, quantity = 1, *args)
+    result = tef_release_object_call(:pbReceiveItem, item, quantity, *args)
+    return result if !result.nil?
+    result = tef_release_object_call(:pbAddItem, item, quantity, *args)
+    return result if !result.nil?
+    if defined?($PokemonBag) && $PokemonBag && $PokemonBag.respond_to?(:pbStoreItem)
+      return $PokemonBag.pbStoreItem(item, quantity)
+    end
+    return TravelExpansionFramework.release_safe_stub("Kernel.pbReceiveItem", "true", "item_handlers", item, quantity, *args)
+  rescue
+    return true
+  end unless respond_to?(:pbReceiveItem)
+
+  def self.pbItemBall(item, quantity = 1, *args)
+    result = tef_release_object_call(:pbItemBall, item, quantity, *args)
+    return result if !result.nil?
+    return pbReceiveItem(item, quantity, *args) if respond_to?(:pbReceiveItem)
+    return TravelExpansionFramework.release_safe_stub("Kernel.pbItemBall", "true", "item_handlers", item, quantity, *args)
+  rescue
+    return true
+  end unless respond_to?(:pbItemBall)
+
+  def self.pbAddDependency2(event_id, event_name = "Dependent", common_event = nil, *args)
+    result = tef_release_object_call(:pbAddDependency2, event_id, event_name, common_event, *args)
+    return result if !result.nil?
+    result = tef_release_object_call(:pbAddDependency, event_id, event_name, common_event, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("Kernel.pbAddDependency2", "true", "follower_system", event_id, event_name, common_event, *args)
+  rescue
+    return true
+  end unless respond_to?(:pbAddDependency2)
+
+  def self.pbRemoveDependency2(*args)
+    result = tef_release_object_call(:pbRemoveDependency2, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("Kernel.pbRemoveDependency2", "true", "follower_system", *args)
+  rescue
+    return true
+  end unless respond_to?(:pbRemoveDependency2)
+
+  def self.pbNoticePlayer(*args)
+    result = tef_release_object_call(:pbNoticePlayer, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("Kernel.pbNoticePlayer", "true", "story_transfer", *args)
+  rescue
+    return true
+  end unless respond_to?(:pbNoticePlayer)
+
+  def self.pbRockSmashRandomEncounter(*args)
+    result = tef_release_object_call(:pbRockSmashRandomEncounter, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("Kernel.pbRockSmashRandomEncounter", "false", "encounters", *args)
+  rescue
+    return false
+  end unless respond_to?(:pbRockSmashRandomEncounter)
+
+  def self.pbUpdateVehicle(*args)
+    result = tef_release_object_call(:pbUpdateVehicle, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("Kernel.pbUpdateVehicle", "true", "story_transfer", *args)
+  rescue
+    return true
+  end unless respond_to?(:pbUpdateVehicle)
+
+  def self.pbCancelVehicles(*args)
+    result = tef_release_object_call(:pbCancelVehicles, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("pbCancelVehicles", "true", "story_transfer", *args)
+  rescue
+    return true
+  end unless respond_to?(:pbCancelVehicles)
+
+  def self.pbTransferSurfing(*args)
+    result = tef_release_object_call(:pbTransferSurfing, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("pbTransferSurfing", "true", "story_transfer", *args)
+  rescue
+    return true
+  end unless respond_to?(:pbTransferSurfing)
+
+  def self.pbTransferUnderwater(*args)
+    result = tef_release_object_call(:pbTransferUnderwater, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("pbTransferUnderwater", "true", "story_transfer", *args)
+  rescue
+    return true
+  end unless respond_to?(:pbTransferUnderwater)
+
+  def self.pbTransferLavaSurfing(*args)
+    result = tef_release_object_call(:pbTransferLavaSurfing, *args)
+    return result if !result.nil?
+    return TravelExpansionFramework.release_safe_stub("pbTransferLavaSurfing", "true", "story_transfer", *args)
+  rescue
+    return true
+  end unless respond_to?(:pbTransferLavaSurfing)
+
+  def self.pbSetPokemonCenter(*args)
+    result = tef_release_object_call(:pbSetPokemonCenter, *args)
+    return result if !result.nil?
+    return true
+  rescue
+    return true
+  end unless respond_to?(:pbSetPokemonCenter)
+
   def self.pbPokeMartWorker(*args)
     return TravelExpansionFramework.release_safe_stub("pbPokeMartWorker", "host_mart", "item_handlers", *args)
   end unless respond_to?(:pbPokeMartWorker)
@@ -1852,7 +2510,59 @@ if defined?(Interpreter)
     ChallengeModes = ::ChallengeModes if defined?(::ChallengeModes) && !const_defined?(:ChallengeModes, false)
     LevelCapsEX = ::LevelCapsEX if defined?(::LevelCapsEX) && !const_defined?(:LevelCapsEX, false)
     EncounterTypes = ::EncounterTypes if defined?(::EncounterTypes) && !const_defined?(:EncounterTypes, false)
+    PokemonSelection = ::PokemonSelection if defined?(::PokemonSelection) && !const_defined?(:PokemonSelection, false)
+    MessageConfig = ::MessageConfig if defined?(::MessageConfig) && !const_defined?(:MessageConfig, false)
+    PokemonEntryScene = ::PokemonEntryScene if defined?(::PokemonEntryScene) && !const_defined?(:PokemonEntryScene, false)
+    PokemonEntry = ::PokemonEntry if defined?(::PokemonEntry) && !const_defined?(:PokemonEntry, false)
     DrewQuest = ::DrewQuest if defined?(::DrewQuest) && !const_defined?(:DrewQuest, false)
+
+    def activateQuest(quest, color = nil, *args)
+      return TravelExpansionFramework.release_activate_quest!(quest, nil, false, color, *args)
+    end
+
+    def activateQuestSilent(quest, color = nil, *args)
+      return TravelExpansionFramework.release_activate_quest!(quest, nil, true, color, *args)
+    end
+
+    def advanceQuestSilent(quest, stage = nil, *args)
+      return TravelExpansionFramework.release_advance_quest!(quest, stage, *args)
+    end
+
+    def advanceQuestToStage(quest, stage = nil, *args)
+      return TravelExpansionFramework.release_advance_quest!(quest, stage, *args)
+    end
+
+    def completeQuest(quest, *args)
+      return TravelExpansionFramework.release_complete_quest!(quest, false, *args)
+    end
+
+    def completeQuestSilent(quest, *args)
+      return TravelExpansionFramework.release_complete_quest!(quest, true, *args)
+    end
+
+    def getQuestStage(quest)
+      return TravelExpansionFramework.release_quest_stage(quest)
+    end
+
+    def getCurrentStage(quest)
+      return TravelExpansionFramework.release_quest_stage(quest)
+    end
+
+    def getActiveQuests
+      return TravelExpansionFramework.release_quest_store(:active)
+    end
+
+    def getCompletedQuests
+      return TravelExpansionFramework.release_quest_store(:completed)
+    end
+
+    def colorQuest(color = nil, *_args)
+      TravelExpansionFramework.record_release_shim_hit("colorQuest", "menu_settings", "first_arg") if defined?(TravelExpansionFramework) &&
+                                                                                                        TravelExpansionFramework.respond_to?(:record_release_shim_hit)
+      return color
+    rescue
+      return nil
+    end
 
     def pbUnlockRecipe(recipe_id = nil, *args)
       return TravelExpansionFramework.release_unlock_recipe!(recipe_id, *args)
@@ -1980,6 +2690,62 @@ if defined?(Interpreter)
       return TravelExpansionFramework.release_safe_stub("pbShowTipCard", "true", "menu_settings", *args)
     end unless method_defined?(:pbShowTipCard)
 
+    def pbSetDialoguePortrait(*args)
+      return TravelExpansionFramework.release_safe_stub("pbSetDialoguePortrait", "true", "menu_settings", *args)
+    end unless method_defined?(:pbSetDialoguePortrait)
+
+    def pbSetPlayerDialoguePortrait(*args)
+      return TravelExpansionFramework.release_safe_stub("pbSetPlayerDialoguePortrait", "true", "menu_settings", *args)
+    end unless method_defined?(:pbSetPlayerDialoguePortrait)
+
+    def pbSetRivalDialoguePortrait(*args)
+      return TravelExpansionFramework.release_safe_stub("pbSetRivalDialoguePortrait", "true", "menu_settings", *args)
+    end unless method_defined?(:pbSetRivalDialoguePortrait)
+
+    def pbClearDialoguePortrait(*args)
+      return TravelExpansionFramework.release_safe_stub("pbClearDialoguePortrait", "true", "menu_settings", *args)
+    end unless method_defined?(:pbClearDialoguePortrait)
+
+    def pbPortraitMessage(message = nil, *args)
+      return TravelExpansionFramework.release_portrait_message(message, *args)
+    end unless method_defined?(:pbPortraitMessage)
+
+    def pbPlayerPortraitMessage(message = nil, *args)
+      return TravelExpansionFramework.release_portrait_message(message, *args)
+    end unless method_defined?(:pbPlayerPortraitMessage)
+
+    def pbRivalPortraitMessage(message = nil, *args)
+      return TravelExpansionFramework.release_portrait_message(message, *args)
+    end unless method_defined?(:pbRivalPortraitMessage)
+
+    def pbVoidCharacterSetup(*args)
+      return TravelExpansionFramework.release_safe_stub("pbVoidCharacterSetup", "void_character_setup", "startup", *args)
+    end unless method_defined?(:pbVoidCharacterSetup)
+
+    def pbStartQuest(quest, *args)
+      return TravelExpansionFramework.release_activate_quest!(quest, nil, true, *args)
+    end unless method_defined?(:pbStartQuest)
+
+    def pbCompleteQuest(quest, *args)
+      return TravelExpansionFramework.release_complete_quest!(quest, true, *args)
+    end unless method_defined?(:pbCompleteQuest)
+
+    def pbQuestStatus(quest, *_args)
+      return TravelExpansionFramework.release_quest_stage(quest)
+    end unless method_defined?(:pbQuestStatus)
+
+    def pbQuestStarted?(quest, *_args)
+      return TravelExpansionFramework.release_quest_started?(quest)
+    end unless method_defined?(:pbQuestStarted?)
+
+    def pbQuestComplete?(quest, *_args)
+      return TravelExpansionFramework.release_quest_completed?(quest)
+    end unless method_defined?(:pbQuestComplete?)
+
+    def pbQuestKnown?(quest, *_args)
+      return TravelExpansionFramework.release_quest_started?(quest)
+    end unless method_defined?(:pbQuestKnown?)
+
     def startCharacterSelection(*args)
       TravelExpansionFramework.record_release_shim_hit("startCharacterSelection", "startup", "zero") if defined?(TravelExpansionFramework) &&
                                                                                                         TravelExpansionFramework.respond_to?(:record_release_shim_hit)
@@ -2065,6 +2831,106 @@ class << Object
     return const_set(name, fallback) if fallback
     return tef_release_original_const_missing(name) if respond_to?(:tef_release_original_const_missing, true)
     raise NameError, "uninitialized constant Object::#{name}"
+  end
+end
+
+# Late safety net for quest APIs. Some imported intro scripts evaluate inside
+# Interpreter after earlier guarded helpers were bypassed by partial definitions.
+def pbStartQuest(quest = nil, *args)
+  if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:release_activate_quest!)
+    return TravelExpansionFramework.release_activate_quest!(quest, nil, true, *args)
+  end
+  return true
+rescue
+  return true
+end
+
+def pbCompleteQuest(quest = nil, *args)
+  if defined?(TravelExpansionFramework) && TravelExpansionFramework.respond_to?(:release_complete_quest!)
+    return TravelExpansionFramework.release_complete_quest!(quest, true, *args)
+  end
+  return true
+rescue
+  return true
+end
+
+def pbQuestStatus(quest = nil, *_args)
+  return TravelExpansionFramework.release_quest_stage(quest) if defined?(TravelExpansionFramework) &&
+                                                                TravelExpansionFramework.respond_to?(:release_quest_stage)
+  return 0
+rescue
+  return 0
+end
+
+def pbQuestStarted?(quest = nil, *_args)
+  return TravelExpansionFramework.release_quest_started?(quest) if defined?(TravelExpansionFramework) &&
+                                                                   TravelExpansionFramework.respond_to?(:release_quest_started?)
+  return false
+rescue
+  return false
+end
+
+def pbQuestComplete?(quest = nil, *_args)
+  return TravelExpansionFramework.release_quest_completed?(quest) if defined?(TravelExpansionFramework) &&
+                                                                     TravelExpansionFramework.respond_to?(:release_quest_completed?)
+  return false
+rescue
+  return false
+end
+
+def pbQuestKnown?(quest = nil, *_args)
+  return pbQuestStarted?(quest)
+rescue
+  return false
+end
+
+if defined?(Interpreter)
+  class Interpreter
+    def pbStartQuest(quest = nil, *args)
+      return TravelExpansionFramework.release_activate_quest!(quest, nil, true, *args) if defined?(TravelExpansionFramework) &&
+                                                                                         TravelExpansionFramework.respond_to?(:release_activate_quest!)
+      return true
+    rescue
+      return true
+    end
+
+    def pbCompleteQuest(quest = nil, *args)
+      return TravelExpansionFramework.release_complete_quest!(quest, true, *args) if defined?(TravelExpansionFramework) &&
+                                                                                    TravelExpansionFramework.respond_to?(:release_complete_quest!)
+      return true
+    rescue
+      return true
+    end
+
+    def pbQuestStatus(quest = nil, *_args)
+      return TravelExpansionFramework.release_quest_stage(quest) if defined?(TravelExpansionFramework) &&
+                                                                    TravelExpansionFramework.respond_to?(:release_quest_stage)
+      return 0
+    rescue
+      return 0
+    end
+
+    def pbQuestStarted?(quest = nil, *_args)
+      return TravelExpansionFramework.release_quest_started?(quest) if defined?(TravelExpansionFramework) &&
+                                                                       TravelExpansionFramework.respond_to?(:release_quest_started?)
+      return false
+    rescue
+      return false
+    end
+
+    def pbQuestComplete?(quest = nil, *_args)
+      return TravelExpansionFramework.release_quest_completed?(quest) if defined?(TravelExpansionFramework) &&
+                                                                         TravelExpansionFramework.respond_to?(:release_quest_completed?)
+      return false
+    rescue
+      return false
+    end
+
+    def pbQuestKnown?(quest = nil, *_args)
+      return pbQuestStarted?(quest)
+    rescue
+      return false
+    end
   end
 end
 

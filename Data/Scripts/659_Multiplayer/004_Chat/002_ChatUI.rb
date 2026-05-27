@@ -10,6 +10,8 @@ class ChatWindow
   PANEL_H       = 200
   HANDLE_W      = 14
   HANDLE_H      = 50
+  HANDLE_MIN_W  = 4
+  HANDLE_MINIMIZE_STRIP_W = 5
   TAB_H         = 22
   MSG_PAD       = 6
   MSG_W         = PANEL_W - MSG_PAD * 2 - 10   # 258 (leave room for scrollbar)
@@ -132,6 +134,7 @@ class ChatWindow
     @messages_dirty = true
     @input_dirty   = true
     @last_handle_deployed = nil  # track handle redraw need
+    @last_handle_minimized = nil
     @last_tab_count = 0
     @msg_sid_map   = []         # [{y:, h:, sid:, name:}, ...] hit regions
     @ctx_open      = false      # context menu open?
@@ -216,9 +219,11 @@ class ChatWindow
     # ── Handle redraw (only when direction changes) ────────
     handle_notice_count = (ChatState.collapsed_notice_count rescue 0)
     if @last_handle_deployed != ChatState.deployed ||
+       @last_handle_minimized != (ChatState.handle_minimized rescue false) ||
        @last_handle_notice_count != handle_notice_count
       _draw_handle
       @last_handle_deployed = ChatState.deployed
+      @last_handle_minimized = (ChatState.handle_minimized rescue false)
       @last_handle_notice_count = handle_notice_count
     end
 
@@ -327,8 +332,25 @@ class ChatWindow
 
   # ── Handle drawing ───────────────────────────────────────
   def _draw_handle
+    minimized = (ChatState.handle_minimized rescue false)
+    target_w = minimized ? HANDLE_MIN_W : HANDLE_W
+    if @handle_sprite.bitmap.nil? || @handle_sprite.bitmap.disposed? ||
+       @handle_sprite.bitmap.width != target_w || @handle_sprite.bitmap.height != HANDLE_H
+      @handle_sprite.bitmap.dispose if @handle_sprite.bitmap && !@handle_sprite.bitmap.disposed?
+      @handle_sprite.bitmap = Bitmap.new(target_w, HANDLE_H)
+      _apply_chat_font(@handle_sprite.bitmap)
+    end
+
     bmp = @handle_sprite.bitmap
     bmp.clear
+
+    if minimized
+      line_col = @mouse_over_handle ? _c([95, 135, 185, 230]) : _c([55, 55, 62, 190])
+      edge_col = _c(C_BORDER)
+      bmp.fill_rect(0, 2, target_w, HANDLE_H - 4, line_col)
+      bmp.fill_rect(target_w - 1, 4, 1, HANDLE_H - 8, edge_col)
+      return
+    end
 
     # Background
     bmp.fill_rect(0, 0, HANDLE_W, HANDLE_H, _c(C_HANDLE_BG))
@@ -336,6 +358,9 @@ class ChatWindow
     bmp.fill_rect(0, 0, HANDLE_W, 1, _c(C_BORDER))
     bmp.fill_rect(0, HANDLE_H - 1, HANDLE_W, 1, _c(C_BORDER))
     bmp.fill_rect(HANDLE_W - 1, 0, 1, HANDLE_H, _c(C_BORDER))
+    strip_col = @mouse_over_handle ? _c([80, 115, 165, 230]) : _c([42, 42, 50, 210])
+    bmp.fill_rect(0, 6, HANDLE_MINIMIZE_STRIP_W, HANDLE_H - 12, strip_col)
+    bmp.fill_rect(HANDLE_MINIMIZE_STRIP_W - 1, 9, 1, HANDLE_H - 18, _c(C_HANDLE_ARR))
 
     # Arrow (>> or <<)
     arrow_col = _c(C_HANDLE_ARR)
@@ -1244,6 +1269,8 @@ class ChatWindow
   def panel_y;  @base_y; end
   def handle_x; @handle_sprite.x; end
   def handle_y; @handle_y; end
+  def handle_w; @handle_sprite.bitmap.width rescue HANDLE_W; end
+  def handle_h; @handle_sprite.bitmap.height rescue HANDLE_H; end
 
   # ── Helpers ─────────────────────────────────────────────
   def _c(arr)

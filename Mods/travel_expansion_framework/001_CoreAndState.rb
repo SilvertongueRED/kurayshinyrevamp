@@ -1,6 +1,58 @@
 begin
   require "fileutils"
-rescue LoadError
+rescue Exception
+end
+
+# Some RGSS/mkxp builds used by Pokemon Essentials do not bundle Ruby's
+# fileutils library. The framework only needs mkdir_p/cp at runtime, so provide a
+# tiny compatible fallback instead of making boot depend on stdlib availability.
+if !defined?(FileUtils)
+  module FileUtils
+    module_function
+
+    def mkdir_p(path)
+      return false if path.nil?
+      normalized = path.to_s.gsub("\\", "/")
+      return false if normalized == ""
+      parts = normalized.split("/")
+      current = ""
+      if normalized[/\A[A-Za-z]:\//]
+        current = parts.shift + "/"
+      elsif normalized[0, 1] == "/"
+        current = "/"
+        parts.shift if parts[0] == ""
+      end
+      parts.each do |part|
+        next if part == "" || part == "."
+        if current == "" || current == "/"
+          current += part
+        elsif current[-1, 1] == "/"
+          current += part
+        else
+          current += "/" + part
+        end
+        Dir.mkdir(current) if !File.directory?(current)
+      end
+      return true
+    rescue
+      return false
+    end
+
+    def cp(source, destination)
+      target = File.directory?(destination) ? File.join(destination, File.basename(source)) : destination
+      mkdir_p(File.dirname(target))
+      File.open(source, "rb") do |input|
+        File.open(target, "wb") do |output|
+          while chunk = input.read(16_384)
+            output.write(chunk)
+          end
+        end
+      end
+      return true
+    rescue
+      return false
+    end
+  end
 end
 
 if !defined?($travel_expansion_framework_loaded)
@@ -35,7 +87,9 @@ if !defined?($travel_expansion_framework_loaded)
       "gadir_deluxe"    => 42_000,
       "hollow_woods"    => 43_000,
       "keishou"         => 44_000,
-      "unbreakable_ties" => 45_000
+      "unbreakable_ties" => 45_000,
+      "decades"         => 46_000,
+      "rejuvenation"    => 47_000
     }.freeze
     MANIFEST_FILENAME        = "expansion_manifest.json"
     SOURCE_CONFIG_FILENAME   = "travel_expansion_sources.json"
@@ -227,8 +281,12 @@ if !defined?($travel_expansion_framework_loaded)
     end
 
     def linked_project_bridge_path(project_id)
-      return nil if project_id.nil? || project_id.to_s.empty?
-      return File.expand_path(File.join(linked_projects_dir, slugify(project_id)))
+      normalized_id = slugify(project_id)
+      return nil if normalized_id.nil? || normalized_id.empty?
+      return File.expand_path(File.join(linked_projects_dir, normalized_id))
+    rescue Exception => e
+      log("[assets] skipped unsafe linked project bridge path: #{e.class}: #{e.message}") if respond_to?(:log)
+      return nil
     end
 
     def ensure_linked_project_bridge!(project_id, target_root)
@@ -288,10 +346,17 @@ if !defined?($travel_expansion_framework_loaded)
     end
 
     def ensure_framework_dirs
-      ensure_dir(report_dir)
-      ensure_dir(links_dir)
-      ensure_dir(library_dir)
-      ensure_dir(linked_projects_dir)
+      return if @tef_ensuring_framework_dirs
+      @tef_ensuring_framework_dirs = true
+      begin
+        ensure_dir(report_dir)
+        ensure_dir(links_dir)
+        ensure_dir(library_dir)
+        ensure_dir(linked_projects_dir)
+      rescue
+      ensure
+        @tef_ensuring_framework_dirs = false
+      end
     end
 
     def timestamp_string
@@ -313,11 +378,17 @@ if !defined?($travel_expansion_framework_loaded)
     end
 
     def log(message)
-      ensure_framework_dirs
-      rotate_framework_log_if_needed
-      File.open(LOG_FILE, "ab") { |file| file.write("[#{timestamp_string}] #{message}\r\n") }
-    rescue
-      echoln("[TravelExpansionFramework] #{message}") if defined?(echoln)
+      return if @tef_logging
+      @tef_logging = true
+      begin
+        ensure_framework_dirs
+        rotate_framework_log_if_needed
+        File.open(LOG_FILE, "ab") { |file| file.write("[#{timestamp_string}] #{message}\r\n") }
+      rescue
+        echoln("[TravelExpansionFramework] #{message}") if defined?(echoln)
+      ensure
+        @tef_logging = false
+      end
     end
 
     def safe_json_parse(path)
@@ -335,18 +406,43 @@ if !defined?($travel_expansion_framework_loaded)
       return data.inspect
     end
 
+    def safe_scalar_string(value, fallback = "")
+      fallback_text = fallback.is_a?(String) ? fallback : fallback.to_s
+      return fallback_text if value.nil?
+      return value.strip if value.is_a?(String)
+      return value.to_s if value.is_a?(Symbol) || value.is_a?(Numeric) || value == true || value == false
+      return value.to_path.to_s if defined?(Pathname) && value.is_a?(Pathname)
+      return fallback_text
+    rescue Exception
+      return fallback.to_s rescue ""
+    end
+
     def normalize_string(value, fallback = "")
-      text = value.to_s.strip
-      text = fallback.to_s if text.empty?
+      @normalize_string_depth ||= 0
+      return safe_scalar_string(fallback, "") if @normalize_string_depth > 2
+      @normalize_string_depth += 1
+      text = safe_scalar_string(value, fallback).strip
+      text = safe_scalar_string(fallback, "") if text.empty?
       return text
+    rescue Exception
+      return fallback.to_s rescue ""
+    ensure
+      @normalize_string_depth = [(@normalize_string_depth || 1) - 1, 0].max
     end
 
     def slugify(value)
+      @slugify_depth ||= 0
+      return "expansion" if @slugify_depth > 2
+      @slugify_depth += 1
       slug = normalize_string(value, "expansion").downcase
       slug.gsub!(/[^\w]+/, "_")
       slug.gsub!(/\A_+|_+\z/, "")
       slug = "expansion" if slug.empty?
       return slug
+    rescue Exception
+      return "expansion"
+    ensure
+      @slugify_depth = [(@slugify_depth || 1) - 1, 0].max
     end
 
     def integer(value, fallback = 0)
@@ -426,56 +522,83 @@ if !defined?($travel_expansion_framework_loaded)
     end
 
     def prefer_game_relative_path(path)
-      return nil if path.nil? || path.to_s.empty?
-      normalized = path.to_s.gsub("\\", "/")
+      normalized = normalize_string(path, "")
+      return nil if normalized.empty?
+      normalized = normalized.gsub("\\", "/")
       return normalized if !absolute_path?(normalized)
       relative = game_relative_path(normalized)
-      return relative if relative && runtime_plain_file_exists?(relative)
+      if relative && !relative.empty?
+        direct = File.expand_path(relative, current_game_root)
+        return relative if File.file?(direct)
+      end
       return File.expand_path(normalized)
+    rescue Exception
+      return normalize_string(path, "")
     end
 
     def linked_project_asset_alias_roots(expansion_id, info = nil)
-      expansion = expansion_id.to_s
+      expansion = normalize_string(expansion_id, "")
+      return [] if expansion.empty?
+      info ||= external_projects[expansion] if respond_to?(:external_projects)
+      root_key = ""
+      display_key = ""
+      if info.is_a?(Hash)
+        root_key = normalize_string(info[:root] || info["root"], "")
+        display_key = normalize_string(info[:display_name] || info["display_name"], "")
+      end
+      cache_key = [expansion, root_key, display_key].join("\u001F")
+      @linked_project_asset_alias_roots_cache ||= {}
+      cached = @linked_project_asset_alias_roots_cache[cache_key]
+      return cached.dup if cached
+      @linked_project_asset_alias_roots_stack ||= {}
+      return [] if @linked_project_asset_alias_roots_stack[cache_key]
+      @linked_project_asset_alias_roots_stack[cache_key] = true
       candidate_ids = []
       candidate_ids << expansion
-      info ||= external_projects[expansion] if respond_to?(:external_projects)
       if info.is_a?(Hash)
-        root = info[:root] || info["root"]
-        display_name = info[:display_name] || info["display_name"]
-        basename = File.basename(root.to_s) if root && !root.to_s.empty?
+        root = root_key
+        display_name = display_key
+        basename = File.basename(root) if !root.empty?
         candidate_ids << basename if basename && !basename.empty?
-        candidate_ids << display_name if display_name && !display_name.to_s.empty?
-        if display_name && display_name.to_s =~ /\Apokemon[\s_-]+(.+)\z/i
+        candidate_ids << display_name if !display_name.empty?
+        if display_name =~ /\Apokemon[\s_-]+(.+)\z/i
           candidate_ids << $1
         end
       end
       candidate_ids << $1 if expansion =~ /\Apokemon_(.+)\z/i
       roots = []
-      candidate_ids.compact.each do |candidate_id|
+      candidate_ids.compact.map { |candidate_id| normalize_string(candidate_id, "") }.reject { |candidate_id| candidate_id.empty? }.uniq.each do |candidate_id|
         normalized_id = slugify(candidate_id)
-        next if normalized_id.empty?
+        next if normalized_id.empty? || normalized_id == "expansion"
         path = linked_project_bridge_path(normalized_id)
         roots << path if path && File.directory?(path)
       end
-      return roots.uniq
-    rescue
+      roots = roots.uniq
+      @linked_project_asset_alias_roots_cache[cache_key] = roots
+      return roots.dup
+    rescue Exception => e
+      log("[assets] skipped unsafe linked project alias roots: #{e.class}: #{e.message}") if respond_to?(:log)
       return []
+    ensure
+      @linked_project_asset_alias_roots_stack.delete(cache_key) if defined?(cache_key) && @linked_project_asset_alias_roots_stack
     end
 
     def linked_runtime_path_for_external_absolute(path, expansion_id = nil)
-      return nil if path.nil? || path.to_s.empty?
-      absolute = File.expand_path(path.to_s).gsub("\\", "/")
+      normalized_path = normalize_string(path, "")
+      return nil if normalized_path.empty?
+      absolute = File.expand_path(normalized_path).gsub("\\", "/")
       pairs = []
-      if !expansion_id.to_s.empty?
-        info = external_projects[expansion_id.to_s] if respond_to?(:external_projects)
-        pairs << [expansion_id.to_s, info] if info.is_a?(Hash)
+      normalized_expansion_id = normalize_string(expansion_id, "")
+      if !normalized_expansion_id.empty?
+        info = external_projects[normalized_expansion_id] if respond_to?(:external_projects)
+        pairs << [normalized_expansion_id, info] if info.is_a?(Hash)
       elsif respond_to?(:external_projects)
-        external_projects.each { |id, info| pairs << [id.to_s, info] if info.is_a?(Hash) }
+        external_projects.each { |id, info| pairs << [normalize_string(id, ""), info] if info.is_a?(Hash) }
       end
       pairs.each do |id, info|
-        root = info[:root] || info["root"]
-        next if root.nil? || root.to_s.empty?
-        root_path = File.expand_path(root.to_s).gsub("\\", "/")
+        root = normalize_string(info[:root] || info["root"], "")
+        next if root.empty?
+        root_path = File.expand_path(root).gsub("\\", "/")
         prefix = root_path.end_with?("/") ? root_path : "#{root_path}/"
         next if !absolute.downcase.start_with?(prefix.downcase)
         suffix = absolute[prefix.length..-1]
@@ -487,12 +610,12 @@ if !defined?($travel_expansion_framework_loaded)
         end
       end
       return nil
-    rescue
+    rescue Exception
       return nil
     end
 
     def runtime_asset_roots_for_expansion(expansion_id)
-      expansion = expansion_id.to_s
+      expansion = normalize_string(expansion_id, "")
       return [] if expansion.empty?
       roots = []
       info = external_projects[expansion] if respond_to?(:external_projects)
@@ -554,8 +677,8 @@ if !defined?($travel_expansion_framework_loaded)
     end
 
     def runtime_path_join(root, child = nil)
-      left = root.to_s.gsub("\\", "/")
-      right = child.to_s.gsub("\\", "/")
+      left = normalize_string(root, "").gsub("\\", "/")
+      right = normalize_string(child, "").gsub("\\", "/")
       return left if right.empty?
       return right if left.empty?
       if absolute_path?(left)
@@ -567,22 +690,28 @@ if !defined?($travel_expansion_framework_loaded)
     end
 
     def runtime_plain_file_exists?(path)
-      return false if path.nil? || path.to_s.empty?
-      candidate = path.to_s.gsub("\\", "/")
-      if absolute_path?(candidate)
-        return File.file?(File.expand_path(candidate))
-      end
-      return safeExists?(candidate) if defined?(safeExists?)
-      begin
-        File.open(candidate, "rb") { return true }
-      rescue
-        return false
-      end
+      candidate = normalize_string(path, "")
+      return false if candidate.empty?
+      candidate = candidate.gsub("\\", "/")
+      full_path = absolute_path?(candidate) ? File.expand_path(candidate) : File.expand_path(candidate, current_game_root)
+      return File.file?(full_path)
+    rescue Exception
+      return false
     end
 
     def runtime_exact_file_path(path)
-      return nil if path.nil? || path.to_s.empty?
-      candidate = path.to_s.gsub("\\", "/")
+      candidate = normalize_string(path, "")
+      return nil if candidate.empty?
+      candidate = candidate.gsub("\\", "/")
+      @runtime_exact_file_path_cache ||= {}
+      if @runtime_exact_file_path_cache.has_key?(candidate)
+        cached = @runtime_exact_file_path_cache[candidate]
+        return cached == false ? nil : cached
+      end
+      @runtime_exact_file_path_stack ||= {}
+      return nil if @runtime_exact_file_path_stack[candidate]
+      @runtime_exact_file_path_stack[candidate] = true
+      result = nil
       absolute = if absolute_path?(candidate)
         File.expand_path(candidate)
       else
@@ -590,24 +719,36 @@ if !defined?($travel_expansion_framework_loaded)
       end
       directory = File.dirname(absolute)
       basename = File.basename(absolute)
-      return absolute if basename.nil? || basename.empty?
+      result = absolute if basename.nil? || basename.empty?
       if File.directory?(directory)
         entry = Dir.entries(directory).find { |name| name.to_s.downcase == basename.downcase }
         if entry && !entry.empty?
           matched = File.join(directory, entry)
-          return matched if File.file?(matched)
+          result = matched if File.file?(matched)
         end
       end
-      return absolute if File.file?(absolute)
+      result ||= absolute if File.file?(absolute)
+      @runtime_exact_file_path_cache[candidate] = result || false
+      return result
+    rescue Exception
       return nil
-    rescue
-      return nil
+    ensure
+      @runtime_exact_file_path_stack.delete(candidate) if defined?(candidate) && @runtime_exact_file_path_stack
     end
 
     def runtime_existing_path(path)
+      candidate = normalize_string(path, "")
+      return nil if candidate.empty?
+      @runtime_existing_path_stack ||= {}
+      return nil if @runtime_existing_path_stack[candidate]
+      @runtime_existing_path_stack[candidate] = true
       matched = runtime_exact_file_path(path)
       return nil if matched.nil?
       return prefer_game_relative_path(matched)
+    rescue Exception
+      return nil
+    ensure
+      @runtime_existing_path_stack.delete(candidate) if defined?(candidate) && @runtime_existing_path_stack
     end
 
     def runtime_file_exists?(path)
@@ -615,15 +756,12 @@ if !defined?($travel_expansion_framework_loaded)
     end
 
     def runtime_directory_exists?(path)
-      return false if path.nil? || path.to_s.empty?
-      candidate = path.to_s
-      return File.directory?(File.expand_path(candidate)) if absolute_path?(candidate)
-      return safeIsDirectory?(candidate) if defined?(safeIsDirectory?)
-      begin
-        Dir.chdir(candidate) { return true }
-      rescue
-        return false
-      end
+      candidate = normalize_string(path, "")
+      return false if candidate.empty?
+      full_path = absolute_path?(candidate) ? File.expand_path(candidate) : File.expand_path(candidate, current_game_root)
+      return File.directory?(full_path)
+    rescue Exception
+      return false
     end
 
     def load_marshaled_runtime(path)
@@ -1130,13 +1268,81 @@ if !defined?($travel_expansion_framework_loaded)
       return player && player.badges ? player.badges : []
     end
 
+    def normalized_badge_slot_count(value, fallback = 8)
+      slots = integer(value, fallback)
+      slots = fallback if slots <= 0
+      return slots
+    rescue
+      return fallback
+    end
+
     def badge_slot_count(expansion_id = nil, page_id = nil)
       return host_badges.length if expansion_id.nil? || expansion_id.to_s.empty? || expansion_id.to_s == HOST_EXPANSION_ID
       manifest = manifest_for(expansion_id)
       return 8 if !manifest
       page = manifest[:badge_pages].find { |entry| entry[:id] == page_id.to_s } if page_id
       page ||= manifest[:badge_pages].first
-      return page ? integer(page[:slot_count], 8) : 8
+      return page ? normalized_badge_slot_count(page[:slot_count], 8) : 8
+    end
+
+    def badge_progress_mirrors_host?(expansion_id)
+      expansion = expansion_id.to_s
+      return false if expansion.empty? || expansion == HOST_EXPANSION_ID
+      if respond_to?(:expansion_id_in_list?) && respond_to?(:new_project_identity_expansion_ids)
+        return expansion_id_in_list?(expansion, new_project_identity_expansion_ids)
+      end
+      return false
+    rescue
+      return false
+    end
+
+    def current_badge_context_for?(expansion_id)
+      expansion = expansion_id.to_s
+      return false if expansion.empty?
+      if defined?($game_map) && $game_map && $game_map.respond_to?(:map_id)
+        map_expansion = current_map_expansion_id($game_map.map_id) if respond_to?(:current_map_expansion_id)
+        return false if map_expansion.to_s.empty?
+        return expansion_id_in_list?(map_expansion, [expansion]) if respond_to?(:expansion_id_in_list?)
+        return map_expansion.to_s == expansion
+      end
+      candidates = []
+      candidates << current_runtime_expansion_id if respond_to?(:current_runtime_expansion_id)
+      candidates << current_expansion_marker if respond_to?(:current_expansion_marker)
+      candidates << current_map_expansion_id if respond_to?(:current_map_expansion_id)
+      candidates.compact.each do |candidate|
+        value = candidate.to_s
+        next if value.empty?
+        return true if value == expansion
+        return true if respond_to?(:expansion_id_in_list?) && expansion_id_in_list?(value, [expansion])
+      end
+      return false
+    rescue
+      return false
+    end
+
+    def record_expansion_badge!(expansion_id, badge_index, page_id = nil, value = true)
+      expansion = expansion_id.to_s
+      return false if expansion.empty? || expansion == HOST_EXPANSION_ID
+      manifest = manifest_for(expansion)
+      return false if !manifest
+      page = manifest[:badge_pages].find { |entry| entry[:id] == page_id.to_s } if page_id
+      page ||= manifest[:badge_pages].first
+      return false if !page
+      slots = normalized_badge_slot_count(page[:slot_count], 8)
+      index = integer(badge_index, -1)
+      return false if index < 0
+      slots = [slots, index + 1].max
+      state = state_for(expansion)
+      page_key = page[:id].to_s
+      existing = state.badges[page_key].is_a?(Array) ? state.badges[page_key] : []
+      badges = Array.new(slots, false)
+      existing.each_with_index { |entry, i| badges[i] = entry ? true : false if i < slots }
+      badges[index] = value ? true : false
+      state.badges[page_key] = badges
+      return true
+    rescue => e
+      log("[badges] failed to record #{expansion_id.inspect} badge #{badge_index.inspect}: #{e.class}: #{e.message}") if respond_to?(:log)
+      return false
     end
 
     def badge_array_for(expansion_id, page_id = nil, player = $Trainer)
@@ -1146,11 +1352,20 @@ if !defined?($travel_expansion_framework_loaded)
       page = manifest[:badge_pages].find { |entry| entry[:id] == page_id.to_s } if page_id
       page ||= manifest[:badge_pages].first
       return [] if !page
-      slots = integer(page[:slot_count], 8)
+      slots = normalized_badge_slot_count(page[:slot_count], 8)
       state = state_for(expansion_id)
-      state.badges[page[:id].to_s] ||= Array.new(slots, false)
+      page_key = page[:id].to_s
+      state.badges[page_key] ||= Array.new(slots, false)
+      stored_badges = state.badges[page_key].is_a?(Array) ? state.badges[page_key] : []
       badges = Array.new(slots, false)
-      state.badges[page[:id].to_s].each_with_index { |value, index| badges[index] = value ? true : false if index < slots }
+      stored_badges.each_with_index { |value, index| badges[index] = value ? true : false if index < slots }
+      stored_normalized = badges.clone
+      if badge_progress_mirrors_host?(expansion_id) && current_badge_context_for?(expansion_id)
+        host_badges(player).each_with_index do |value, index|
+          badges[index] = true if value && index < slots
+        end
+      end
+      state.badges[page_key] = stored_normalized if stored_badges.length != slots
       return badges
     end
 

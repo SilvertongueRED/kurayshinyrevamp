@@ -306,7 +306,7 @@ module CustomSpeciesFramework
       uranium xenoverse reborn insurgence anil indigo opalo empyrean realidea soulstones
       bushido darkhorizon dark_horizon infinity solar_eclipse solareclipse vanguard pokemon_z pokemonz
       chaos_in_vesita chaosinvesita deserted gadir_deluxe gadirdeluxe gadirdelux
-      hollow_woods hollowwoods keishou unbreakable_ties unbreakableties
+      hollow_woods hollowwoods keishou unbreakable_ties unbreakableties void pokemon_void
     ].each do |token|
       return true if context_key.include?(token) && source_text.include?(token)
     end
@@ -602,6 +602,14 @@ module CustomSpeciesFramework
   end
 
   def self.preferred_icon_path(species)
+    metadata = metadata_for(species)
+    if metadata
+      direct_path = asset_path(:icon, species)
+      return direct_path if direct_path
+      fallback_species = fallback_species_for(species)
+      return fallback_species if fallback_species
+      return nil
+    end
     runtime_path = runtime_icon_path(species)
     return runtime_path if runtime_path
     return asset_path(:icon, species)
@@ -625,6 +633,14 @@ module CustomSpeciesFramework
   end
 
   def self.resolve_graphic(kind, species)
+    metadata = metadata_for(species)
+    if metadata
+      direct_path = asset_path(kind, species)
+      return direct_path if direct_path
+      fallback_species = fallback_species_for(species)
+      return nil if fallback_species.nil?
+      return fallback_species
+    end
     if kind == :front || kind == :back
       runtime_path = runtime_battler_path(species, kind == :back)
       return runtime_path if runtime_path

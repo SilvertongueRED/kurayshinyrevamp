@@ -20,7 +20,7 @@ internal sealed class InstallerForm : Form
     {
         _initialOptions = options;
 
-        Text = "Kuray Infinite Fusion Installer";
+        Text = "Kuray Infinite Fusion Experimental Installer";
         AutoScaleMode = AutoScaleMode.Font;
         ClientSize = new Size(860, 430);
         MinimumSize = new Size(860, 430);

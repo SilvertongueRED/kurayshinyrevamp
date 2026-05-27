@@ -1,0 +1,8 @@
+ROMs/
+Saves/
+mirror_runtime/
+launch.log
+Emulator/mGBA-0.10.5-win64/qt.ini
+native/**/bin/
+native/**/obj/
+native/**/publish/*.pdb

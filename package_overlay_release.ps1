@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-    [string]$ReleaseName = "PIF-player-build-20260512-full-current-update1",
+    [string]$ReleaseName = "PIF-player-build-20260527-full-current-update1",
     [string]$PreviousManifestPath = "",
     [string]$OutputRoot = "",
     [switch]$KeepStage
@@ -82,6 +82,15 @@ $cleanupPaths = @(
     "Mods\custom_species_framework\creator\edge_dom.txt",
     "Mods\custom_species_framework\importer\state\import_state.json",
     "Mods\custom_species_framework\importer\import_output\import.log",
+    "Mods\zzz_gba_player\ROMs",
+    "Mods\zzz_gba_player\Saves",
+    "Mods\zzz_gba_player\mirror_runtime",
+    "Mods\zzz_gba_player\launch.log",
+    "Mods\zzz_gba_player\Emulator\mGBA-0.10.5-win64\qt.ini",
+    "Mods\zzz_gba_player\native\corehost\bin",
+    "Mods\zzz_gba_player\native\corehost\obj",
+    "Mods\zzz_gba_player\native\mirror\bin",
+    "Mods\zzz_gba_player\native\mirror\obj",
     "KIFM\platinum_uuids.txt",
     "KIFM\discord_ids.txt",
     "KIFM\pending_discord_link.txt",
@@ -94,7 +103,17 @@ $excludedPackagePaths = @()
 
 $cleanupWildcardRelativePatterns = @(
     "Mods\autoplay_bot\data\state*.json",
-    "Mods\custom_species_framework\creator\*.log"
+    "Mods\custom_species_framework\creator\*.log",
+    "Mods\zzz_gba_player\native\*\publish\*.pdb",
+    "Mods\zzz_gba_player\ROMs\*.gba",
+    "Mods\zzz_gba_player\ROMs\*.gb",
+    "Mods\zzz_gba_player\ROMs\*.gbc",
+    "Mods\zzz_gba_player\ROMs\*.zip",
+    "Mods\zzz_gba_player\ROMs\*.sav",
+    "Mods\zzz_gba_player\ROMs\*.srm",
+    "Mods\zzz_gba_player\Saves\*.sav",
+    "Mods\zzz_gba_player\Saves\*.srm",
+    "Mods\zzz_gba_player\Saves\*.sa1"
 )
 
 $cleanupRecursiveFileNames = @(
@@ -294,6 +313,11 @@ function New-ModCreditsContent {
         }
     }
 
+    $lines.Add("")
+    $lines.Add("Third-party runtime credits")
+    $lines.Add("- GBA Player bundles the mGBA 0.10.5 Windows runtime for public testing. See Mods\\zzz_gba_player\\Emulator\\mGBA-0.10.5-win64\\LICENSE.txt and the bundled licenses folder for upstream notices.")
+    $lines.Add("- GBA Player also ships the mgba_libretro core and native helper runtime files used by its mirror/native bridge flow.")
+
     $importCreditsPath = Join-Path $projectRoot "Mods\custom_species_framework\importer\import_output\credits_manifest.json"
     if (Test-Path -LiteralPath $importCreditsPath) {
         try {
@@ -381,6 +405,89 @@ function Copy-ChangedFilesToStage {
     }
 }
 
+function Get-PublicGbaPlayerConfigContent {
+    return @'
+{
+  "rom_roots": ["Mods/zzz_gba_player/ROMs"],
+  "save_roots": ["Mods/zzz_gba_player/Saves", "Mods/zzz_gba_player/ROMs"],
+  "emulator_path": "",
+  "emulator_search_roots": ["Mods/zzz_gba_player/Emulator"],
+  "emulator_args": "{rom}",
+  "emulator_volume_percent": 25,
+  "bridge_backend": "mirror",
+  "native_core_enabled": false,
+  "libretro_core_path": "Mods/zzz_gba_player/native/corehost/cores/mgba_libretro.dll",
+  "native_frame_fps": 30,
+  "native_audio_buffer_ms": 240,
+  "display_mode": "pip",
+  "mirror_embed": true,
+  "mirror_lock_aspect": true,
+  "mirror_fps": 30,
+  "walkalong_size": "large",
+  "walkalong_screen_width": 180,
+  "walkalong_position": "top_right",
+  "walkalong_x": null,
+  "walkalong_y": null,
+  "walkalong_pocketed": false,
+  "keymap": {
+    "up": "I",
+    "down": "K",
+    "left": "J",
+    "right": "L",
+    "a": "U",
+    "b": "O",
+    "l": "Y",
+    "r": "P",
+    "start": "H",
+    "select": "G",
+    "stop": "F12",
+    "toggle_size": "F11"
+  },
+  "species_overrides": {},
+  "move_overrides": {},
+  "item_overrides": {},
+  "favorites": [],
+  "last_rom": ""
+}
+'@
+}
+
+function Apply-PublicPackageSanitization {
+    param([Parameter(Mandatory = $true)][string]$RootPath)
+
+    $gbaConfigPath = Join-Path $RootPath "Mods\zzz_gba_player\config.json"
+    if (Test-Path -LiteralPath $gbaConfigPath) {
+        Set-Content -LiteralPath $gbaConfigPath -Value (Get-PublicGbaPlayerConfigContent) -Encoding UTF8
+    }
+
+    $runtimeCleanupPaths = @(
+        "Mods\zzz_gba_player\ROMs",
+        "Mods\zzz_gba_player\Saves",
+        "Mods\zzz_gba_player\mirror_runtime",
+        "Mods\zzz_gba_player\launch.log",
+        "Mods\zzz_gba_player\Emulator\mGBA-0.10.5-win64\qt.ini",
+        "Mods\zzz_gba_player\native\corehost\bin",
+        "Mods\zzz_gba_player\native\corehost\obj",
+        "Mods\zzz_gba_player\native\mirror\bin",
+        "Mods\zzz_gba_player\native\mirror\obj",
+        "Mods\zzz_gba_player\native\corehost\publish\GBAPlayerCoreHost.pdb",
+        "Mods\zzz_gba_player\native\mirror\publish\GBAPlayerMirror.pdb"
+    )
+
+    foreach ($relativePath in $runtimeCleanupPaths) {
+        $fullPath = Join-Path $RootPath $relativePath
+        if (Test-Path -LiteralPath $fullPath) {
+            Assert-UnderRoot -Path $fullPath -Root $RootPath
+            $item = Get-Item -LiteralPath $fullPath
+            if ($item.PSIsContainer) {
+                Remove-Item -LiteralPath $fullPath -Recurse -Force
+            } else {
+                Remove-Item -LiteralPath $fullPath -Force
+            }
+        }
+    }
+}
+
 function New-OverlayPlayerReadme {
     param(
         [Parameter(Mandatory = $true)][DateTimeOffset]$Cutoff,
@@ -396,8 +503,8 @@ function New-OverlayPlayerReadme {
         "What this update expects",
         "- Fresh installs should use the updated WebSetup installer so it can download the base release first and then apply this overlay automatically.",
         "- Existing installs from the public 2026-04-22 no-CSF release can apply this update directly through the same updated WebSetup installer.",
-        "- This overlay now carries the current custom species framework content, modded multiplayer content, travel expansion links, and current packaged mod stack.",
-        "- Local save data and machine-specific cache/log files still stay out of the package.",
+        "- This overlay now carries the current custom species framework content, modded multiplayer content, travel expansion links, GBA Player scaffold content, and current packaged mod stack.",
+        "- Local save data, GBA ROM/save content, and machine-specific cache/log files still stay out of the package.",
         "",
         "Changed packaged files in this overlay: {0}" -f $ChangedCount
     )
@@ -450,6 +557,7 @@ Write-Host ("Building overlay stage at {0}" -f $stageRoot)
 Ensure-CleanDirectory -Path $stageRoot
 New-Item -ItemType Directory -Path $packageRoot -Force | Out-Null
 Copy-ChangedFilesToStage -Files $changedFiles
+Apply-PublicPackageSanitization -RootPath $packageRoot
 
 $playerReadmePath = Join-Path $packageRoot "PLAYER_RELEASE_README.txt"
 $buildManifestPath = Join-Path $packageRoot "PACKAGED_BUILD_MANIFEST.txt"

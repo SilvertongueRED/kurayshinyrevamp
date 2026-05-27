@@ -2,7 +2,7 @@
   "species": [
     {
       "id": "CSF_URANIUM_CHYINMUNK",
-      "slot": 14,
+      "slot": 174,
       "kind": "fakemon",
       "name": "Chyinmunk",
       "category": "Spark Squirrel",
@@ -62,7 +62,7 @@
     },
     {
       "id": "CSF_URANIUM_BIRBIE",
-      "slot": 15,
+      "slot": 175,
       "kind": "fakemon",
       "name": "Birbie",
       "category": "Tiny Bird",
@@ -122,7 +122,7 @@
     },
     {
       "id": "CSF_URANIUM_CUBBUG",
-      "slot": 16,
+      "slot": 176,
       "kind": "fakemon",
       "name": "Cubbug",
       "category": "Larva Bug",
