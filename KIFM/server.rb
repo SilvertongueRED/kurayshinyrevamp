@@ -2959,6 +2959,29 @@ def platinum_validate_trade(trades, platinum_accounts, client_data, trade_id)
   a_sid = t[:a_sid]
   b_sid = t[:b_sid]
 
+  # Extract platinum amounts from offers FIRST. A trade that moves no platinum
+  # currency (a normal Pokemon trade, or a one-sided gift where one party offers
+  # nothing) must NOT require a Platinum/Discord-linked account on either side.
+  a_offer = t[:offers][a_sid] || {}
+  b_offer = t[:offers][b_sid] || {}
+
+  a_giving = extract_platinum_from_offer(a_offer)
+  b_giving = extract_platinum_from_offer(b_offer)
+
+  if a_giving <= 0 && b_giving <= 0
+    # No platinum involved: nothing to validate or transfer. Mark locked +
+    # transferred so platinum_execute_trade_transfer becomes a safe no-op and
+    # the Pokemon trade proceeds without needing platinum auth on either side.
+    t[:platinum_amounts] ||= {}
+    t[:platinum_amounts][a_sid] = 0
+    t[:platinum_amounts][b_sid] = 0
+    t[:platinum_locked] = true
+    t[:platinum_transferred] = true
+    MultiplayerDebug.info("PLATINUM-TRADE", "Trade #{trade_id}: no platinum involved, skipping auth/validation") if defined?(MultiplayerDebug)
+    return { success: true }
+  end
+
+  # Platinum IS being traded -> both sides need a Platinum/Discord-linked account.
   # Get UUIDs from client_data
   a_uuid = client_data.values.find { |h| h[:id] == a_sid }&.dig(:platinum_uuid)
   b_uuid = client_data.values.find { |h| h[:id] == b_sid }&.dig(:platinum_uuid)
@@ -2966,13 +2989,6 @@ def platinum_validate_trade(trades, platinum_accounts, client_data, trade_id)
   unless a_uuid && b_uuid
     return { success: false, reason: "AUTH_REQUIRED" }
   end
-
-  # Extract platinum amounts from offers
-  a_offer = t[:offers][a_sid] || {}
-  b_offer = t[:offers][b_sid] || {}
-
-  a_giving = extract_platinum_from_offer(a_offer)
-  b_giving = extract_platinum_from_offer(b_offer)
 
   # Validate balances
   result = nil

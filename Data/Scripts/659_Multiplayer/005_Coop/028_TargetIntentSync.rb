@@ -64,7 +64,7 @@ module CoopTargetIntent
   def prune_stale(battle)
     return unless battle
     cur = current_turn_for(battle)
-    @remote_intents.reject! { |_idx, info| info[:turn] != cur }
+    @remote_intents.reject! { |_idx, info| (info[:turn].to_i - cur).abs > 1 }
   rescue
     nil
   end
@@ -96,9 +96,16 @@ module CoopTargetIntent
     cur_id = CoopBattleState.battle_id rescue nil
     return false if cur_id && battle_id && cur_id.to_s != battle_id.to_s
 
-    # Only honour intents from actual allies
-    if CoopBattleState.respond_to?(:is_ally?)
-      return false unless CoopBattleState.is_ally?(from_sid)
+    # Only honour intents from actual allies. Compare as strings so a sid
+    # type/format mismatch can never silently drop a teammate's intent (this was
+    # a prime suspect for the marker never appearing). If the ally list is known
+    # and this sid really is not in it, ignore; otherwise accept.
+    if CoopBattleState.respond_to?(:get_ally_sids)
+      allies = (CoopBattleState.get_ally_sids rescue []) || []
+      if allies.any? && !allies.map { |s| s.to_s }.include?(from_sid.to_s)
+        MultiplayerDebug.warn("COOP-TGT", "intent from non-ally #{from_sid} (allies=#{allies.inspect}) - ignoring") if defined?(MultiplayerDebug)
+        return false
+      end
     end
 
     @remote_intents[attacker_idx.to_i] = {
@@ -122,7 +129,7 @@ module CoopTargetIntent
     return out unless battle
     cur = current_turn_for(battle)
     @remote_intents.each_value do |info|
-      next unless info[:turn] == cur
+      next unless (info[:turn].to_i - cur).abs <= 1
       t = info[:target]
       next if t.nil? || t < 0
       out[t] ||= 0

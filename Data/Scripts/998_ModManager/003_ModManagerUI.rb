@@ -690,14 +690,14 @@ module ModManager
         return
       end
 
-      # MM update (U key)
-      if _key_trigger?(0x55) && @mm_update_available  # U
+      # MM update (U key or Z/Special button)
+      if (_key_trigger?(0x55) || Input.trigger?(Input::Z)) && @mm_update_available  # U
         do_mm_update
         return
       end
 
-      # Filter (F key)
-      if _key_trigger?(0x46)  # F
+      # Filter (F key or Y button)
+      if _key_trigger?(0x46) || Input.trigger?(Input::Y)  # F
         tags = ModManager::VALID_TAGS + ["Clear Filter"]
         choice = show_message("Filter by tag:", tags)
         if choice >= 0 && choice < ModManager::VALID_TAGS.length

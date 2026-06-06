@@ -501,6 +501,26 @@ module CoopActionSync
       return false
     end
 
+    # --- Co-op ally target intent: reliable per-turn broadcast ---
+    # pbChooseTarget only fires for interactive target picks. Broadcasting here
+    # too guarantees allies learn which foe each of our Pokemon is aiming at, even
+    # when the engine auto-selected the target. Safe no-op outside co-op.
+    if defined?(CoopTargetIntent)
+      begin
+        my_actions.each do |bidx, choice|
+          next unless choice.is_a?(Array) && choice[0] == :UseMove
+          tgt = choice[3]
+          next if tgt.nil? || tgt < 0
+          foe = false
+          begin; foe = battle.opposes?(bidx, tgt); rescue; foe = false; end
+          next unless foe
+          CoopTargetIntent.broadcast(battle, bidx, tgt)
+        end
+      rescue => e
+        MultiplayerDebug.warn("COOP-TGT", "fallback broadcast failed: #{e.class}: #{e.message}") if defined?(MultiplayerDebug)
+      end
+    end
+
     # Initialize sync state
     @expected_sids = ally_sids.dup
     # DON'T reset @pending_actions - keep actions that were already received!
@@ -568,7 +588,7 @@ module CoopActionSync
       begin
         _coop_sc = battle.scene
         if _coop_sc && _coop_sc.respond_to?(:coop_update_ally_target_markers)
-          _coop_sc.coop_update_ally_target_markers
+          _coop_sc.coop_update_ally_target_markers(true)  # force: we are between command & attack phases
         end
       rescue
         nil

@@ -1,31 +1,32 @@
 #===============================================================================
-# Co-op Ally Target Marker (visual layer)
+# Co-op Ally Target Marker (visual layer)  -- hardened revision
 #===============================================================================
 # Loads AFTER EBDX (660) and BossUIHooks (661) so these scene overrides sit on
 # top of whatever battle scene is active.
 #
-# Draws a small pulsing "ALLY" marker with a downward arrow above every foe that
-# a co-op teammate has already chosen to attack this round. It refreshes every
-# frame during the command / target-selection menus AND during the co-op
-# action-sync wait (see 659_Multiplayer/005_Coop/006_ActionSync.rb), so a
-# teammate's pick shows up live while you are still deciding -- letting you
-# spread damage instead of doubling up.
+# Draws a pulsing "ALLY" marker with a downward arrow over every foe a co-op
+# teammate has already chosen to attack this round, so you can spread damage
+# instead of doubling up. It refreshes:
+#   * every frame during YOUR command / target selection (pbFrameUpdate hook), and
+#   * every frame during the co-op action-sync wait (006_ActionSync.rb), where it
+#     is called with force=true because that wait is, by definition, the window
+#     between your command phase and the attack phase.
 #
-# Pairs with module CoopTargetIntent (659_Multiplayer/005_Coop). Completely
-# inert outside of co-op battles, and every drawing path is guarded so a missing
-# sprite or attribute can never crash the battle.
+# WHY EARLIER REVISIONS SHOWED NOTHING (the bugs this revision targets):
+#   1. The marker sprites were created on the scene's @viewport. Under the default
+#      EBDX UI that viewport shares z=99999 with several others and the marker
+#      could end up underneath EBDX layers. We now draw on a DEDICATED viewport at
+#      a z above every EBDX layer, so the marker is always on top.
+#   2. The action-sync wait can return instantly (ally already submitted), and the
+#      refresh there was gated on CoopTargetIntent.active?, which could already be
+#      false. The wait now forces a refresh (force=true) that bypasses that gate.
+#   3. Positioning assumed a fixed -176px offset and hard-clamped to y=4, which
+#      could detach the marker from the foe under EBDX zoom. Positioning is now
+#      derived from the sprite's actual height with a gentle clamp.
 #
-# IMPORTANT (the bug this revision fixes):
-#   The active battle UIs are NOT all the same class. The default EBDX UI uses a
-#   SUBCLASS, PokeBattle_SceneEBDX < PokeBattle_Scene, that overrides
-#   pbFrameUpdate / pbBeginCommandPhase / pbBeginAttackPhase / pbDisposeSprites
-#   WITHOUT calling super. Hooks placed only on the base PokeBattle_Scene are
-#   therefore shadowed and never run under EBDX -- which is why the marker never
-#   appeared with the default battle UI. We now install the frame/lifecycle
-#   wrappers on EVERY concrete scene class that defines its own versions (base
-#   PokeBattle_Scene, used by vanilla and the GhostBattle Classic+ mod, AND
-#   PokeBattle_SceneEBDX). The drawing implementation lives once on the base and
-#   is inherited by the subclass.
+# Pairs with module CoopTargetIntent (659_Multiplayer/005_Coop). Completely inert
+# outside co-op battles, and every drawing path is guarded so a missing sprite or
+# attribute can never crash the battle.
 #===============================================================================
 
 #-------------------------------------------------------------------------------
@@ -33,14 +34,26 @@
 # subclass (PokeBattle_SceneEBDX, etc.).
 #-------------------------------------------------------------------------------
 class PokeBattle_Scene
-  COOP_MARKER_Z = 90000 unless const_defined?(:COOP_MARKER_Z)
+  COOP_MARKER_VP_Z = 100050 unless const_defined?(:COOP_MARKER_VP_Z)
 
-  def coop_update_ally_target_markers
+  # Dedicated viewport that sits above every EBDX UI layer.
+  def coop_marker_viewport
+    if !@coop_marker_viewport || (@coop_marker_viewport.respond_to?(:disposed?) && @coop_marker_viewport.disposed?)
+      @coop_marker_viewport = Viewport.new(0, 0, Graphics.width, Graphics.height)
+      @coop_marker_viewport.z = COOP_MARKER_VP_Z
+    end
+    @coop_marker_viewport
+  rescue
+    @viewport
+  end
+
+  # force=true -> draw even if CoopTargetIntent.active? is false (used by the
+  # action-sync wait loop, which is always between command and attack phases).
+  def coop_update_ally_target_markers(force = false)
     return unless defined?(CoopTargetIntent) && defined?(CoopBattleState)
     @coop_intent_markers ||= {}
 
-    # Only while the local player is actually choosing commands in a co-op battle
-    unless CoopBattleState.in_coop_battle? && CoopTargetIntent.active?
+    unless CoopBattleState.in_coop_battle? && (force || CoopTargetIntent.active?)
       coop_hide_ally_target_markers
       return
     end
@@ -83,20 +96,43 @@ class PokeBattle_Scene
       bw = (spr.bitmap ? spr.bitmap.width : 104)
       px = (poke.x rescue (Graphics.width / 2))
       py = (poke.y rescue (Graphics.height / 2))
+
+      # Estimate the visual TOP of the (bottom-origin) battler sprite so the marker
+      # floats just above its head regardless of EBDX zoom.
+      sprite_h = 160
+      begin
+        if poke.respond_to?(:src_rect) && poke.src_rect && poke.src_rect.height > 0
+          zy = (poke.respond_to?(:zoom_y) ? (poke.zoom_y || 1.0) : 1.0)
+          sprite_h = (poke.src_rect.height * zy).to_i
+        elsif poke.bitmap && !poke.bitmap.disposed?
+          sprite_h = poke.bitmap.height
+        end
+      rescue
+        sprite_h = 160
+      end
+      sprite_h = 96 if sprite_h < 96
+      sprite_h = 320 if sprite_h > 320
+
+      marker_h = (spr.bitmap ? spr.bitmap.height : 46)
       spr.x = px - bw / 2
-      spr.y = py - 176          # battler sprites use a bottom origin -> float above
-      spr.y = 4 if spr.y < 4
-      spr.z = COOP_MARKER_Z
+      spr.y = py - sprite_h - marker_h + 8
+      spr.y = 2 if spr.y < 2
       spr.opacity = pulse
       spr.visible = true
+
+      unless @coop_marker_logged_idx == idx
+        @coop_marker_logged_idx = idx
+        MultiplayerDebug.info("COOP-TGT", "Marker VISIBLE over foe b#{idx} at (#{spr.x},#{spr.y})") if defined?(MultiplayerDebug)
+      end
     end
-  rescue
+  rescue => e
+    MultiplayerDebug.warn("COOP-TGT", "marker update err: #{e.class}: #{e.message}") if defined?(MultiplayerDebug)
     nil
   end
 
   # Builds the little label+arrow bitmap once per foe slot.
   def coop_build_marker_sprite
-    spr = Sprite.new(@viewport)
+    spr = Sprite.new(coop_marker_viewport)
     w = 104
     h = 46
     bmp = Bitmap.new(w, h)
@@ -130,7 +166,6 @@ class PokeBattle_Scene
     end
 
     spr.bitmap = bmp
-    spr.z = COOP_MARKER_Z
     spr.visible = false
     spr
   rescue
@@ -139,6 +174,7 @@ class PokeBattle_Scene
 
   def coop_hide_ally_target_markers
     return unless @coop_intent_markers
+    @coop_marker_logged_idx = nil
     @coop_intent_markers.each_value do |spr|
       spr.visible = false if spr && !spr.disposed?
     end
@@ -147,13 +183,18 @@ class PokeBattle_Scene
   end
 
   def coop_dispose_ally_target_markers
-    return unless @coop_intent_markers
-    @coop_intent_markers.each_value do |spr|
-      next unless spr
-      spr.bitmap.dispose if spr.bitmap && !spr.bitmap.disposed?
-      spr.dispose unless spr.disposed?
+    if @coop_intent_markers
+      @coop_intent_markers.each_value do |spr|
+        next unless spr
+        spr.bitmap.dispose if spr.bitmap && !spr.bitmap.disposed?
+        spr.dispose unless spr.disposed?
+      end
+      @coop_intent_markers = {}
     end
-    @coop_intent_markers = {}
+    if @coop_marker_viewport && !(@coop_marker_viewport.respond_to?(:disposed?) && @coop_marker_viewport.disposed?)
+      @coop_marker_viewport.dispose
+      @coop_marker_viewport = nil
+    end
   rescue
     nil
   end
@@ -161,10 +202,10 @@ end
 
 #-------------------------------------------------------------------------------
 # Hook installer -- wraps the per-frame + command/attack lifecycle methods on a
-# given scene class, chaining onto whatever that class' own version currently
-# is. We only wrap a class that DEFINES ITS OWN version of the method (owner ==
-# the class), so each concrete scene (base + EBDX subclass) gets a wrapper that
-# correctly chains to its real implementation instead of being shadowed.
+# given scene class, chaining onto whatever that class' own version currently is.
+# Only wraps a class that DEFINES ITS OWN version (owner == the class), so each
+# concrete scene (base + EBDX subclass) gets a wrapper that correctly chains to
+# its real implementation instead of being shadowed.
 #-------------------------------------------------------------------------------
 module CoopTargetMarkerHooks
   module_function
@@ -179,7 +220,6 @@ module CoopTargetMarkerHooks
   def install(klass)
     return unless klass.is_a?(Class)
 
-    # Per-frame: draw/refresh the markers after the scene's normal frame update.
     if owns?(klass, :pbFrameUpdate) &&
        !klass.instance_methods(false).include?(:coop_tgtmarker_pbFrameUpdate)
       klass.send(:alias_method, :coop_tgtmarker_pbFrameUpdate, :pbFrameUpdate)
@@ -189,7 +229,6 @@ module CoopTargetMarkerHooks
       end
     end
 
-    # Command phase begin: tell CoopTargetIntent we are now choosing.
     if owns?(klass, :pbBeginCommandPhase) &&
        !klass.instance_methods(false).include?(:coop_tgtmarker_pbBeginCommandPhase)
       klass.send(:alias_method, :coop_tgtmarker_pbBeginCommandPhase, :pbBeginCommandPhase)
@@ -201,7 +240,6 @@ module CoopTargetMarkerHooks
       end
     end
 
-    # Attack phase begin: selection is over -> stop showing/refreshing markers.
     if owns?(klass, :pbBeginAttackPhase) &&
        !klass.instance_methods(false).include?(:coop_tgtmarker_pbBeginAttackPhase)
       klass.send(:alias_method, :coop_tgtmarker_pbBeginAttackPhase, :pbBeginAttackPhase)
@@ -212,7 +250,6 @@ module CoopTargetMarkerHooks
       end
     end
 
-    # Dispose our extra sprites with the scene.
     if owns?(klass, :pbDisposeSprites) &&
        !klass.instance_methods(false).include?(:coop_tgtmarker_pbDisposeSprites)
       klass.send(:alias_method, :coop_tgtmarker_pbDisposeSprites, :pbDisposeSprites)
@@ -232,4 +269,4 @@ end
 CoopTargetMarkerHooks.install(PokeBattle_Scene) if defined?(PokeBattle_Scene)
 CoopTargetMarkerHooks.install(PokeBattle_SceneEBDX) if defined?(PokeBattle_SceneEBDX)
 
-##MultiplayerDebug.info("COOP-TGT-MARKER", "Ally target marker layer loaded") if defined?(MultiplayerDebug)
+MultiplayerDebug.info("COOP-TGT-MARKER", "Ally target marker layer loaded (hardened)") if defined?(MultiplayerDebug)

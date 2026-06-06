@@ -268,6 +268,41 @@ module ModManager
       folders
     end
 
+    # -- Last-updated date per mod (for the "Recently Updated" sort) --------
+    # Uses the GitHub commits API filtered by the mod folder path. Returns an
+    # ISO-8601 date string (which sorts chronologically as a plain string) or
+    # "" if unknown. Cached per session; failures cache "" so the rate-limited
+    # API is never hammered. Pinned/special entries are handled by the caller.
+    @@cache_mod_dates = {}
+
+    def self.mod_last_updated_cached(folder)
+      @@cache_mod_dates[folder]
+    end
+
+    def self.mod_last_updated(folder)
+      return @@cache_mod_dates[folder] if @@cache_mod_dates.key?(folder)
+      date = ""
+      begin
+        url = "https://api.github.com/repos/#{REPO_OWNER}/#{REPO_NAME}/commits?path=#{folder}&per_page=1"
+        raw = pbDownloadToString(url)
+        if raw && raw.is_a?(String) && !raw.empty?
+          u = raw.dup
+          u.force_encoding('UTF-8')
+          u = raw.encode('UTF-8', 'binary', invalid: :replace, undef: :replace, replace: '?') unless u.valid_encoding?
+          u = u.sub(/\A\xEF\xBB\xBF/, '').strip
+          arr = ModManager::JSON.parse(u)
+          if arr.is_a?(Array) && arr[0].is_a?(Hash) && arr[0]["commit"].is_a?(Hash)
+            committer = arr[0]["commit"]["committer"] || arr[0]["commit"]["author"]
+            date = committer["date"].to_s if committer.is_a?(Hash) && committer["date"]
+          end
+        end
+      rescue
+        date = ""
+      end
+      @@cache_mod_dates[folder] = date
+      date
+    end
+
     # Returns parsed mod.json hash for a remote mod, or nil
     def self.fetch_mod_json(folder)
       return @@cache_mod_json[folder] if @@cache_mod_json[folder]
@@ -717,6 +752,7 @@ module ModManager
       @search_text = ""
       @search_active = false
       @filter_tag = nil
+      @sort_mode = :az  # :az (A-Z) or :recent (recently updated on the repo)
       @cursor_frame = 0
       @loading = true
       @last_drawn_sel = -1
@@ -924,7 +960,7 @@ module ModManager
         return
       end
 
-      @filtered_mods = @remote_mods.dup
+      @filtered_mods = apply_sort(@remote_mods.dup)
       @sel_index = 0
       @scroll = 0
       @last_drawn_sel = -1
@@ -1275,8 +1311,8 @@ module ModManager
 
       case @active_tab
       when :mods, :modpacks
-        tag_text = @filter_tag ? "T: Tag [#{@filter_tag}]" : "T: Filter by Tag"
-        pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "S: Search  |  #{tag_text}  |  Tab: Switch", DIM, SHADOW)
+        tag_text = @filter_tag ? "T: Tag [#{@filter_tag}]" : "T: Tag"
+        pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "S: Search | #{tag_text} | Y: Sort [#{sort_label}] | L/R: Switch", DIM, SHADOW)
       when :share_code
         pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "Tab: Switch  |  Ctrl+V: Paste", DIM, SHADOW)
       end
@@ -1325,7 +1361,15 @@ module ModManager
         return
       end
 
-      # Tab switching: Tab key cycles, 1/2/3 keys
+      # Tab switching: L/R shoulder buttons (controller), Tab key, 1/2/3 keys
+      if Input.trigger?(Input::R)
+        switch_tab(TABS[(TABS.index(@active_tab) + 1) % TABS.length])
+        return
+      end
+      if Input.trigger?(Input::L)
+        switch_tab(TABS[(TABS.index(@active_tab) - 1) % TABS.length])
+        return
+      end
       if _key_trigger?(0x09)  # Tab
         switch_tab(TABS[(TABS.index(@active_tab) + 1) % TABS.length])
         return
@@ -1348,9 +1392,15 @@ module ModManager
         return
       end
 
-      # Tag filter (T key)
-      if _key_trigger?(0x54)
+      # Tag filter (T key or Z/Special button)
+      if _key_trigger?(0x54) || Input.trigger?(Input::Z)
         cycle_tag_filter
+        return
+      end
+
+      # Cycle sort order (O key or Y button): A-Z <-> Recently Updated
+      if _key_trigger?(0x4F) || Input.trigger?(Input::Y)
+        cycle_sort
         return
       end
 
@@ -1393,9 +1443,15 @@ module ModManager
         return
       end
 
-      # Tag filter (T key)
-      if _key_trigger?(0x54)
+      # Tag filter (T key or Z/Special button)
+      if _key_trigger?(0x54) || Input.trigger?(Input::Z)
         cycle_tag_filter_modpacks
+        return
+      end
+
+      # Cycle sort order (O key or Y button): A-Z <-> Recently Updated
+      if _key_trigger?(0x4F) || Input.trigger?(Input::Y)
+        cycle_sort
         return
       end
 
@@ -2505,6 +2561,45 @@ module ModManager
       return desc.to_s
     end
 
+    def sort_label
+      @sort_mode == :recent ? "Recent" : "A-Z"
+    end
+
+    def _entry_pinned?(entry)
+      entry.is_a?(Hash) && entry["special"] == true
+    end
+
+    def _entry_name(entry)
+      json = entry["json"]
+      nm = (json && json["name"]) ? json["name"].to_s : entry["folder"].to_s
+      nm.downcase
+    end
+
+    def _entry_date(entry)
+      (GitHub.mod_last_updated_cached(entry["folder"]) || "").to_s rescue ""
+    end
+
+    # Re-order a filtered list by @sort_mode, keeping pinned/special entries on
+    # top in their original order. ISO-8601 date strings sort chronologically as
+    # plain strings, so "Recent" needs no date parsing.
+    def apply_sort(list)
+      return list unless list.is_a?(Array)
+      pinned = list.select { |e| _entry_pinned?(e) }
+      rest   = list.reject { |e| _entry_pinned?(e) }
+      case @sort_mode
+      when :recent
+        dated   = rest.select { |e| !_entry_date(e).empty? }
+        undated = rest.select { |e|  _entry_date(e).empty? }
+        dated   = dated.sort_by { |e| _entry_date(e) }.reverse  # newest first
+        rest    = dated + undated
+      else # :az
+        rest = rest.sort_by { |e| _entry_name(e) }
+      end
+      pinned + rest
+    rescue
+      list
+    end
+
     def apply_filter
       list = @remote_mods
       unless @search_text.empty?
@@ -2525,7 +2620,7 @@ module ModManager
           json["tags"].any? { |t| t.to_s.downcase == tag_q }
         end
       end
-      @filtered_mods = list
+      @filtered_mods = apply_sort(list)
       @sel_index = @sel_index.clamp(0, [(@filtered_mods.length - 1), 0].max)
       ensure_visible
     end
@@ -2551,7 +2646,7 @@ module ModManager
           json["tags"].any? { |t| t.to_s.downcase == tag_q }
         end
       end
-      @filtered_modpacks = list
+      @filtered_modpacks = apply_sort(list)
       @sel_index = @sel_index.clamp(0, [(@filtered_modpacks.length - 1), 0].max)
       ensure_visible_modpacks
     end
@@ -2596,6 +2691,48 @@ module ModManager
       draw_footer
       draw_left
       draw_right
+    end
+
+    def cycle_sort
+      @sort_mode = (@sort_mode == :recent) ? :az : :recent
+      ensure_mod_dates_loaded if @sort_mode == :recent
+      @sel_index = 0
+      @scroll = 0
+      @last_drawn_sel = -1
+      if @active_tab == :modpacks
+        apply_filter_modpacks
+      else
+        apply_filter
+      end
+      draw_title
+      draw_footer
+      draw_left
+      draw_right
+    end
+
+    # Fetch last-updated dates for every currently-listed mod (once per session,
+    # cached in GitHub). Shows a light progress line so the game never looks
+    # frozen. Degrades gracefully if the API rate-limits.
+    def ensure_mod_dates_loaded
+      list = (@active_tab == :modpacks) ? @remote_modpacks : @remote_mods
+      list = [] unless list.is_a?(Array)
+      todo = list.reject { |e| _entry_pinned?(e) || GitHub.mod_last_updated_cached(e["folder"]) }
+      return if todo.empty?
+      b = @title_spr.bitmap
+      total = todo.length
+      todo.each_with_index do |entry, i|
+        begin
+          b.fill_rect(0, 0, SCREEN_W, TITLE_H, FOOTER_BG)
+          pbSetSystemFont(b)
+          pbDrawShadowText(b, 12, 0, SCREEN_W - 24, TITLE_H,
+            "Fetching update dates... #{i + 1}/#{total}", Color.new(255, 255, 255), SHADOW)
+          Graphics.update
+          Input.update
+          GitHub.mod_last_updated(entry["folder"])
+        rescue
+          nil
+        end
+      end
     end
 
     def rows_per_page
