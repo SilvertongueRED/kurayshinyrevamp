@@ -1,0 +1,692 @@
+{
+  "generated_at": "2026-05-30 12:27:55",
+  "framework_version": "0.2.0-rc.1",
+  "manifest_version": "2026.05-rc1",
+  "host_first": true,
+  "host_battle_ui_locked": true,
+  "worlds": {
+    "anil": {
+      "id": "anil",
+      "display_name": "Pokemon Anil / Indigo",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "town_map",
+        "follower_system",
+        "dex",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["native menus", "town map language", "follower/photo helpers", "transfer release"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "bushido": {
+      "id": "bushido",
+      "display_name": "Pokemon Bushido",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["battle scripting setup and party ownership reset"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "chaos_in_vesita": {
+      "id": "chaos_in_vesita",
+      "display_name": "Pokemon Chaos in Vesita",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": ["startup", "story_transfer", "trainer_battle", "save_load_recovery"],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "darkhorizon": {
+      "id": "darkhorizon",
+      "display_name": "Pokemon Dark Horizon",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["EliteBattle setup and trainer wrappers"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "decades": {
+      "id": "decades",
+      "display_name": "Pokemon Decades",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "town_map",
+        "follower_system",
+        "encounters",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": [
+        "Deluxe Battle Kit rules",
+        "form trader screens",
+        "battle-mode bag helpers",
+        "follower setup",
+        "tip cards"
+      ],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "deserted": {
+      "id": "deserted",
+      "display_name": "Pokemon Deserted",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": ["startup", "story_transfer", "trainer_battle", "save_load_recovery"],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "empyrean": {
+      "id": "empyrean",
+      "display_name": "Pokemon Empyrean",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "bridge_passability",
+        "encounters",
+        "save_load_recovery"
+      ],
+      "known_risks": ["bridge passability and over/under bridge state"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "gadir_deluxe": {
+      "id": "gadir_deluxe",
+      "display_name": "Pokemon Gadir Deluxe",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "hollow_woods": {
+      "id": "hollow_woods",
+      "display_name": "Pokemon Hollow Woods",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["game-mode screens", "starter selection", "quest helpers"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "infinity": {
+      "id": "infinity",
+      "display_name": "Pokemon Infinity",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "follower_system",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["day-night helper methods and roaming checks"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "insurgence": {
+      "id": "insurgence",
+      "display_name": "Pokemon Insurgence",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "follower_system",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "keishou": {
+      "id": "keishou",
+      "display_name": "Pokemon Keishou",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "town_map",
+        "bridge_passability",
+        "encounters",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["native item handlers", "charm/crafting/storage", "town map routing", "bridge and encounter tags"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "opalo": {
+      "id": "opalo",
+      "display_name": "Pokemon Opalo",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "encounters",
+        "save_load_recovery"
+      ],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "pokemon_uranium": {
+      "id": "pokemon_uranium",
+      "display_name": "Pokemon Uranium",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "encounters",
+        "save_load_recovery"
+      ],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "pokemon_void": {
+      "id": "pokemon_void",
+      "display_name": "Pokemon Void",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "town_map",
+        "follower_system",
+        "bridge_passability",
+        "encounters",
+        "dex",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": [
+        "packaged Essentials v21 archive",
+        "plugin scripts",
+        "compiled species data",
+        "custom fakemon graphics",
+        "early story bootstrap"
+      ],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "pokemon_z": {
+      "id": "pokemon_z",
+      "display_name": "Pokemon Z",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "realidea": {
+      "id": "realidea",
+      "display_name": "Pokemon Realidea",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "reborn": {
+      "id": "reborn",
+      "display_name": "Pokemon Reborn",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "town_map",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["story flags after scripted crashes", "map transfer interpreter staleness"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "rejuvenation": {
+      "id": "rejuvenation",
+      "display_name": "Pokemon Rejuvenation",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "town_map",
+        "follower_system",
+        "bridge_passability",
+        "encounters",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["password and intro setup menus", "quest helpers", "dependency/follower helpers", "custom duel and minigame screens"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "solar_eclipse": {
+      "id": "solar_eclipse",
+      "display_name": "Pokemon Solar Eclipse",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "follower_system",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["intro setting menus and trainer-card setup"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "soulstones": {
+      "id": "soulstones",
+      "display_name": "Pokemon Soulstones",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "encounters",
+        "save_load_recovery"
+      ],
+      "known_risks": ["helper methods and edge map connections"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "soulstones2": {
+      "id": "soulstones2",
+      "display_name": "Pokemon Soulstones 2",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "encounters",
+        "save_load_recovery"
+      ],
+      "known_risks": ["helper methods and starter setup"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "unbreakable_ties": {
+      "id": "unbreakable_ties",
+      "display_name": "Pokemon Unbreakable Ties",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "vanguard": {
+      "id": "vanguard",
+      "display_name": "Pokemon Vanguard",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "menu_settings",
+        "save_load_recovery"
+      ],
+      "known_risks": ["early Destiny intro switch handoff and stale battle-state cleanup"],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    },
+    "xenoverse": {
+      "id": "xenoverse",
+      "display_name": "Pokemon Xenoverse",
+      "status": "release_candidate",
+      "installed": false,
+      "active": false,
+      "required_categories": [
+        "startup",
+        "story_transfer",
+        "trainer_battle",
+        "item_handlers",
+        "save_load_recovery"
+      ],
+      "known_risks": [],
+      "last_verified_smoke_route": [
+        "enter from PC or travel terminal",
+        "complete first required dialogue",
+        "trigger one map transfer",
+        "open menu and town map",
+        "run one wild battle and one trainer battle",
+        "save, quit, reload, and return home"
+      ],
+      "host_first": true,
+      "host_battle_ui_locked": true,
+      "fail_closed": true
+    }
+  },
+  "shim_hits": {}
+}

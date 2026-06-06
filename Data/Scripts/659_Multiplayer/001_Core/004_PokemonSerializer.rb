@@ -62,6 +62,16 @@ module PokemonSerializer
         MultiplayerDebug.info(TAG, "  Boss data included: phase=#{bd[:hp_phase]}, shields=#{bd[:shields]}, loot=#{(bd[:loot_options] || []).length}") if defined?(MultiplayerDebug)
       end
 
+      # CROSS-VERSION COMPATIBILITY FIX:
+      # This fork's Pokemon#to_json is a generic instance-variable dumper that
+      # serializes nested objects (moves, owner) as {"__class__","__ivars__"}.
+      # Base KIF (and this mod's own deserializer) expect the canonical "flat"
+      # format: moves -> [{"id"=>..,"pp"=>..,"ppup"=>..}] and
+      # owner -> {"id"=>..,"name"=>..,"gender"=>..,"language"=>..}.
+      # Normalize here so the wire format matches base KIF exactly, which is what
+      # lets fork players trade/battle with base-KIF players.
+      canonicalize_pokemon_data!(data)
+
       # Convert symbols to strings for JSON compatibility
       json_safe = convert_to_json_safe(data)
 
@@ -128,39 +138,68 @@ module PokemonSerializer
         MultiplayerDebug.info(TAG, "  Default owner: #{pokemon.owner.name rescue 'N/A'}")
       end
 
-      # Ensure moves array in data has string keys for move IDs
-      moves_data = ruby_data['moves'] || ruby_data[:moves] || []
-      if moves_data.is_a?(Array)
-        moves_data = moves_data.map do |m|
-          next nil unless m.is_a?(Hash)
-          # Ensure move ID is a symbol (load_json expects this)
-          move_id = m['id'] || m[:id]
-          move_id = move_id.to_sym if move_id.is_a?(String)
-          {
-            'id' => move_id,
-            'pp' => m['pp'] || m[:pp],
-            'ppup' => m['ppup'] || m[:ppup]
-          }
-        end.compact
-        ruby_data['moves'] = moves_data
-      end
+      # Flatten moves to the canonical {id,pp,ppup} shape. mp_move_to_flat handles
+      # BOTH the base-KIF flat format AND this fork's generic
+      # {"__class__"=>"Pokemon::Move","__ivars__"=>{...}} object format, so a fork
+      # client can read parties from base-KIF clients and vice-versa.
+      flat_moves = (ruby_data['moves'] || ruby_data[:moves] || []).map { |m| mp_move_to_flat(m) }.compact
+      flat_moves.each { |fm| fm['id'] = fm['id'].to_sym if fm['id'].is_a?(String) }
+      ruby_data['moves'] = flat_moves
 
       if defined?(MultiplayerDebug)
-        MultiplayerDebug.info(TAG, "  Moves prepared: #{moves_data.length} moves")
-        moves_data.each_with_index do |m, i|
+        MultiplayerDebug.info(TAG, "  Moves prepared: #{flat_moves.length} moves")
+        flat_moves.each_with_index do |m, i|
           MultiplayerDebug.info(TAG, "    Move #{i}: id=#{m['id']} (#{m['id'].class})")
         end
       end
 
-      # Load all the JSON data into the Pokemon using its built-in method
-      # This handles most attributes including moves
+      # CROSS-VERSION FIX (owner) - MUST run BEFORE load_json:
+      # The wire format stores owner in the flat shape
+      # {"id"=>..,"name"=>..,"gender"=>..,"language"=>..}. This fork's base
+      # load_json copies that Hash verbatim into @owner (it only rebuilds objects
+      # tagged with "__class__"). Several load_json hooks (e.g. ShinyOdds) then
+      # call shiny? while still inside load_json, and base shiny? does
+      # `@personalID ^ @owner.id`, which raises NoMethodError on a Hash and aborts
+      # the WHOLE party deserialize -> "Failed to receive opponent's party data!".
+      # Wrap the flat owner in the engine's object envelope so load_json
+      # reconstructs a genuine Pokemon::Owner up front (keeps shiny calc correct).
+      raw_owner_for_load = ruby_data['owner'] || ruby_data[:owner]
+      if raw_owner_for_load.is_a?(Hash) &&
+         !(raw_owner_for_load['__class__'] || raw_owner_for_load[:__class__])
+        fo = mp_owner_to_flat(raw_owner_for_load)
+        if fo.is_a?(Hash)
+          ruby_data['owner'] = {
+            "__class__" => "Pokemon::Owner",
+            "__ivars__" => {
+              "id"       => (fo["id"]       || 0).to_i,
+              "name"     => (fo["name"]     || "").to_s,
+              "gender"   => (fo["gender"]   || 2).to_i,
+              "language" => (fo["language"] || 2).to_i
+            }
+          }
+          if defined?(MultiplayerDebug)
+            MultiplayerDebug.info(TAG, "  Owner pre-wrapped as Pokemon::Owner envelope (id=#{fo['id']}, name=#{fo['name']})")
+          end
+        end
+      end
+
+      # Load all the JSON data into the Pokemon using its built-in method.
       pokemon.load_json(ruby_data)
+
+      # CROSS-VERSION FIX: base KIF's load_json rebuilds real Move objects from
+      # {id,pp,ppup}, but this fork's generic load_json leaves @moves as plain
+      # Hashes (and would leave @owner as a Hash). Rebuild both explicitly so the
+      # result is always genuine Pokemon::Move / Pokemon::Owner objects regardless
+      # of which engine loaded the data. This prevents the NoMethodError on
+      # m.id / owner.name that caused "BAD_POKEMON_DATA" and empty PvP parties.
+      rebuild_moves!(pokemon, flat_moves)
+      rebuild_owner!(pokemon, ruby_data['owner'] || ruby_data[:owner])
 
       if defined?(MultiplayerDebug)
         MultiplayerDebug.info(TAG, "  load_json completed")
-        MultiplayerDebug.info(TAG, "  Moves after load_json: #{pokemon.moves.length}")
+        MultiplayerDebug.info(TAG, "  Moves after rebuild: #{pokemon.moves.length}")
         pokemon.moves.each_with_index do |m, i|
-          MultiplayerDebug.info(TAG, "    Move #{i}: #{m.id} PP=#{m.pp}")
+          MultiplayerDebug.info(TAG, "    Move #{i}: #{(m.id rescue '?')} PP=#{(m.pp rescue '?')}")
         end
       end
 
@@ -436,6 +475,113 @@ module PokemonSerializer
       obj.map { |v| convert_from_json_safe_keep_string_keys(v) }
     else
       obj
+    end
+  end
+
+  #-----------------------------------------------------------------------------
+  # CROSS-VERSION COMPATIBILITY HELPERS
+  #
+  # The multiplayer mod shares one PokemonSerializer across both base KIF and
+  # this fork. Only the underlying game's Pokemon#to_json / #load_json differ:
+  #   * base KIF  -> "flat" format: moves [{id,pp,ppup}], owner {id,name,gender,language}
+  #   * this fork -> generic ivar dump: nested {"__class__","__ivars__"} objects
+  # These helpers normalize to the flat format on the wire (so base KIF can read
+  # fork data and vice-versa) and rebuild real objects on load.
+  #-----------------------------------------------------------------------------
+
+  # Flatten a single move entry to {"id"=>..,"pp"=>..,"ppup"=>..} or nil.
+  # Accepts: flat hash, generic {"__class__","__ivars__"} hash, or a Move object.
+  def mp_move_to_flat(m)
+    if m.is_a?(Hash)
+      iv  = m["__ivars__"] || m[:__ivars__]
+      src = iv.is_a?(Hash) ? iv : m
+      id  = src["id"] || src[:id]
+      return nil if id.nil?
+      { "id" => id,
+        "pp"   => (src["pp"]   || src[:pp]   || 0),
+        "ppup" => (src["ppup"] || src[:ppup] || 0) }
+    elsif m.respond_to?(:id) && m.respond_to?(:pp)
+      { "id" => m.id,
+        "pp" => m.pp,
+        "ppup" => (m.respond_to?(:ppup) ? m.ppup : 0) }
+    else
+      nil
+    end
+  end
+
+  # Flatten an owner value to {"id"=>..,"name"=>..,"gender"=>..,"language"=>..}.
+  # Accepts: flat hash, generic {"__class__","__ivars__"} hash, or an Owner object.
+  def mp_owner_to_flat(o)
+    if o.is_a?(Hash)
+      iv  = o["__ivars__"] || o[:__ivars__]
+      src = iv.is_a?(Hash) ? iv : o
+      { "id"       => (src["id"]       || src[:id]       || 0),
+        "name"     => (src["name"]     || src[:name]     || "").to_s,
+        "gender"   => (src["gender"]   || src[:gender]   || 2),
+        "language" => (src["language"] || src[:language] || 2) }
+    elsif o.respond_to?(:id) && o.respond_to?(:name)
+      { "id" => o.id, "name" => o.name.to_s,
+        "gender" => (o.respond_to?(:gender) ? o.gender : 2),
+        "language" => (o.respond_to?(:language) ? o.language : 2) }
+    else
+      o
+    end
+  end
+
+  # Normalize a (post to_json) Pokemon data hash to the canonical flat wire format.
+  def canonicalize_pokemon_data!(data)
+    return data unless data.is_a?(Hash)
+    if data["moves"].is_a?(Array)
+      data["moves"] = data["moves"].map { |m| mp_move_to_flat(m) }.compact
+    end
+    if data.key?("owner")
+      flat = mp_owner_to_flat(data["owner"])
+      data["owner"] = flat if flat.is_a?(Hash)
+    end
+    data
+  end
+
+  # Rebuild @moves as real Pokemon::Move objects from a flat move list.
+  def rebuild_moves!(pokemon, flat_moves)
+    return unless pokemon && defined?(Pokemon) && defined?(Pokemon::Move)
+    rebuilt = []
+    (flat_moves || []).each do |fm|
+      next unless fm.is_a?(Hash)
+      mid = fm["id"] || fm[:id]
+      next if mid.nil?
+      mid = mid.to_sym if mid.is_a?(String)
+      begin
+        next if defined?(GameData::Move) && !GameData::Move.exists?(mid)
+        mv = Pokemon::Move.new(mid)
+        ppup = (fm["ppup"] || fm[:ppup] || 0).to_i
+        mv.ppup = ppup rescue nil
+        pp_val = fm["pp"] || fm[:pp]
+        mv.pp = pp_val.to_i if pp_val
+        rebuilt << mv
+      rescue => e
+        MultiplayerDebug.warn(TAG, "rebuild_moves! skipped #{mid}: #{e.message}") if defined?(MultiplayerDebug)
+      end
+    end
+    pokemon.instance_variable_set(:@moves, rebuilt)
+  end
+
+  # Rebuild @owner as a real Pokemon::Owner object if it is not already one.
+  def rebuild_owner!(pokemon, raw_owner)
+    return unless pokemon && defined?(Pokemon) && defined?(Pokemon::Owner)
+    cur = (pokemon.owner rescue nil)
+    return if cur.is_a?(Pokemon::Owner)
+    fo = mp_owner_to_flat(raw_owner)
+    return unless fo.is_a?(Hash)
+    begin
+      owner = Pokemon::Owner.new(
+        (fo["id"] || 0).to_i,
+        (fo["name"] || "").to_s,
+        (fo["gender"] || 2).to_i,
+        (fo["language"] || 2).to_i
+      )
+      pokemon.instance_variable_set(:@owner, owner)
+    rescue => e
+      MultiplayerDebug.warn(TAG, "rebuild_owner! failed: #{e.message}") if defined?(MultiplayerDebug)
     end
   end
 

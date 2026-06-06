@@ -482,20 +482,36 @@ module TravelExpansionFramework
 
     def quick_phone_rematch_pokegear_access!
       return false if !$Trainer || !$Trainer.respond_to?(:has_pokegear=)
-      has_entries = false
-      begin
-        has_entries = phone_rematch_entries.values.any? { |entry| entry.is_a?(Hash) }
-      rescue
-        has_entries = false
+      # Re-entrancy guard: this method sits at the top of every Pokegear/pause-menu
+      # wrapper, so a re-entrant call means one of those wrappers (in this mod or
+      # others, e.g. zzz_gba_player) is recursing. Bail out instead of overflowing
+      # the stack, and log the call path so the offending chain can be identified.
+      if @phone_rematch_pokegear_access_active
+        if respond_to?(:log)
+          log("[phone_rematch] WARNING: re-entrant Pokegear access detected -- breaking recursion to prevent SystemStackError")
+          (log("  call path: " + (caller(1, 12) || []).join("\n             ")) rescue nil)
+        end
+        return false
       end
-      return false if !has_entries && !visible_phone_contacts?
-      return true if $Trainer.respond_to?(:has_pokegear) && $Trainer.has_pokegear
-      $Trainer.has_pokegear = true
-      log("[phone_rematch] enabled host Pokegear access for rematch phonebook") if respond_to?(:log)
-      return true
-    rescue => e
-      log("[phone_rematch] quick Pokegear access failed: #{e.class}: #{e.message}") if respond_to?(:log)
-      return false
+      @phone_rematch_pokegear_access_active = true
+      begin
+        has_entries = false
+        begin
+          has_entries = phone_rematch_entries.values.any? { |entry| entry.is_a?(Hash) }
+        rescue
+          has_entries = false
+        end
+        return false if !has_entries && !visible_phone_contacts?
+        return true if $Trainer.respond_to?(:has_pokegear) && $Trainer.has_pokegear
+        $Trainer.has_pokegear = true
+        log("[phone_rematch] enabled host Pokegear access for rematch phonebook") if respond_to?(:log)
+        return true
+      rescue => e
+        log("[phone_rematch] quick Pokegear access failed: #{e.class}: #{e.message}") if respond_to?(:log)
+        return false
+      ensure
+        @phone_rematch_pokegear_access_active = false
+      end
     end
 
     def ensure_phone_rematch_pokegear_access!(full_sync = true)
@@ -1502,7 +1518,7 @@ if defined?(PokemonPokegearScreen)
         end
       end
       @scene.pbEndScene
-    end
+    end if method_defined?(:tef_phone_rematch_original_pbStartScreen)
   end
 end
 
@@ -1631,6 +1647,6 @@ if defined?(PokemonPauseMenu)
       TravelExpansionFramework.quick_phone_rematch_pokegear_access! if defined?(TravelExpansionFramework) &&
                                                                        TravelExpansionFramework.respond_to?(:quick_phone_rematch_pokegear_access!)
       return tef_phone_rematch_original_pbStartPokemonMenu(*args)
-    end
+    end if method_defined?(:tef_phone_rematch_original_pbStartPokemonMenu)
   end
 end

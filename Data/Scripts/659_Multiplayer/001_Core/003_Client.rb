@@ -1240,6 +1240,17 @@ module MultiplayerClient
     end
   end
 
+  # Handle COOP_TGT_INTENT message (ally's chosen attack target preview)
+  def self._handle_coop_target_intent(from_sid, battle_id, turn, attacker_idx, target_idx)
+    begin
+      if defined?(CoopTargetIntent)
+        CoopTargetIntent.receive(from_sid, battle_id, turn, attacker_idx, target_idx)
+      end
+    rescue => e
+      ##MultiplayerDebug.error("C-COOP", "Failed to handle COOP_TGT_INTENT: #{e.class}: #{e.message}")
+    end
+  end
+
   # MODULE 19: Handle COOP_RUN_INCREMENT message
   def self._handle_coop_run_increment(from_sid, battle_id, turn, new_value)
     begin
@@ -2587,6 +2598,14 @@ module MultiplayerClient
                   battle_id, idxBattler, idxParty = parts
                   ##MultiplayerDebug.info("C-COOP", "[NET] COOP_SWITCH from #{sid}: battle=#{battle_id}, battler=#{idxBattler}, party=#{idxParty}")
                   _handle_coop_switch(sid, battle_id, idxBattler.to_i, idxParty.to_i)
+                end
+
+              elsif payload.start_with?("COOP_TGT_INTENT:")
+                # Format: COOP_TGT_INTENT:<battle_id>|<turn>|<attacker_idx>|<target_idx>
+                parts = payload.sub("COOP_TGT_INTENT:", "").split("|", 4)
+                if parts.length == 4
+                  battle_id, turn, attacker_idx, target_idx = parts
+                  _handle_coop_target_intent(sid, battle_id, turn.to_i, attacker_idx.to_i, target_idx.to_i)
                 end
 
               elsif payload.start_with?("COOP_RUN_INCREMENT:")

@@ -1,0 +1,567 @@
+[2026-05-29 07:41:38] [SAFE-JSON] [T28] ============================================================
+[2026-05-29 07:41:38] [SAFE-JSON] [T28] 001_SafeJSON.rb loaded
+[2026-05-29 07:41:38] [SAFE-JSON] [T28] JSON-based serializer ready (replaces Marshal for security)
+[2026-05-29 07:41:38] [SAFE-JSON] [T28]   SafeJSON.dump(obj) -> JSON string
+[2026-05-29 07:41:38] [SAFE-JSON] [T28]   SafeJSON.load(json) -> Ruby object
+[2026-05-29 07:41:38] [SAFE-JSON] [T28]   SafeJSON.test -> Run test suite
+[2026-05-29 07:41:38] [SAFE-JSON] [T28] ============================================================
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28] ============================================================
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28] 002_PokemonSerializer.rb loaded
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28] JSON-based Pokemon serialization ready
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28]   PokemonSerializer.serialize_pokemon(pkmn) -> Hash
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28]   PokemonSerializer.deserialize_pokemon(data) -> Pokemon
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28]   PokemonSerializer.serialize_party(party) -> Array
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28]   PokemonSerializer.deserialize_party(data) -> Array
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28]   PokemonSerializer.serialize_battle_invite(...) -> Hash
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28]   PokemonSerializer.deserialize_battle_invite(data) -> Hash
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28]   PokemonSerializer.test -> Run test suite
+[2026-05-29 07:41:38] [PKM-SERIAL] [T28] ============================================================
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28] ============================================================
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28] 003_TrainerSerializer.rb loaded
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28] JSON-based Trainer serialization ready
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.serialize(trainer) -> Hash
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.deserialize(data) -> NPCTrainer
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.to_hex(trainer) -> String
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.from_hex(hex) -> NPCTrainer
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.test -> Run test suite
+[2026-05-29 07:41:38] [TRAINER-SERIAL] [T28] ============================================================
+[2026-05-29 07:41:38] [MP-OPTIONS] [T28] 200_UI_MultiplayerOptions.rb loaded
+[2026-05-29 07:41:38] [MP-OPTIONS] [T28] Multiplayer Options submenu available in game options
+[2026-05-29 07:41:38] [MP-FILE] [T28] MPSettingsFile loaded — path: C:\Users\rolan\AppData\Roaming\infinitefusion\/mp_settings.txt
+[2026-05-29 07:41:38] [PING-UI] [T28] Ping display helper loaded
+[2026-05-29 07:41:38] [COOP-TXN] [T28] Coop Battle Transaction module loaded
+[2026-05-29 07:41:38] [PVP-HANDLER] [T28] PvP invitation handler loaded
+[2026-05-29 07:41:38] [PVP-SETTINGS-UI] [T28] PvP settings UI loaded
+[2026-05-29 07:41:38] [PVP-CORE] [T28] PvP battle core loaded
+[2026-05-29 07:41:38] [PVP-RNG] [T28] PvP RNG sync module loaded
+[2026-05-29 07:41:38] [PVP-RNG-OVERRIDE] [T28] Battle pbRandom override loaded - uses Random.new for PvP determinism
+[2026-05-29 07:41:38] [PVP-TURN0] [T28] PvP Turn 0 priority calculation RNG sync loaded
+[2026-05-29 07:41:38] [PVP-ACTION] [T28] PvP action sync module loaded
+[2026-05-29 07:41:38] [PVP-SWITCH] [T28] PvP switch sync module loaded
+[2026-05-29 07:41:38] [PVP-FORFEIT] [T28] PvP forfeit sync module loaded
+[2026-05-29 07:41:38] [PVP-ALIASES] [T28] PvP battle system loaded (actions, switches, forfeit, phase aliases)
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] 110_Family_Talent_Infusion.rb loaded - Phase 1
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] Pokemon ability hooks implemented
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] Boosted abilities registered: PANMORPHOSIS, VEILBREAKER, VOIDBORNE,
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   SOLARBLOOM, FORTIFIEDFRAME, OVERDRIVE, COSMICBLESSING, MINDSHATTER
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] 112_Family_Type_Infusion.rb loaded
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] Type infusion system implemented:
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   - STAB moves gain secondary type from Family pool
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   - Type selection based on best effectiveness vs target
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   - Dual-type damage calculation (multiplicative)
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   - Message displayed on every infusion
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] 113_Family_Edge_Cases.rb loaded
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] Edge case handlers implemented:
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   - Skill Swap: Prevented for Family talents
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   - Trace: Copies base talent (not boosted)
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   - Receiver/Power of Alchemy: Copies base talent
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28]   - Mold Breaker: Can negate Family talents (normal behavior)
+[2026-05-29 07:41:38] [FAMILY-FUSION] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-FUSION] [T28] 116_Family_Fusion_Integration.rb loaded successfully
+[2026-05-29 07:41:38] [FAMILY-FUSION] [T28] Family inheritance:
+[2026-05-29 07:41:38] [FAMILY-FUSION] [T28]   - Inherits from parent with family
+[2026-05-29 07:41:38] [FAMILY-FUSION] [T28]   - Shows choice UI if both parents have different families
+[2026-05-29 07:41:38] [FAMILY-FUSION] [T28]   - Only base talents shown in fusion UI
+[2026-05-29 07:41:38] [FAMILY-FUSION] [T28]   - Boosted talents activate via Family Talent Infusion system
+[2026-05-29 07:41:38] [FAMILY-FUSION] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-UNFUSE] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-UNFUSE] [T28] 117_Family_Unfuse_Integration.rb loaded successfully
+[2026-05-29 07:41:38] [FAMILY-UNFUSE] [T28] Unfuse hook registered - family data will be restored on unfuse
+[2026-05-29 07:41:38] [FAMILY-UNFUSE] [T28] ============================================================
+[2026-05-29 07:41:38] [ABILITY-TOGGLE] [T28] ============================================================
+[2026-05-29 07:41:38] [ABILITY-TOGGLE] [T28] 118_Family_Ability_Toggle.rb loaded successfully
+[2026-05-29 07:41:38] [ABILITY-TOGGLE] [T28] Press Shift/ACTION on Skills page to toggle abilities
+[2026-05-29 07:41:38] [ABILITY-TOGGLE] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-DOUBLE-ABILITY] [T28] Family Double Ability Override loaded
+[2026-05-29 07:41:38] [FAMILY-ENEMY] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-ENEMY] [T28] 120_Family_Enemy_Assignment.rb loaded successfully
+[2026-05-29 07:41:38] [FAMILY-ENEMY] [T28] Wild Pokemon will show family outlines/fonts via Events.onWildPokemonCreate
+[2026-05-29 07:41:38] [FAMILY-ENEMY] [T28] Assignment happens after Pokemon creation (deterministic)
+[2026-05-29 07:41:38] [FAMILY-ENEMY] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28] 150_Event_System.rb loaded
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28] Event system core module ready
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28]   EventSystem.has_active_event?(type)
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28]   EventSystem.get_modifier_multiplier(type)
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28]   EventSystem.has_challenge_modifier?(mod)
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28]   EventSystem.request_sync
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28]   EventSystem.debug_status
+[2026-05-29 07:41:38] [EVENT-SYSTEM] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28] 151_Event_Shiny.rb loaded
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28] Shiny event hooks installed:
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   Pokemon.shiny? - applies all multipliers/buffs
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   ShinyEventModifiers - challenge modifier checks
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   ShinyRewardTracker - participation & rewards
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   Events.onWildPokemonCreate - fusion shiny hook
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   PokeBattle_Battler.pbFaint - shiny faint tracking
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   PokeBattle_Battle.pbRecordAndStoreCaughtPokemon - shiny catch tracking
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28] Passive rewards supported:
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   Blessing - x100 shiny for 30s on map entry
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   Pity - guaranteed next shiny
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   Fusion - next wild fusion has shiny part
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   Squad Scaling - x1/x2/x3 for squad size
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28]   Shooting Star Charm - x1.5 when owned
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28] Scene_Map hooks: map transfer triggers rewards
+[2026-05-29 07:41:38] [EVENT-SHINY] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-UI] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-UI] [T28] 152_Event_UI.rb loaded
+[2026-05-29 07:41:38] [EVENT-UI] [T28] Event UI components ready
+[2026-05-29 07:41:38] [EVENT-UI] [T28]   EventUIManager.update - call in Scene_Map
+[2026-05-29 07:41:38] [EVENT-UI] [T28]   EventUIManager.show_notification(type, msg)
+[2026-05-29 07:41:38] [EVENT-UI] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: no_switching
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: fusion_only
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: mono_type
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: limited_party
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: one_chance
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: mono_ball
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: no_stalling
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: time_limit
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: status_immunity
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: burning_clock
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: weather_roulette
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered challenge modifier: stat_flux
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered reward modifier: blessing
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered reward modifier: pity
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered reward modifier: shiny_egg
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered reward modifier: fusion
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered reward modifier: squad_scaling
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered reward modifier: shiny_loot
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Registered reward modifier: shiny_legendary_egg
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] 153_Event_Modifiers.rb loaded
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] Modifier registry initialized
+[2026-05-29 07:41:38] [EVENT-MODS] [T28]   Challenge modifiers: 12
+[2026-05-29 07:41:38] [EVENT-MODS] [T28]   Reward modifiers: 7
+[2026-05-29 07:41:38] [EVENT-MODS] [T28] ============================================================
+[2026-05-29 07:41:38] [BOSS-STUB] [T28] ============================================================
+[2026-05-29 07:41:38] [BOSS-STUB] [T28] 154_Event_Boss_Stub.rb loaded
+[2026-05-29 07:41:38] [BOSS-STUB] [T28] Boss event placeholder - NOT FULLY IMPLEMENTED
+[2026-05-29 07:41:38] [BOSS-STUB] [T28]   BossEventStub.should_spawn_boss?
+[2026-05-29 07:41:38] [BOSS-STUB] [T28]   BossEventStub.register_battle_start(id, data)
+[2026-05-29 07:41:38] [BOSS-STUB] [T28]   BossEventStub.claim_defeat_reward(id)
+[2026-05-29 07:41:38] [BOSS-STUB] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-STUB] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-STUB] [T28] 155_Event_Family_Stub.rb loaded
+[2026-05-29 07:41:38] [FAMILY-STUB] [T28] Family event placeholder - NOT FULLY IMPLEMENTED
+[2026-05-29 07:41:38] [FAMILY-STUB] [T28]   FamilyEventStub.active?
+[2026-05-29 07:41:38] [FAMILY-STUB] [T28]   FamilyEventStub.should_assign_family?(pokemon)
+[2026-05-29 07:41:38] [FAMILY-STUB] [T28]   FamilyEventStub.family_assignment_chance
+[2026-05-29 07:41:38] [FAMILY-STUB] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-REWARDS] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-REWARDS] [T28] 157_Event_Rewards.rb loaded
+[2026-05-29 07:41:38] [EVENT-REWARDS] [T28] Reward distribution system ready
+[2026-05-29 07:41:38] [EVENT-REWARDS] [T28]   EventRewards.record_shiny_encounter(event_id, player_id, outcome)
+[2026-05-29 07:41:38] [EVENT-REWARDS] [T28]   EventRewards.eligible_for_rewards?(event_id, player_id)
+[2026-05-29 07:41:38] [EVENT-REWARDS] [T28]   EventRewards.distribute_rewards(event_id)
+[2026-05-29 07:41:38] [EVENT-REWARDS] [T28]   EventRewards.give_item_reward(reward_data)
+[2026-05-29 07:41:38] [EVENT-REWARDS] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-ITEMS] [T28] ============================================================
+[2026-05-29 07:41:38] [EVENT-ITEMS] [T28] 008_Items.rb loaded
+[2026-05-29 07:41:38] [EVENT-ITEMS] [T28]   SHOOTINGSTARCHARM - x1.5 shiny chance when owned
+[2026-05-29 07:41:38] [EVENT-ITEMS] [T28]   Registration handled by 015_Items/001_ItemRegistry.rb
+[2026-05-29 07:41:38] [EVENT-ITEMS] [T28] ============================================================
+[2026-05-29 07:41:38] [BLOODBOUND] [T28] ============================================================
+[2026-05-29 07:41:38] [BLOODBOUND] [T28] 009_BloodboundCatalysts.rb loaded
+[2026-05-29 07:41:38] [BLOODBOUND] [T28] Registration handled by 015_Items/001_ItemRegistry.rb
+[2026-05-29 07:41:38] [BLOODBOUND] [T28] Battle immunity hook installed
+[2026-05-29 07:41:38] [BLOODBOUND] [T28] ============================================================
+[2026-05-29 07:41:38] [RESONANCE] [T28] ============================================================
+[2026-05-29 07:41:38] [RESONANCE] [T28] 010_ResonanceResonator.rb loaded
+[2026-05-29 07:41:38] [RESONANCE] [T28]   RESONANCERESONATOR - Shiny + random Family assignment
+[2026-05-29 07:41:38] [RESONANCE] [T28]   Registration handled by 015_Items/001_ItemRegistry.rb
+[2026-05-29 07:41:38] [RESONANCE] [T28] ============================================================
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28] ============================================================
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28] 011_ResonanceCoreUI.rb loaded
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28]   Carousel UI with slide animation, zoom transitions, BGM
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28] ============================================================
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28] ============================================================
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28] 012_ResonanceCore.rb loaded
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28]   RESONANCECORE - Choose Family + Subfamily via carousel UI
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28]   Registration handled by 015_Items/001_ItemRegistry.rb
+[2026-05-29 07:41:38] [RESONANCE-CORE] [T28] ============================================================
+[2026-05-29 07:41:38] [BOSS] [T28] Loading 200_Boss_Config.rb...
+[2026-05-29 07:41:38] [BOSS] [T28] Loading 201_Boss_Detection.rb...
+[2026-05-29 07:41:38] [BOSS] [T28] Loading 202_Boss_Generation.rb...
+[2026-05-29 07:41:38] [BOSS] [T28] Loading 203_Boss_Spawn_Hook.rb...
+[2026-05-29 07:41:38] [BOSS] [T28] pbWildBattle hook installed for solo boss spawning
+[2026-05-29 07:41:38] [BOSS] [T28] Loading 206_Boss_UI.rb...
+[2026-05-29 07:41:38] [BOSS-UI] [T28] Boss UI system loaded
+[2026-05-29 07:41:38] [BOSS-AI] [T28] Loading 208_Boss_AI.rb...
+[2026-05-29 07:41:38] [BOSS-AI] [T28] Boss AI system loaded
+[2026-05-29 07:41:38] [STATUS-FIX] [T28] 909_StatusSerialize.rb loaded - status preserved during serialization
+[2026-05-29 07:41:38] [PING-TRACKER] [T28] ============================================================
+[2026-05-29 07:41:38] [PING-TRACKER] [T28] Ping tracker initialized
+[2026-05-29 07:41:38] [PING-TRACKER] [T28] - Sends PING every 5 seconds
+[2026-05-29 07:41:38] [PING-TRACKER] [T28] - Tracks RTT for all players
+[2026-05-29 07:41:38] [PING-TRACKER] [T28] - Color-coded display (green/yellow/orange/red)
+[2026-05-29 07:41:38] [PING-TRACKER] [T28] ============================================================
+[2026-05-29 07:41:38] [COUCH-COOP-CONFIG] [T28] ============================================================
+[2026-05-29 07:41:38] [COUCH-COOP-CONFIG] [T28] Couch Co-op Config module loaded
+[2026-05-29 07:41:38] [COUCH-COOP-CONFIG] [T28] Current status: Disabled
+[2026-05-29 07:41:38] [COUCH-COOP-CONFIG] [T28] Current mode: keyboard
+[2026-05-29 07:41:38] [COUCH-COOP-CONFIG] [T28] ============================================================
+[2026-05-29 07:41:38] [COUCH-COOP-INPUT] [T28] ============================================================
+[2026-05-29 07:41:38] [COUCH-COOP-INPUT] [T28] Couch Co-op Input module loaded
+[2026-05-29 07:41:38] [COUCH-COOP-INPUT] [T28] Win32API available: true
+[2026-05-29 07:41:38] [COUCH-COOP-INPUT] [T28] Unfocused input capture: Disabled
+[2026-05-29 07:41:38] [COUCH-COOP-INPUT] [T28] ============================================================
+[2026-05-29 07:41:38] [FAMILY-TALENT] [T28] 115_Family_Summary_Debug.rb loaded
+[2026-05-29 07:41:38] [ITEM-REGISTRY] [T28] ============================================================
+[2026-05-29 07:41:38] [ITEM-REGISTRY] [T28] 015_Items/001_ItemRegistry.rb loaded
+[2026-05-29 07:41:38] [ITEM-REGISTRY] [T28]   Single-pass registration for all custom items
+[2026-05-29 07:41:38] [ITEM-REGISTRY] [T28]   SHOOTINGSTARCHARM, 18x BLOODBOUND, RESONANCERESONATOR, RESONANCECORE
+[2026-05-29 07:41:38] [ITEM-REGISTRY] [T28] ============================================================
+[2026-05-29 07:41:39] [EBDX-INIT] [T28] Vectors: [:CAMERA_MOTION, :SINGLE, :DOUBLE, :TRIPLE, :SENDOUT, :ENEMY, :PLAYER, :DUAL, :DYNAMAX]
+[2026-05-29 07:41:39] [EBDX-INIT] [T28] BattlerMetrics: {0=>{:X=>[116, 92, 86], :Y=>[207, 205, 214], :Z=>[21, 21, 26]}, 1=>{:X=>[234, 256, 289], :Y=>[152, 164, 156], :Z=>[11, 15, 18]}, 2=>{:X=>[116, 177, 152], :Y=>[207, 222, 224], :Z=>[21, 25, 30]}, 3=>{:X=>[234, 198, 230], :Y=>[152, 152, 154], :Z=>[11, 11, 15]}, 4=>{:X=>[116, 116, 220], :Y=>[207, 207, 234], :Z=>[21, 21, 33]}, 5=>{:X=>[234, 234, 177], :Y=>[152, 152, 152], :Z=>[11, 11, 11]}}
+[2026-05-29 07:41:39] [BOSS-UI] [T28] Loading 661_BossUIHooks/001_Boss_UI_EBDX.rb...
+[2026-05-29 07:41:39] [BOSS-UI] [T28] DataBoxEBDX found, applying hooks...
+[2026-05-29 07:41:39] [BOSS-UI] [T28] DataBoxEBDX hooks applied successfully!
+[2026-05-29 07:41:39] [BOSS-UI] [T28] PokeBattle_Scene ability splash hook applied
+[2026-05-29 07:41:39] [BOSS-UI] [T28] PokeBattle_Battler stat/status hooks applied
+[2026-05-29 07:41:39] [BOSS-UI] [T28] Boss EBDX UI hooks loaded
+[2026-05-29 07:41:39] [BOSS-UI] [T28] Loading 661_BossUIHooks/002_Boss_UI_NonEBDX.rb...
+[2026-05-29 07:41:39] [BOSS-UI] [T28] Applying vanilla PokemonDataBox hooks for boss UI...
+[2026-05-29 07:41:39] [BOSS-UI] [T28] Vanilla PokemonDataBox hooks applied successfully!
+[2026-05-29 07:41:39] [BOSS-UI] [T28] Boss Non-EBDX UI hooks loaded
+[2026-05-29 07:41:41] [FAMILY-TALENT] [T28] Post-load: Registering 8 boosted abilities...
+[2026-05-29 07:41:41] [FAMILY-TALENT] [T28]   Registered. DATA[:PANMORPHOSIS] = #<GameData::Ability>
+[2026-05-29 07:41:41] [ITEM-REGISTRY] [T28] Post-load: Registering all custom items...
+[2026-05-29 07:41:41] [ITEM-REGISTRY] [T28] Registered 22 custom items in single pass (id 9001-9201)
+[2026-05-29 07:42:01] [EBDX-INIT] [T28] Vectors: [:CAMERA_MOTION, :SINGLE, :DOUBLE, :TRIPLE, :SENDOUT, :ENEMY, :PLAYER, :DUAL, :DYNAMAX]
+[2026-05-29 07:42:01] [EBDX-INIT] [T28] BattlerMetrics: {0=>{:X=>[116, 92, 86], :Y=>[207, 205, 214], :Z=>[21, 21, 26]}, 1=>{:X=>[234, 256, 289], :Y=>[152, 164, 156], :Z=>[11, 15, 18]}, 2=>{:X=>[116, 177, 152], :Y=>[207, 222, 224], :Z=>[21, 25, 30]}, 3=>{:X=>[234, 198, 230], :Y=>[152, 152, 154], :Z=>[11, 11, 15]}, 4=>{:X=>[116, 116, 220], :Y=>[207, 207, 234], :Z=>[21, 21, 33]}, 5=>{:X=>[234, 234, 177], :Y=>[152, 152, 152], :Z=>[11, 11, 11]}}
+[2026-05-30 12:20:38] [SAFE-JSON] [T28] ============================================================
+[2026-05-30 12:20:38] [SAFE-JSON] [T28] 001_SafeJSON.rb loaded
+[2026-05-30 12:20:38] [SAFE-JSON] [T28] JSON-based serializer ready (replaces Marshal for security)
+[2026-05-30 12:20:38] [SAFE-JSON] [T28]   SafeJSON.dump(obj) -> JSON string
+[2026-05-30 12:20:38] [SAFE-JSON] [T28]   SafeJSON.load(json) -> Ruby object
+[2026-05-30 12:20:38] [SAFE-JSON] [T28]   SafeJSON.test -> Run test suite
+[2026-05-30 12:20:38] [SAFE-JSON] [T28] ============================================================
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28] ============================================================
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28] 002_PokemonSerializer.rb loaded
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28] JSON-based Pokemon serialization ready
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28]   PokemonSerializer.serialize_pokemon(pkmn) -> Hash
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28]   PokemonSerializer.deserialize_pokemon(data) -> Pokemon
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28]   PokemonSerializer.serialize_party(party) -> Array
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28]   PokemonSerializer.deserialize_party(data) -> Array
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28]   PokemonSerializer.serialize_battle_invite(...) -> Hash
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28]   PokemonSerializer.deserialize_battle_invite(data) -> Hash
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28]   PokemonSerializer.test -> Run test suite
+[2026-05-30 12:20:38] [PKM-SERIAL] [T28] ============================================================
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28] ============================================================
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28] 003_TrainerSerializer.rb loaded
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28] JSON-based Trainer serialization ready
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.serialize(trainer) -> Hash
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.deserialize(data) -> NPCTrainer
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.to_hex(trainer) -> String
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.from_hex(hex) -> NPCTrainer
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28]   TrainerSerializer.test -> Run test suite
+[2026-05-30 12:20:38] [TRAINER-SERIAL] [T28] ============================================================
+[2026-05-30 12:20:38] [MP-OPTIONS] [T28] 200_UI_MultiplayerOptions.rb loaded
+[2026-05-30 12:20:38] [MP-OPTIONS] [T28] Multiplayer Options submenu available in game options
+[2026-05-30 12:20:38] [MP-FILE] [T28] MPSettingsFile loaded — path: C:\Users\rolan\AppData\Roaming\infinitefusion\/mp_settings.txt
+[2026-05-30 12:20:38] [PING-UI] [T28] Ping display helper loaded
+[2026-05-30 12:20:39] [COOP-TXN] [T28] Coop Battle Transaction module loaded
+[2026-05-30 12:20:39] [PVP-HANDLER] [T28] PvP invitation handler loaded
+[2026-05-30 12:20:39] [PVP-SETTINGS-UI] [T28] PvP settings UI loaded
+[2026-05-30 12:20:39] [PVP-CORE] [T28] PvP battle core loaded
+[2026-05-30 12:20:39] [PVP-RNG] [T28] PvP RNG sync module loaded
+[2026-05-30 12:20:39] [PVP-RNG-OVERRIDE] [T28] Battle pbRandom override loaded - uses Random.new for PvP determinism
+[2026-05-30 12:20:39] [PVP-TURN0] [T28] PvP Turn 0 priority calculation RNG sync loaded
+[2026-05-30 12:20:39] [PVP-ACTION] [T28] PvP action sync module loaded
+[2026-05-30 12:20:39] [PVP-SWITCH] [T28] PvP switch sync module loaded
+[2026-05-30 12:20:39] [PVP-FORFEIT] [T28] PvP forfeit sync module loaded
+[2026-05-30 12:20:39] [PVP-ALIASES] [T28] PvP battle system loaded (actions, switches, forfeit, phase aliases)
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] 110_Family_Talent_Infusion.rb loaded - Phase 1
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] Pokemon ability hooks implemented
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] Boosted abilities registered: PANMORPHOSIS, VEILBREAKER, VOIDBORNE,
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   SOLARBLOOM, FORTIFIEDFRAME, OVERDRIVE, COSMICBLESSING, MINDSHATTER
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] 112_Family_Type_Infusion.rb loaded
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] Type infusion system implemented:
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   - STAB moves gain secondary type from Family pool
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   - Type selection based on best effectiveness vs target
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   - Dual-type damage calculation (multiplicative)
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   - Message displayed on every infusion
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] 113_Family_Edge_Cases.rb loaded
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] Edge case handlers implemented:
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   - Skill Swap: Prevented for Family talents
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   - Trace: Copies base talent (not boosted)
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   - Receiver/Power of Alchemy: Copies base talent
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28]   - Mold Breaker: Can negate Family talents (normal behavior)
+[2026-05-30 12:20:39] [FAMILY-FUSION] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-FUSION] [T28] 116_Family_Fusion_Integration.rb loaded successfully
+[2026-05-30 12:20:39] [FAMILY-FUSION] [T28] Family inheritance:
+[2026-05-30 12:20:39] [FAMILY-FUSION] [T28]   - Inherits from parent with family
+[2026-05-30 12:20:39] [FAMILY-FUSION] [T28]   - Shows choice UI if both parents have different families
+[2026-05-30 12:20:39] [FAMILY-FUSION] [T28]   - Only base talents shown in fusion UI
+[2026-05-30 12:20:39] [FAMILY-FUSION] [T28]   - Boosted talents activate via Family Talent Infusion system
+[2026-05-30 12:20:39] [FAMILY-FUSION] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-UNFUSE] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-UNFUSE] [T28] 117_Family_Unfuse_Integration.rb loaded successfully
+[2026-05-30 12:20:39] [FAMILY-UNFUSE] [T28] Unfuse hook registered - family data will be restored on unfuse
+[2026-05-30 12:20:39] [FAMILY-UNFUSE] [T28] ============================================================
+[2026-05-30 12:20:39] [ABILITY-TOGGLE] [T28] ============================================================
+[2026-05-30 12:20:39] [ABILITY-TOGGLE] [T28] 118_Family_Ability_Toggle.rb loaded successfully
+[2026-05-30 12:20:39] [ABILITY-TOGGLE] [T28] Press Shift/ACTION on Skills page to toggle abilities
+[2026-05-30 12:20:39] [ABILITY-TOGGLE] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-DOUBLE-ABILITY] [T28] Family Double Ability Override loaded
+[2026-05-30 12:20:39] [FAMILY-ENEMY] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-ENEMY] [T28] 120_Family_Enemy_Assignment.rb loaded successfully
+[2026-05-30 12:20:39] [FAMILY-ENEMY] [T28] Wild Pokemon will show family outlines/fonts via Events.onWildPokemonCreate
+[2026-05-30 12:20:39] [FAMILY-ENEMY] [T28] Assignment happens after Pokemon creation (deterministic)
+[2026-05-30 12:20:39] [FAMILY-ENEMY] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28] 150_Event_System.rb loaded
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28] Event system core module ready
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28]   EventSystem.has_active_event?(type)
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28]   EventSystem.get_modifier_multiplier(type)
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28]   EventSystem.has_challenge_modifier?(mod)
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28]   EventSystem.request_sync
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28]   EventSystem.debug_status
+[2026-05-30 12:20:39] [EVENT-SYSTEM] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28] 151_Event_Shiny.rb loaded
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28] Shiny event hooks installed:
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   Pokemon.shiny? - applies all multipliers/buffs
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   ShinyEventModifiers - challenge modifier checks
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   ShinyRewardTracker - participation & rewards
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   Events.onWildPokemonCreate - fusion shiny hook
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   PokeBattle_Battler.pbFaint - shiny faint tracking
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   PokeBattle_Battle.pbRecordAndStoreCaughtPokemon - shiny catch tracking
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28] Passive rewards supported:
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   Blessing - x100 shiny for 30s on map entry
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   Pity - guaranteed next shiny
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   Fusion - next wild fusion has shiny part
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   Squad Scaling - x1/x2/x3 for squad size
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28]   Shooting Star Charm - x1.5 when owned
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28] Scene_Map hooks: map transfer triggers rewards
+[2026-05-30 12:20:39] [EVENT-SHINY] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-UI] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-UI] [T28] 152_Event_UI.rb loaded
+[2026-05-30 12:20:39] [EVENT-UI] [T28] Event UI components ready
+[2026-05-30 12:20:39] [EVENT-UI] [T28]   EventUIManager.update - call in Scene_Map
+[2026-05-30 12:20:39] [EVENT-UI] [T28]   EventUIManager.show_notification(type, msg)
+[2026-05-30 12:20:39] [EVENT-UI] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: no_switching
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: fusion_only
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: mono_type
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: limited_party
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: one_chance
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: mono_ball
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: no_stalling
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: time_limit
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: status_immunity
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: burning_clock
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: weather_roulette
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered challenge modifier: stat_flux
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered reward modifier: blessing
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered reward modifier: pity
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered reward modifier: shiny_egg
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered reward modifier: fusion
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered reward modifier: squad_scaling
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered reward modifier: shiny_loot
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Registered reward modifier: shiny_legendary_egg
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] 153_Event_Modifiers.rb loaded
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] Modifier registry initialized
+[2026-05-30 12:20:39] [EVENT-MODS] [T28]   Challenge modifiers: 12
+[2026-05-30 12:20:39] [EVENT-MODS] [T28]   Reward modifiers: 7
+[2026-05-30 12:20:39] [EVENT-MODS] [T28] ============================================================
+[2026-05-30 12:20:39] [BOSS-STUB] [T28] ============================================================
+[2026-05-30 12:20:39] [BOSS-STUB] [T28] 154_Event_Boss_Stub.rb loaded
+[2026-05-30 12:20:39] [BOSS-STUB] [T28] Boss event placeholder - NOT FULLY IMPLEMENTED
+[2026-05-30 12:20:39] [BOSS-STUB] [T28]   BossEventStub.should_spawn_boss?
+[2026-05-30 12:20:39] [BOSS-STUB] [T28]   BossEventStub.register_battle_start(id, data)
+[2026-05-30 12:20:39] [BOSS-STUB] [T28]   BossEventStub.claim_defeat_reward(id)
+[2026-05-30 12:20:39] [BOSS-STUB] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-STUB] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-STUB] [T28] 155_Event_Family_Stub.rb loaded
+[2026-05-30 12:20:39] [FAMILY-STUB] [T28] Family event placeholder - NOT FULLY IMPLEMENTED
+[2026-05-30 12:20:39] [FAMILY-STUB] [T28]   FamilyEventStub.active?
+[2026-05-30 12:20:39] [FAMILY-STUB] [T28]   FamilyEventStub.should_assign_family?(pokemon)
+[2026-05-30 12:20:39] [FAMILY-STUB] [T28]   FamilyEventStub.family_assignment_chance
+[2026-05-30 12:20:39] [FAMILY-STUB] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-REWARDS] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-REWARDS] [T28] 157_Event_Rewards.rb loaded
+[2026-05-30 12:20:39] [EVENT-REWARDS] [T28] Reward distribution system ready
+[2026-05-30 12:20:39] [EVENT-REWARDS] [T28]   EventRewards.record_shiny_encounter(event_id, player_id, outcome)
+[2026-05-30 12:20:39] [EVENT-REWARDS] [T28]   EventRewards.eligible_for_rewards?(event_id, player_id)
+[2026-05-30 12:20:39] [EVENT-REWARDS] [T28]   EventRewards.distribute_rewards(event_id)
+[2026-05-30 12:20:39] [EVENT-REWARDS] [T28]   EventRewards.give_item_reward(reward_data)
+[2026-05-30 12:20:39] [EVENT-REWARDS] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-ITEMS] [T28] ============================================================
+[2026-05-30 12:20:39] [EVENT-ITEMS] [T28] 008_Items.rb loaded
+[2026-05-30 12:20:39] [EVENT-ITEMS] [T28]   SHOOTINGSTARCHARM - x1.5 shiny chance when owned
+[2026-05-30 12:20:39] [EVENT-ITEMS] [T28]   Registration handled by 015_Items/001_ItemRegistry.rb
+[2026-05-30 12:20:39] [EVENT-ITEMS] [T28] ============================================================
+[2026-05-30 12:20:39] [BLOODBOUND] [T28] ============================================================
+[2026-05-30 12:20:39] [BLOODBOUND] [T28] 009_BloodboundCatalysts.rb loaded
+[2026-05-30 12:20:39] [BLOODBOUND] [T28] Registration handled by 015_Items/001_ItemRegistry.rb
+[2026-05-30 12:20:39] [BLOODBOUND] [T28] Battle immunity hook installed
+[2026-05-30 12:20:39] [BLOODBOUND] [T28] ============================================================
+[2026-05-30 12:20:39] [RESONANCE] [T28] ============================================================
+[2026-05-30 12:20:39] [RESONANCE] [T28] 010_ResonanceResonator.rb loaded
+[2026-05-30 12:20:39] [RESONANCE] [T28]   RESONANCERESONATOR - Shiny + random Family assignment
+[2026-05-30 12:20:39] [RESONANCE] [T28]   Registration handled by 015_Items/001_ItemRegistry.rb
+[2026-05-30 12:20:39] [RESONANCE] [T28] ============================================================
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28] ============================================================
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28] 011_ResonanceCoreUI.rb loaded
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28]   Carousel UI with slide animation, zoom transitions, BGM
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28] ============================================================
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28] ============================================================
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28] 012_ResonanceCore.rb loaded
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28]   RESONANCECORE - Choose Family + Subfamily via carousel UI
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28]   Registration handled by 015_Items/001_ItemRegistry.rb
+[2026-05-30 12:20:39] [RESONANCE-CORE] [T28] ============================================================
+[2026-05-30 12:20:39] [BOSS] [T28] Loading 200_Boss_Config.rb...
+[2026-05-30 12:20:39] [BOSS] [T28] Loading 201_Boss_Detection.rb...
+[2026-05-30 12:20:39] [BOSS] [T28] Loading 202_Boss_Generation.rb...
+[2026-05-30 12:20:39] [BOSS] [T28] Loading 203_Boss_Spawn_Hook.rb...
+[2026-05-30 12:20:39] [BOSS] [T28] pbWildBattle hook installed for solo boss spawning
+[2026-05-30 12:20:39] [BOSS] [T28] Loading 206_Boss_UI.rb...
+[2026-05-30 12:20:39] [BOSS-UI] [T28] Boss UI system loaded
+[2026-05-30 12:20:39] [BOSS-AI] [T28] Loading 208_Boss_AI.rb...
+[2026-05-30 12:20:39] [BOSS-AI] [T28] Boss AI system loaded
+[2026-05-30 12:20:39] [STATUS-FIX] [T28] 909_StatusSerialize.rb loaded - status preserved during serialization
+[2026-05-30 12:20:39] [PING-TRACKER] [T28] ============================================================
+[2026-05-30 12:20:39] [PING-TRACKER] [T28] Ping tracker initialized
+[2026-05-30 12:20:39] [PING-TRACKER] [T28] - Sends PING every 5 seconds
+[2026-05-30 12:20:39] [PING-TRACKER] [T28] - Tracks RTT for all players
+[2026-05-30 12:20:39] [PING-TRACKER] [T28] - Color-coded display (green/yellow/orange/red)
+[2026-05-30 12:20:39] [PING-TRACKER] [T28] ============================================================
+[2026-05-30 12:20:39] [COUCH-COOP-CONFIG] [T28] ============================================================
+[2026-05-30 12:20:39] [COUCH-COOP-CONFIG] [T28] Couch Co-op Config module loaded
+[2026-05-30 12:20:39] [COUCH-COOP-CONFIG] [T28] Current status: Disabled
+[2026-05-30 12:20:39] [COUCH-COOP-CONFIG] [T28] Current mode: keyboard
+[2026-05-30 12:20:39] [COUCH-COOP-CONFIG] [T28] ============================================================
+[2026-05-30 12:20:39] [COUCH-COOP-INPUT] [T28] ============================================================
+[2026-05-30 12:20:39] [COUCH-COOP-INPUT] [T28] Couch Co-op Input module loaded
+[2026-05-30 12:20:39] [COUCH-COOP-INPUT] [T28] Win32API available: true
+[2026-05-30 12:20:39] [COUCH-COOP-INPUT] [T28] Unfocused input capture: Disabled
+[2026-05-30 12:20:39] [COUCH-COOP-INPUT] [T28] ============================================================
+[2026-05-30 12:20:39] [FAMILY-TALENT] [T28] 115_Family_Summary_Debug.rb loaded
+[2026-05-30 12:20:39] [ITEM-REGISTRY] [T28] ============================================================
+[2026-05-30 12:20:39] [ITEM-REGISTRY] [T28] 015_Items/001_ItemRegistry.rb loaded
+[2026-05-30 12:20:39] [ITEM-REGISTRY] [T28]   Single-pass registration for all custom items
+[2026-05-30 12:20:39] [ITEM-REGISTRY] [T28]   SHOOTINGSTARCHARM, 18x BLOODBOUND, RESONANCERESONATOR, RESONANCECORE
+[2026-05-30 12:20:39] [ITEM-REGISTRY] [T28] ============================================================
+[2026-05-30 12:20:40] [EBDX-INIT] [T28] Vectors: [:CAMERA_MOTION, :SINGLE, :DOUBLE, :TRIPLE, :SENDOUT, :ENEMY, :PLAYER, :DUAL, :DYNAMAX]
+[2026-05-30 12:20:40] [EBDX-INIT] [T28] BattlerMetrics: {0=>{:X=>[116, 92, 86], :Y=>[207, 205, 214], :Z=>[21, 21, 26]}, 1=>{:X=>[234, 256, 289], :Y=>[152, 164, 156], :Z=>[11, 15, 18]}, 2=>{:X=>[116, 177, 152], :Y=>[207, 222, 224], :Z=>[21, 25, 30]}, 3=>{:X=>[234, 198, 230], :Y=>[152, 152, 154], :Z=>[11, 11, 15]}, 4=>{:X=>[116, 116, 220], :Y=>[207, 207, 234], :Z=>[21, 21, 33]}, 5=>{:X=>[234, 234, 177], :Y=>[152, 152, 152], :Z=>[11, 11, 11]}}
+[2026-05-30 12:20:40] [BOSS-UI] [T28] Loading 661_BossUIHooks/001_Boss_UI_EBDX.rb...
+[2026-05-30 12:20:40] [BOSS-UI] [T28] DataBoxEBDX found, applying hooks...
+[2026-05-30 12:20:40] [BOSS-UI] [T28] DataBoxEBDX hooks applied successfully!
+[2026-05-30 12:20:40] [BOSS-UI] [T28] PokeBattle_Scene ability splash hook applied
+[2026-05-30 12:20:40] [BOSS-UI] [T28] PokeBattle_Battler stat/status hooks applied
+[2026-05-30 12:20:40] [BOSS-UI] [T28] Boss EBDX UI hooks loaded
+[2026-05-30 12:20:40] [BOSS-UI] [T28] Loading 661_BossUIHooks/002_Boss_UI_NonEBDX.rb...
+[2026-05-30 12:20:40] [BOSS-UI] [T28] Applying vanilla PokemonDataBox hooks for boss UI...
+[2026-05-30 12:20:40] [BOSS-UI] [T28] Vanilla PokemonDataBox hooks applied successfully!
+[2026-05-30 12:20:40] [BOSS-UI] [T28] Boss Non-EBDX UI hooks loaded
+[2026-05-30 12:20:44] [FAMILY-TALENT] [T28] Post-load: Registering 8 boosted abilities...
+[2026-05-30 12:20:44] [FAMILY-TALENT] [T28]   Registered. DATA[:PANMORPHOSIS] = #<GameData::Ability>
+[2026-05-30 12:20:44] [ITEM-REGISTRY] [T28] Post-load: Registering all custom items...
+[2026-05-30 12:20:44] [ITEM-REGISTRY] [T28] Registered 22 custom items in single pass (id 9001-9201)
+[2026-05-30 12:20:55] [EBDX-INIT] [T28] Vectors: [:CAMERA_MOTION, :SINGLE, :DOUBLE, :TRIPLE, :SENDOUT, :ENEMY, :PLAYER, :DUAL, :DYNAMAX]
+[2026-05-30 12:20:55] [EBDX-INIT] [T28] BattlerMetrics: {0=>{:X=>[116, 92, 86], :Y=>[207, 205, 214], :Z=>[21, 21, 26]}, 1=>{:X=>[234, 256, 289], :Y=>[152, 164, 156], :Z=>[11, 15, 18]}, 2=>{:X=>[116, 177, 152], :Y=>[207, 222, 224], :Z=>[21, 25, 30]}, 3=>{:X=>[234, 198, 230], :Y=>[152, 152, 154], :Z=>[11, 11, 15]}, 4=>{:X=>[116, 116, 220], :Y=>[207, 207, 234], :Z=>[21, 21, 33]}, 5=>{:X=>[234, 234, 177], :Y=>[152, 152, 152], :Z=>[11, 11, 11]}}
+[2026-05-30 12:22:10] [PING] [T23f0] Sent PING #1
+[2026-05-30 12:22:10] [MP-FILE] [T28] Loaded C:\Users\rolan\AppData\Roaming\infinitefusion\/mp_settings.txt
+[2026-05-30 12:22:12] [EVENT-SYSTEM] [T2404] Synced 0 active events
+[2026-05-30 12:22:13] [EVENT-UI] [T28] Event UI initialized
+[2026-05-30 12:22:15] [PING] [T23f0] Sent PING #2
+[2026-05-30 12:22:20] [PING] [T23f0] Sent PING #3
+[2026-05-30 12:22:25] [PING] [T23f0] Sent PING #4
+[2026-05-30 12:22:30] [PING] [T23f0] Sent PING #5
+[2026-05-30 12:22:35] [PING] [T23f0] Sent PING #6
+[2026-05-30 12:22:40] [PING] [T23f0] Sent PING #7
+[2026-05-30 12:22:45] [PING] [T23f0] Sent PING #8
+[2026-05-30 12:22:50] [PING] [T23f0] Sent PING #9
+[2026-05-30 12:22:55] [PING] [T23f0] Sent PING #10
+[2026-05-30 12:23:00] [PING] [T23f0] Sent PING #11
+[2026-05-30 12:23:05] [PING] [T23f0] Sent PING #12
+[2026-05-30 12:23:10] [PING] [T23f0] Sent PING #13
+[2026-05-30 12:23:15] [PING] [T23f0] Sent PING #14
+[2026-05-30 12:23:20] [PING] [T23f0] Sent PING #15
+[2026-05-30 12:23:25] [PING] [T23f0] Sent PING #16
+[2026-05-30 12:23:30] [PING] [T23f0] Sent PING #17
+[2026-05-30 12:23:35] [PING] [T23f0] Sent PING #18
+[2026-05-30 12:23:40] [PING] [T23f0] Sent PING #19
+[2026-05-30 12:23:45] [PING] [T23f0] Sent PING #20
+[2026-05-30 12:23:50] [PING] [T23f0] Sent PING #21
+[2026-05-30 12:23:55] [PING] [T23f0] Sent PING #22
+[2026-05-30 12:24:00] [PING] [T23f0] Sent PING #23
+[2026-05-30 12:24:05] [PING] [T23f0] Sent PING #24
+[2026-05-30 12:24:10] [PING] [T23f0] Sent PING #25
+[2026-05-30 12:24:15] [PING] [T23f0] Sent PING #26
+[2026-05-30 12:24:20] [PING] [T23f0] Sent PING #27
+[2026-05-30 12:24:25] [PING] [T23f0] Sent PING #28
+[2026-05-30 12:24:30] [PING] [T23f0] Sent PING #29
+[2026-05-30 12:24:35] [PING] [T23f0] Sent PING #30
+[2026-05-30 12:24:40] [PING] [T23f0] Sent PING #31
+[2026-05-30 12:24:45] [PING] [T23f0] Sent PING #32
+[2026-05-30 12:24:50] [PING] [T23f0] Sent PING #33
+[2026-05-30 12:24:55] [PING] [T23f0] Sent PING #34
+[2026-05-30 12:25:00] [PING] [T23f0] Sent PING #35
+[2026-05-30 12:25:05] [PING] [T23f0] Sent PING #36
+[2026-05-30 12:25:10] [PING] [T23f0] Sent PING #37
+[2026-05-30 12:25:15] [PING] [T23f0] Sent PING #38
+[2026-05-30 12:25:20] [PING] [T23f0] Sent PING #39
+[2026-05-30 12:25:25] [PING] [T23f0] Sent PING #40
+[2026-05-30 12:25:30] [PING] [T23f0] Sent PING #41
+[2026-05-30 12:25:35] [PING] [T23f0] Sent PING #42
+[2026-05-30 12:25:40] [PING] [T23f0] Sent PING #43
+[2026-05-30 12:25:45] [PING] [T23f0] Sent PING #44
+[2026-05-30 12:25:50] [PING] [T23f0] Sent PING #45
+[2026-05-30 12:25:55] [PING] [T23f0] Sent PING #46
+[2026-05-30 12:26:00] [PING] [T23f0] Sent PING #47
+[2026-05-30 12:26:05] [PING] [T23f0] Sent PING #48
+[2026-05-30 12:26:10] [PING] [T23f0] Sent PING #49
+[2026-05-30 12:26:15] [PING] [T23f0] Sent PING #50
+[2026-05-30 12:26:20] [PING] [T23f0] Sent PING #51
+[2026-05-30 12:26:25] [PING] [T23f0] Sent PING #52
+[2026-05-30 12:26:30] [PING] [T23f0] Sent PING #53
+[2026-05-30 12:26:35] [PING] [T23f0] Sent PING #54
+[2026-05-30 12:26:40] [PING] [T23f0] Sent PING #55
+[2026-05-30 12:26:45] [PING] [T23f0] Sent PING #56
+[2026-05-30 12:26:50] [PING] [T23f0] Sent PING #57
+[2026-05-30 12:26:55] [PING] [T23f0] Sent PING #58
+[2026-05-30 12:27:00] [PING] [T23f0] Sent PING #59
+[2026-05-30 12:27:05] [PING] [T23f0] Sent PING #60
+[2026-05-30 12:27:08] [BOSS-SPAWN] [T28] === pbWildBattle HOOK ===
+[2026-05-30 12:27:08] [BOSS-SPAWN] [T28]   Original: species=BIDOOF, level=3
+[2026-05-30 12:27:08] [BOSS-SPAWN] [T28]   Boss system enabled, checking spawn...
+[2026-05-30 12:27:08] [BOSS-SPAWN] [T28]   check_boss_spawn called
+[2026-05-30 12:27:08] [BOSS-SPAWN] [T28]   ABORT: Only 0 badges (need 5)
+[2026-05-30 12:27:08] [BOSS-SPAWN] [T28]   No boss spawn, using normal encounter
+[2026-05-30 12:27:10] [PING] [T23f0] Sent PING #61
+[2026-05-30 12:27:10] [EBDX-SCENE] [T28]     loadUIElements: Creating EBDX UI widgets...
+[2026-05-30 12:27:10] [EBDX-SCENE] [T28]       Creating CommandWindowEBDX...
+[2026-05-30 12:27:10] [EBDX-SCENE] [T28]       Creating FightWindowEBDX...
+[2026-05-30 12:27:10] [EBDX-SCENE] [T28]       Creating BagWindowEBDX...
+[2026-05-30 12:27:15] [PING] [T23f0] Sent PING #62
+[2026-05-30 12:27:20] [PING] [T23f0] Sent PING #63
+[2026-05-30 12:27:25] [PING] [T23f0] Sent PING #64
+[2026-05-30 12:27:30] [PING] [T23f0] Sent PING #65
+[2026-05-30 12:27:35] [PING] [T23f0] Sent PING #66
+[2026-05-30 12:27:40] [PING] [T23f0] Sent PING #67
+[2026-05-30 12:27:45] [PING] [T23f0] Sent PING #68
+[2026-05-30 12:27:50] [PING] [T23f0] Sent PING #69
+[2026-05-30 12:27:55] [PING] [T23f0] Sent PING #70
+[2026-05-30 12:27:56] [MP-FILE] [T28] Loaded C:\Users\rolan\AppData\Roaming\infinitefusion\/mp_settings.txt
+[2026-05-30 12:28:00] [PING] [T23f0] Sent PING #71
+[2026-05-30 12:28:05] [PING] [T23f0] Sent PING #72
+[2026-05-30 12:28:05] [BOSS-SPAWN] [T28] === pbWildBattle HOOK ===
+[2026-05-30 12:28:05] [BOSS-SPAWN] [T28]   Original: species=FLETCHLING, level=5
+[2026-05-30 12:28:05] [BOSS-SPAWN] [T28]   Boss system enabled, checking spawn...
+[2026-05-30 12:28:05] [BOSS-SPAWN] [T28]   check_boss_spawn called
+[2026-05-30 12:28:05] [BOSS-SPAWN] [T28]   ABORT: Only 0 badges (need 5)
+[2026-05-30 12:28:05] [BOSS-SPAWN] [T28]   No boss spawn, using normal encounter
+[2026-05-30 12:28:08] [EBDX-SCENE] [T28]     loadUIElements: Creating EBDX UI widgets...
+[2026-05-30 12:28:08] [EBDX-SCENE] [T28]       Creating CommandWindowEBDX...
+[2026-05-30 12:28:08] [EBDX-SCENE] [T28]       Creating FightWindowEBDX...
+[2026-05-30 12:28:08] [EBDX-SCENE] [T28]       Creating BagWindowEBDX...
+[2026-05-30 12:28:10] [PING] [T23f0] Sent PING #73

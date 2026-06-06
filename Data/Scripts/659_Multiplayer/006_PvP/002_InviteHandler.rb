@@ -15,6 +15,11 @@ module PvPInviteHandler
         # Invitation received
         from_sid = ev[:data][:from_sid].to_s
         from_name = ev[:data][:from_name].to_s
+        # NAME FIX: if the server omitted a name, fall back to the roster.
+        if from_name.strip.empty? && MultiplayerClient.respond_to?(:find_name_for_sid)
+          rn = (MultiplayerClient.find_name_for_sid(from_sid).to_s rescue "")
+          from_name = rn unless rn.strip.empty? || rn == from_sid
+        end
         label = (from_name && from_name != "" ? from_name : from_sid)
 
         # Check if invitation has expired (60 second timeout)
@@ -47,8 +52,11 @@ module PvPInviteHandler
         # Opponent accepted our invitation
         from_sid = ev[:data][:from_sid].to_s
 
-        # Get opponent name (we need to track this better, but for now use sid)
-        opponent_name = from_sid
+        # NAME FIX: PVP_ACCEPTED carries only the SID, so the opponent showed
+        # as a bare "SID40". Resolve the real name from the player roster
+        # (server keeps it current via NAME:/player-list). Falls back to SID.
+        opponent_name = (MultiplayerClient.respond_to?(:find_name_for_sid) ? (MultiplayerClient.find_name_for_sid(from_sid).to_s rescue from_sid) : from_sid)
+        opponent_name = from_sid if opponent_name.nil? || opponent_name.strip.empty?
 
         # Create session as initiator
         PvPBattleState.create_session(is_initiator: true, opponent_sid: from_sid, opponent_name: opponent_name)

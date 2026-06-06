@@ -96,6 +96,25 @@ def pbPvPBattle
     return 2  # Loss
   end
 
+  # NAME FIX (belt-and-suspenders): guarantee a real display name. If
+  # opponent_name is blank or still a bare SID (e.g. "SID40" - happens when WE
+  # were the initiator and the accept carried no name), resolve it from the
+  # player roster, then from the Original Trainer name embedded in the received
+  # party (always present on the wire). Purely local + backward-compatible.
+  if opponent_name.nil? || opponent_name.to_s.strip.empty? || opponent_name.to_s =~ /\ASID\d+\z/
+    resolved = nil
+    if defined?(MultiplayerClient) && MultiplayerClient.respond_to?(:find_name_for_sid)
+      r = (MultiplayerClient.find_name_for_sid(opponent_sid).to_s rescue "")
+      resolved = r unless r.strip.empty? || r =~ /\ASID\d+\z/
+    end
+    if resolved.nil?
+      first = opponent_party.find { |p| p }
+      ot = (first && first.respond_to?(:owner) && first.owner.respond_to?(:name)) ? first.owner.name.to_s : ""
+      resolved = ot unless ot.strip.empty?
+    end
+    opponent_name = resolved unless resolved.nil? || resolved.to_s.strip.empty?
+  end
+
   # Create opponent trainer
   opponent_trainer = NPCTrainer.new(opponent_name.to_s, trainer_type)
   opponent_trainer.id = opponent_sid.to_s

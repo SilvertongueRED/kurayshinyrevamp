@@ -1,0 +1,14 @@
+{
+  "generated_at": "2026-05-30 12:20:42",
+  "schema_version": 1,
+  "search_roots": ["C:/Program Files (x86)/Steam/steamapps/common/Kuray's Infinite Fusion (KIF)/kurayshinyrevamp/ExpansionLibrary"],
+  "project_count": 0,
+  "projects": {},
+  "totals": {
+    "projects_with_extracted_scripts": 0,
+    "projects_with_script_archives": 0,
+    "projects_with_plugin_archives": 0,
+    "projects_with_plugins_folders": 0,
+    "projects_with_nonstandard_candidates": 0
+  }
+}

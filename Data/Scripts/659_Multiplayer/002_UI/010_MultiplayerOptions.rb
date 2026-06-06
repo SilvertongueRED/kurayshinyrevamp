@@ -610,7 +610,11 @@ class MultiplayerOptScene < PokemonOption_Scene
         pending = MultiplayerSettingsSync.pending_all_settings
         if pending
           MultiplayerSettingsSync.pending_all_settings = nil
-          options_load_json(pending)
+          begin
+            options_load_json(pending)
+          rescue => e
+            MultiplayerDebug.error("MP-SYNC", "options_load_json failed: #{e.message}") if defined?(MultiplayerDebug)
+          end
         end
         pbMessage(msg)
         # Signal that menu needs to refresh to show new values

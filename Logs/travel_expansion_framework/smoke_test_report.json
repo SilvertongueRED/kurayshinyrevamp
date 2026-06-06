@@ -1,0 +1,45 @@
+{
+  "generated_at": "2026-05-30 12:20:42",
+  "tests": [
+    {
+      "name": "framework_bootstrapped",
+      "passed": true,
+      "detail": "Framework bootstrap completed."
+    },
+    {
+      "name": "save_root_ready",
+      "passed": true,
+      "detail": "Expansion save root is registered and available."
+    },
+    {
+      "name": "manifest_template_available",
+      "passed": true,
+      "detail": "Manifest template exists for pack authors."
+    },
+    {
+      "name": "source_config_available",
+      "passed": true,
+      "detail": "External install scan roots are configurable through the source config file."
+    },
+    {
+      "name": "sample_pack_registered",
+      "passed": false,
+      "detail": "Sample expansion manifest was discovered."
+    },
+    {
+      "name": "sample_pack_travel_node",
+      "passed": false,
+      "detail": "At least one bedroom-PC travel node is available."
+    },
+    {
+      "name": "player_progress_helpers",
+      "passed": true,
+      "detail": "Player exposes expansion-aware trainer-card helpers."
+    },
+    {
+      "name": "external_project_registry_ready",
+      "passed": true,
+      "detail": "Detected external installs are tracked in a dedicated registry."
+    }
+  ]
+}

@@ -18,6 +18,23 @@ class Pokemon
 
   # Override shiny? to apply event multipliers and reward modifiers
   def shiny?
+    # SAFETY (network deserialize): if a JSON load left @owner as a raw Hash,
+    # coerce it to a real Pokemon::Owner so the base shiny? (@owner.id) cannot
+    # raise NoMethodError. Belt-and-suspenders for any deserialize path that
+    # didn't pre-rebuild the owner (see 004_PokemonSerializer.rb).
+    if @owner.is_a?(Hash)
+      begin
+        fo = (defined?(PokemonSerializer) ? PokemonSerializer.mp_owner_to_flat(@owner) : @owner)
+        fo = @owner unless fo.is_a?(Hash)
+        @owner = Pokemon::Owner.new((fo["id"]       || fo[:id]       || 0).to_i,
+                                    (fo["name"]     || fo[:name]     || "").to_s,
+                                    (fo["gender"]   || fo[:gender]   || 2).to_i,
+                                    (fo["language"] || fo[:language] || 2).to_i)
+      rescue
+        @owner = (Pokemon::Owner.new(0, "", 2, 2) rescue @owner)
+      end
+    end
+
     # If shiny is already cached (not nil), return it
     # This prevents re-rolling once a Pokemon has been determined
     return @shiny unless @shiny.nil?

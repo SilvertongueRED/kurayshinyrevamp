@@ -1,0 +1,248 @@
+========================================================================
+  MOD COMPATIBILITY REPORT
+  Generated: 2026-05-30 12:20:43
+========================================================================
+
+  Scanned 659_Multiplayer : 154 files
+  Scanned 660_EBDX        : 31 files
+  Mods found               : 18
+  Mod scripts found        : 87
+
+
+------------------------------------------------------------------------
+  MOD: 000_mod_manager_loader.rb (1 file)
+------------------------------------------------------------------------
+    - 000_mod_manager_loader.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: 000_safe_save_fallbacks (1 file)
+------------------------------------------------------------------------
+    - 000_safe_save_fallbacks/main.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: 005_summary_sprite_tools.rb (1 file)
+------------------------------------------------------------------------
+    - 005_summary_sprite_tools.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: autoplay_bot (7 files)
+------------------------------------------------------------------------
+    - autoplay_bot/001_Config.rb
+    - autoplay_bot/002_JsonAndState.rb
+    - autoplay_bot/003_InputQueue.rb
+    - autoplay_bot/004_WorldScanner.rb
+    - autoplay_bot/005_ObjectivesAndDex.rb
+    - autoplay_bot/006_ExplorerCore.rb
+    - autoplay_bot/006_RuntimeAndHooks.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: counterfeit_shinies (4 files)
+------------------------------------------------------------------------
+    - counterfeit_shinies/001_Config.rb
+    - counterfeit_shinies/002_Core.rb
+    - counterfeit_shinies/003_UI.rb
+    - counterfeit_shinies/004_Hooks.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: custom_species_framework (12 files)
+------------------------------------------------------------------------
+    - custom_species_framework/001_Config.rb
+    - custom_species_framework/002_DataAndRegistry.rb
+    - custom_species_framework/003_ValidationAndBootstrap.rb
+    - custom_species_framework/004_CorePatches.rb
+    - custom_species_framework/005_PokedexAndVisualPatches.rb
+    - custom_species_framework/006_StarterAndFusionHooks.rb
+    - custom_species_framework/007_EncounterTrainerSaveHooks.rb
+    - custom_species_framework/008_CreatorTools.rb
+    - custom_species_framework/009_FusedSpeciesSafety.rb
+    - custom_species_framework/009_HomePcDeliveryHooks.rb
+    - custom_species_framework/creator/build_catalog_from_install.rb
+    - custom_species_framework/creator/build_catalog_views.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: diagonal_movement (1 file)
+------------------------------------------------------------------------
+    - diagonal_movement/main.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: mouse_ui (1 file)
+------------------------------------------------------------------------
+    - mouse_ui/main.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: pc_shopping (5 files)
+------------------------------------------------------------------------
+    - pc_shopping/000_LoadLibraries.rb
+    - pc_shopping/003_5_Invoker.rb
+    - pc_shopping/003_Interpreter.rb
+    - pc_shopping/004_ClothesShopPC.rb
+    - pc_shopping/005_BattleBettingPC.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: pc_storage_sorter (1 file)
+------------------------------------------------------------------------
+    - pc_storage_sorter/main.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: player_identity_bedroom (1 file)
+------------------------------------------------------------------------
+    - player_identity_bedroom/main.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: pokegun_terminal (1 file)
+------------------------------------------------------------------------
+    - pokegun_terminal/main.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: travel_expansion_framework (40 files)
+------------------------------------------------------------------------
+    - travel_expansion_framework/001_CoreAndState.rb
+    - travel_expansion_framework/002_ManifestAndRuntime.rb
+    - travel_expansion_framework/003_MapAndAssetPatches.rb
+    - travel_expansion_framework/004_PlayerAndUIPatches.rb
+    - travel_expansion_framework/005_ToolingAndBootstrap.rb
+    - travel_expansion_framework/006_ScriptSourceCatalog.rb
+    - travel_expansion_framework/007_CompatibilityBridge.rb
+    - travel_expansion_framework/008_ArchivePreparation.rb
+    - travel_expansion_framework/009_ExternalSpeciesPrep.rb
+    - travel_expansion_framework/010_XenoverseCompatibility.rb
+    - travel_expansion_framework/011_ExternalProjectAndSpeciesCompatibility.rb
+    - travel_expansion_framework/012_TrainerCompatibility.rb
+    - travel_expansion_framework/013_RebornCompatibility.rb
+    - travel_expansion_framework/014_BattleSpriteCompatibility.rb
+    - travel_expansion_framework/015_PBItemsCompatibility.rb
+    - travel_expansion_framework/016_UraniumCompatibility.rb
+    - travel_expansion_framework/017_InsurgenceCompatibility.rb
+    - travel_expansion_framework/018_HostQuestCompatibility.rb
+    - travel_expansion_framework/019_TrainerRuntimeHotfixes.rb
+    - travel_expansion_framework/020_ExpansionEncounterCompatibility.rb
+    - travel_expansion_framework/021_InterpreterStateSafety.rb
+    - travel_expansion_framework/022_LoadMapVisualSafety.rb
+    - travel_expansion_framework/023_NewProjectCompatibility.rb
+    - travel_expansion_framework/024_AnilCompatibility.rb
+    - travel_expansion_framework/025_BushidoCompatibility.rb
+    - travel_expansion_framework/026_BatchProjectCompatibility.rb
+    - travel_expansion_framework/027_DesertedCompatibility.rb
+    - travel_expansion_framework/028_UnbreakableTiesCompatibility.rb
+    - travel_expansion_framework/029_TownMapCompatibility.rb
+    - travel_expansion_framework/030_KeishouCharmStorageCompatibility.rb
+    - travel_expansion_framework/031_DarkHorizonCompatibility.rb
+    - travel_expansion_framework/032_SolarEclipseCompatibility.rb
+    - travel_expansion_framework/033_BattleUICompatibility.rb
+    - travel_expansion_framework/034_ReleaseCompatibility.rb
+    - travel_expansion_framework/035_SaveCorruptionSafety.rb
+    - travel_expansion_framework/036_VanguardCompatibility.rb
+    - travel_expansion_framework/037_WaterEffectPerformance.rb
+    - travel_expansion_framework/038_BerryPotsCompatibility.rb
+    - travel_expansion_framework/039_PokegearRematchCompatibility.rb
+    - travel_expansion_framework/040_SpeechBubbleSafety.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: uncap_trainer_rematch_level (1 file)
+------------------------------------------------------------------------
+    - uncap_trainer_rematch_level/main.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: zzz_blackscreen_transition_probe.rb (1 file)
+------------------------------------------------------------------------
+    - zzz_blackscreen_transition_probe.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: zzz_gba_player (7 files)
+------------------------------------------------------------------------
+    - zzz_gba_player/001_ConfigAndBridge.rb
+    - zzz_gba_player/002_Gen3SaveParser.rb
+    - zzz_gba_player/003_ItemAndMenus.rb
+    - zzz_gba_player/004_PlayerShell.rb
+    - zzz_gba_player/005_WalkalongOverlay.rb
+    - zzz_gba_player/006_PokegearMobile.rb
+    - zzz_gba_player/native/ext/extconf.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: zzz_gba_player.rb (1 file)
+------------------------------------------------------------------------
+    - zzz_gba_player.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+------------------------------------------------------------------------
+  MOD: zzz_title_load_performance.rb (1 file)
+------------------------------------------------------------------------
+    - zzz_title_load_performance.rb
+
+  [COMPATIBLE]     No conflicts detected.
+
+========================================================================
+  SUMMARY
+========================================================================
+
+  [OK] 000_mod_manager_loader.rb                COMPATIBLE
+  [OK] 000_safe_save_fallbacks                  COMPATIBLE
+  [OK] 005_summary_sprite_tools.rb              COMPATIBLE
+  [OK] autoplay_bot                             COMPATIBLE
+  [OK] counterfeit_shinies                      COMPATIBLE
+  [OK] custom_species_framework                 COMPATIBLE
+  [OK] diagonal_movement                        COMPATIBLE
+  [OK] mouse_ui                                 COMPATIBLE
+  [OK] pc_shopping                              COMPATIBLE
+  [OK] pc_storage_sorter                        COMPATIBLE
+  [OK] player_identity_bedroom                  COMPATIBLE
+  [OK] pokegun_terminal                         COMPATIBLE
+  [OK] travel_expansion_framework               COMPATIBLE
+  [OK] uncap_trainer_rematch_level              COMPATIBLE
+  [OK] zzz_blackscreen_transition_probe.rb      COMPATIBLE
+  [OK] zzz_gba_player                           COMPATIBLE
+  [OK] zzz_gba_player.rb                        COMPATIBLE
+  [OK] zzz_title_load_performance.rb            COMPATIBLE
+
+========================================================================
+  MODDER GUIDELINES
+========================================================================
+
+  1. Avoid redefining methods already aliased by 659/660.
+     Use alias chaining instead of direct overrides.
+
+  2. If you must override a method flagged [NOT COMPATIBLE],
+     alias the current version first:
+       alias my_mod_original_methodName methodName
+
+  3. Class reopenings flagged [WARNING] are likely OK but
+     test thoroughly with multiplayer, EBDX, and other mods enabled.
+
+  4. New classes/modules with unique names are always safe.
+
+  5. Re-run this checker after updating multiplayer, EBDX, or installed mods.
+
+========================================================================

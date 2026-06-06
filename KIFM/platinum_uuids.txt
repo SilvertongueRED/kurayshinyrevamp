@@ -1,0 +1,5 @@
+# Platinum Account UUIDs (per server)
+# Format: host:port=uuid
+# DO NOT EDIT MANUALLY
+
+51.20.131.110:12975=17cd5ece-898b-4f62-be55-d46136117144

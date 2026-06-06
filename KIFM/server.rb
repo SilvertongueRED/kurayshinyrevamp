@@ -5015,6 +5015,18 @@ loop do
             next
           end
 
+          # ======================================
+          # === CO-OP Target Intent (live ally targeting preview) relay
+          # ======================================
+          if data.start_with?("COOP_TGT_INTENT:")
+            payload = data.sub("COOP_TGT_INTENT:", "")
+            recips = coop_recipients_for(sid, squads, member_squad, client_data)
+            unless recips.empty?
+              recips.each { |rsid| safe_send_sid(sid_sockets, rsid, "FROM:#{sid}|COOP_TGT_INTENT:#{payload}") }
+            end
+            next
+          end
+
           if data.start_with?("COOP_MOVE_SYNC:")
             payload = data.sub("COOP_MOVE_SYNC:", "")
             recips = coop_recipients_for(sid, squads, member_squad, client_data)

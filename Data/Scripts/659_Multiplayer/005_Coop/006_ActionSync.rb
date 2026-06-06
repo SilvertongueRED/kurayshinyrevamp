@@ -556,6 +556,23 @@ module CoopActionSync
     frame_count = 0
 
     while !@sync_complete && Time.now < timeout_time
+      # --- Co-op ally target marker (live preview) ---
+      # The battle scene's per-frame update (pbFrameUpdate) does NOT run during
+      # this blocking action-sync wait. Co-op players choose simultaneously, so an
+      # ally's target intent usually arrives right now -- after the local player has
+      # finished navigating their menus. Without refreshing the markers here, that
+      # intent would be stored but never drawn before the attack phase clears it,
+      # which is why the 'ALLY' marker almost never appeared. Refresh it each frame
+      # so the teammate's chosen foe is visible while we wait. Scene-class agnostic
+      # (vanilla / EBDX / GhostBattle Classic+ all share PokeBattle_Scene).
+      begin
+        _coop_sc = battle.scene
+        if _coop_sc && _coop_sc.respond_to?(:coop_update_ally_target_markers)
+          _coop_sc.coop_update_ally_target_markers
+        end
+      rescue
+        nil
+      end
       # Update graphics to prevent freezing
       Graphics.update if defined?(Graphics)
       Input.update if defined?(Input)

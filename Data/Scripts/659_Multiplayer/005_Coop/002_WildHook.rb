@@ -155,6 +155,15 @@ module CoopWildHook
         next if sid.empty? || sid == my_sid
 
         pinfo     = players[sid] rescue nil
+
+        # Prefer the authoritative broadcast name (NAME: packet, stored in the
+        # player roster) over the squad-member entry, which can be a "SID<id>"
+        # placeholder. This is why the host saw allies as "Youngster SID790"
+        # instead of their real name, while the joiner (who gets the host's name
+        # from $Trainer.name embedded in the invite) saw the correct name.
+        roster_name = (pinfo && pinfo[:name]) ? pinfo[:name].to_s : nil
+        name = roster_name unless roster_name.nil? || roster_name.empty?
+
         same_map  = pinfo && pinfo[:map].to_i == my_map.to_i
         dx        = (pinfo ? pinfo[:x].to_i : 9999) - (my_x || 0)
         dy        = (pinfo ? pinfo[:y].to_i : 9999) - (my_y || 0)

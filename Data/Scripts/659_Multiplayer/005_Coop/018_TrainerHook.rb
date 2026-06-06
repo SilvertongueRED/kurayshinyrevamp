@@ -15,6 +15,35 @@
 $active_trainer_sync_wait_data = nil
 $trainer_battle_wait_screen_active = false
 
+# NAME FIX helper: resolve a coop participant's real display name.
+# Order: squad-member name (if not a SID placeholder) -> authoritative roster
+# name (NAME:/player-list broadcast) -> Original Trainer name on their party ->
+# the provided fallback ("Ally"/"Host"). Purely local + backward-compatible.
+def coop_resolve_player_name(sid, fallback = "Ally", party = nil)
+  sid = sid.to_s
+  candidates = []
+  begin
+    squad = MultiplayerClient.squad rescue nil
+    if squad && squad[:members]
+      m = squad[:members].find { |mm| mm[:sid].to_s == sid }
+      candidates << m[:name].to_s if m && m[:name]
+    end
+  rescue; end
+  begin
+    if defined?(MultiplayerClient) && MultiplayerClient.respond_to?(:find_name_for_sid)
+      candidates << (MultiplayerClient.find_name_for_sid(sid).to_s rescue "")
+    end
+  rescue; end
+  begin
+    if party.is_a?(Array)
+      first = party.find { |p| p }
+      candidates << first.owner.name.to_s if first && first.respond_to?(:owner) && first.owner.respond_to?(:name)
+    end
+  rescue; end
+  good = candidates.find { |n| n && !n.strip.empty? && n != sid && n !~ /\ASID\d+\z/ }
+  good || fallback
+end
+
 #===============================================================================
 # Alias pbTrainerBattle to add sync wait logic
 #===============================================================================
@@ -495,18 +524,8 @@ def start_coop_trainer_battle_as_initiator(battle_id, ally_sids, trainer, traine
       next
     end
 
-    # Get ally name from squad
-    ally_name = begin
-      squad = MultiplayerClient.squad rescue nil
-      if squad && squad[:members]
-        member = squad[:members].find { |m| m[:sid].to_s == sid.to_s }
-        member ? (member[:name] || "Ally") : "Ally"
-      else
-        "Ally"
-      end
-    rescue
-      "Ally"
-    end
+    # Get ally name (roster/OT-aware so we never show a bare "SID##")
+    ally_name = coop_resolve_player_name(sid, "Ally", ally_party)
 
     # Create NPCTrainer for ally
     npc = NPCTrainer.new(ally_name.to_s, trainer_type)
@@ -713,18 +732,8 @@ def start_coop_trainer_battle_as_joiner(sync_wait, trainer_id, trainer_name, end
     return 2 # Loss
   end
 
-  # Get initiator name from squad
-  initiator_name = begin
-    squad = MultiplayerClient.squad rescue nil
-    if squad && squad[:members]
-      member = squad[:members].find { |m| m[:sid].to_s == initiator_sid.to_s }
-      member ? (member[:name] || "Host") : "Host"
-    else
-      "Host"
-    end
-  rescue
-    "Host"
-  end
+  # Get initiator name (roster/OT-aware so we never show a bare "SID##")
+  initiator_name = coop_resolve_player_name(initiator_sid, "Host", initiator_party)
 
   npc = NPCTrainer.new(initiator_name.to_s, trainer_type)
   npc.id = initiator_sid.to_s
@@ -779,18 +788,8 @@ def start_coop_trainer_battle_as_joiner(sync_wait, trainer_id, trainer_name, end
         next
       end
 
-      # Get ally name from squad
-      ally_name = begin
-        squad = MultiplayerClient.squad rescue nil
-        if squad && squad[:members]
-          member = squad[:members].find { |m| m[:sid].to_s == sid.to_s }
-          member ? (member[:name] || "Ally") : "Ally"
-        else
-          "Ally"
-        end
-      rescue
-        "Ally"
-      end
+      # Get ally name (roster/OT-aware so we never show a bare "SID##")
+      ally_name = coop_resolve_player_name(sid, "Ally", party)
 
       # Create NPCTrainer for ally
       npc2 = NPCTrainer.new(ally_name.to_s, trainer_type)
