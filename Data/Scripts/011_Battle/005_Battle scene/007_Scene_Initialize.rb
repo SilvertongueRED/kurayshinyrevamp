@@ -74,7 +74,9 @@ class PokeBattle_Scene
     # Opposing trainer(s) sprites
     if @battle.trainerBattle?
       @battle.opponent.each_with_index do |p, i|
-        pbCreateTrainerFrontSprite(i, p.trainer_type, @battle.opponent.length, p.sprite_override, p.custom_appearance)
+        _ca = (p.custom_appearance rescue nil)
+        _ca ||= (MultiplayerUI.remote_trainer_appearance(p.id) rescue nil) if defined?(MultiplayerUI)
+        pbCreateTrainerFrontSprite(i, p.trainer_type, @battle.opponent.length, p.sprite_override, _ca)
       end
     end
     # Data boxes and Pokémon sprites
@@ -199,11 +201,22 @@ class PokeBattle_Scene
 
       trainer_sprite = IconSprite.new(x,y,@viewport)
       trainer_sprite.setBitmap(trainerFile)
+      # MP: if this partner is a real player (e.g. a co-op ally), show their outfit.
+      _ally = (@battle.player[idxTrainer] rescue nil)
+      _ca = (_ally && _ally.custom_appearance rescue nil)
+      _ca ||= (MultiplayerUI.remote_trainer_appearance(_ally.id) rescue nil) if _ally && defined?(MultiplayerUI)
+      if _ca
+        begin
+          trainer_sprite.setBitmapDirectly(generate_front_trainer_sprite_bitmap_from_appearance(_ca, true))
+        rescue
+          _ca = nil
+        end
+      end
       trainer_sprite.zoom_x=2
       trainer_sprite.zoom_y=2
       trainer_sprite.z = 30 + idxTrainer
       trainer_sprite.mirror =true
-      if trainer_sprite.bitmap.width > trainer_sprite.bitmap.height * 2
+      if !_ca && trainer_sprite.bitmap.width > trainer_sprite.bitmap.height * 2
         trainer_sprite.src_rect.x = 0
         trainer_sprite.src_rect.width = trainer_sprite.bitmap.width / 5
       end

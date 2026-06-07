@@ -14,7 +14,7 @@ def pbNewBattleScene
   if safari
     return pbNewBattleScene_pre_ebdx660
   end
-  if EBDXToggle.enabled? && defined?(PokeBattle_SceneEBDX)
+  if EBDXToggle.enabled? && EBDXToggle.assets_available? && defined?(PokeBattle_SceneEBDX)
     return PokeBattle_SceneEBDX.new
   else
     return pbNewBattleScene_pre_ebdx660

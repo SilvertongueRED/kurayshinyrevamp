@@ -1312,7 +1312,7 @@ module ModManager
       case @active_tab
       when :mods, :modpacks
         tag_text = @filter_tag ? "T: Tag [#{@filter_tag}]" : "T: Tag"
-        pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "S: Search | #{tag_text} | Y: Sort [#{sort_label}] | L/R: Switch", DIM, SHADOW)
+        pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "S: Search | #{tag_text} | O/(Y): Sort [#{sort_label}] | L/R: Switch", DIM, SHADOW)
       when :share_code
         pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "Tab: Switch  |  Ctrl+V: Paste", DIM, SHADOW)
       end
@@ -1398,8 +1398,8 @@ module ModManager
         return
       end
 
-      # Cycle sort order (O key or Y button): A-Z <-> Recently Updated
-      if _key_trigger?(0x4F) || Input.trigger?(Input::Y)
+      # Cycle sort order (O key, or Y / X controller button): A-Z <-> Recently Updated
+      if _key_trigger?(0x4F) || Input.trigger?(Input::Y) || Input.trigger?(Input::X)
         cycle_sort
         return
       end
@@ -1449,8 +1449,8 @@ module ModManager
         return
       end
 
-      # Cycle sort order (O key or Y button): A-Z <-> Recently Updated
-      if _key_trigger?(0x4F) || Input.trigger?(Input::Y)
+      # Cycle sort order (O key, or Y / X controller button): A-Z <-> Recently Updated
+      if _key_trigger?(0x4F) || Input.trigger?(Input::Y) || Input.trigger?(Input::X)
         cycle_sort
         return
       end

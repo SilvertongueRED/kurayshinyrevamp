@@ -434,6 +434,23 @@ module CoopActionSync
     sid_key = from_sid.to_s
     @pending_actions[sid_key] = data
     @remote_player_actions[sid_key] = data[:choices]
+
+    # Backstop the live target preview: feed the ally's chosen foe targets into
+    # CoopTargetIntent so the Squad Target HUD / ally marker still works even if
+    # the live COOP_TGT_INTENT packet was missed. Guarded; never affects battle.
+    begin
+      if defined?(CoopTargetIntent) && data[:choices].is_a?(Hash)
+        bid = (CoopBattleState.battle_id rescue nil)
+        data[:choices].each do |atk_idx, ch|
+          next unless ch.is_a?(Array) && ch[0] == :UseMove
+          tgt = ch[3]
+          next if tgt.nil? || tgt.to_i < 0
+          CoopTargetIntent.receive(sid_key, bid, received_turn, atk_idx.to_i, tgt.to_i)
+        end
+      end
+    rescue => e
+      MultiplayerDebug.warn("COOP-TGT", "action-sync intent feed err: #{e.class}: #{e.message}") if defined?(MultiplayerDebug)
+    end
     @remote_mega_flags[sid_key] = data[:mega] || {}
     MultiplayerDebug.info("COOP-MEGA", "receive: stored mega flags for #{sid_key}: #{@remote_mega_flags[sid_key].inspect}")
 

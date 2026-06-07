@@ -13,94 +13,6 @@
 # Debug tag for EBDX scene
 EBDX_DEBUG_TAG = "EBDX-SCENE"
 
-module EBDXOverlayCleanup
-  @tracked_viewports = []
-  @pending_stray_cleanup = false
-
-  LEAKED_BATTLE_VIEWPORT_MIN_Z = 99_999
-  LEAKED_BATTLE_VIEWPORT_MAX_Z = 100_010
-
-  module_function
-
-  def track(*viewports)
-    @tracked_viewports = viewports.flatten.compact.uniq
-  end
-
-  def request_stray_cleanup
-    @pending_stray_cleanup = true
-  end
-
-  def cleanup(*viewports)
-    targets = viewports.flatten.compact
-    targets = @tracked_viewports.dup if targets.empty?
-    targets.each do |viewport|
-      safe_cleanup_viewport(viewport)
-      @tracked_viewports.delete(viewport)
-    end
-  end
-
-  def safe_cleanup_viewport(viewport)
-    return if !viewport
-    begin
-      viewport.rect = Rect.new(0, 0, 0, 0)
-    rescue
-    end
-    begin
-      viewport.color = Color.new(0, 0, 0, 0)
-    rescue
-    end
-    begin
-      viewport.dispose if !pbDisposed?(viewport)
-    rescue
-    end
-  end
-
-  def cleanup_strays(force = false)
-    return if !force && !@pending_stray_cleanup
-    targets = []
-    begin
-      ObjectSpace.each_object(Viewport) do |viewport|
-        next if !viewport || pbDisposed?(viewport)
-        rect = viewport.rect rescue nil
-        next if !rect
-        next if rect.width != Graphics.width || rect.height != Graphics.height
-        z = viewport.z rescue nil
-        next if z.nil?
-        next if z < LEAKED_BATTLE_VIEWPORT_MIN_Z || z > LEAKED_BATTLE_VIEWPORT_MAX_Z
-        targets << viewport
-      end
-    rescue
-    end
-    begin
-      if defined?(EliteBattle) && EliteBattle.respond_to?(:get)
-        transition_viewport = EliteBattle.get(:tviewport)
-        targets << transition_viewport if transition_viewport && !pbDisposed?(transition_viewport)
-      end
-    rescue
-    end
-    cleanup(targets.uniq)
-    begin
-      EliteBattle.set(:tviewport, nil) if defined?(EliteBattle) && EliteBattle.respond_to?(:set)
-    rescue
-    end
-    @pending_stray_cleanup = false
-  end
-end
-
-class Scene_Map
-  unless method_defined?(:ebdx_overlay_cleanup_original_update)
-    alias ebdx_overlay_cleanup_original_update update
-  end
-
-  def update
-    ebdx_overlay_cleanup_original_update
-    if defined?(EBDXOverlayCleanup) && defined?($game_temp) && $game_temp && !$game_temp.in_battle
-      EBDXOverlayCleanup.cleanup
-      EBDXOverlayCleanup.cleanup_strays
-    end
-  end
-end
-
 #===============================================================================
 # Extend PokemonBattlerSprite to disable auto-positioning when EBDX controls it
 # This prevents KIF's internal positioning from fighting with EBDX's camera system
@@ -234,7 +146,6 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
     @dexview.z = 99999
     @msgview = Viewport.new(0, 0, Graphics.width, Graphics.height)
     @msgview.z = 99999
-    EBDXOverlayCleanup.track(@viewport, @dexview, @msgview) if defined?(EBDXOverlayCleanup)
     @traineryoffset = (Graphics.height - 320)
     @foeyoffset = (@traineryoffset*3/4).floor
     # Load battle background
@@ -364,22 +275,109 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
   end
 
   #=============================================================================
+  #  Player back sprites (layered outfit composite, same as vanilla battle)
+  #=============================================================================
+  def pbEBDXLayeredPlayerTrainerBitmap(player, idxTrainer)
+    return nil if !defined?(generate_front_trainer_sprite_bitmap)
+    allowEasterEgg = (pbInSafari? rescue false)
+    if idxTrainer == 0 && defined?($Trainer) && $Trainer
+      return generate_front_trainer_sprite_bitmap(allowEasterEgg)
+    end
+    if player.respond_to?(:clothes) && !player.clothes.nil? && player.clothes.to_s != ""
+      hat = player.respond_to?(:hat) ? player.hat : nil
+      hair = player.respond_to?(:hair) ? player.hair : nil
+      skin = player.respond_to?(:skin_tone) ? player.skin_tone : nil
+      hair_color = player.respond_to?(:hair_color) ? player.hair_color : nil
+      hat_color = player.respond_to?(:hat_color) ? player.hat_color : nil
+      clothes_color = player.respond_to?(:clothes_color) ? player.clothes_color : nil
+      return generate_front_trainer_sprite_bitmap(false, nil, player.clothes, hat, hair,
+        skin, hair_color, hat_color, clothes_color)
+    end
+    return nil
+  end
+
+  def pbCreateEBDXPlayerBackSprite(idxTrainer, player)
+    sprite = IconSprite.new(0, 0, @viewport)
+    layered = pbEBDXLayeredPlayerTrainerBitmap(player, idxTrainer)
+    if layered
+      sprite.setBitmapDirectly(layered)
+      sprite.instance_variable_set(:@ebdx_full_player_model, true)
+      sprite.mirror = true
+      sprite.zoom_x = 2
+      sprite.zoom_y = 2
+    else
+      plfile = GameData::TrainerType.player_back_sprite_filename(player.trainer_type)
+      sprite.setBitmap(plfile) if plfile
+      sprite.instance_variable_set(:@ebdx_full_player_model, false)
+    end
+    sprite.bitmap = Bitmap.new(2, 2) if sprite.bitmap.nil?
+    @sprites["player_#{idxTrainer}"] = sprite
+    zoom = sprite.zoom_y
+    sprite.x = 40 + idxTrainer * 100
+    sprite.y = Graphics.height - (sprite.bitmap.height * zoom)
+    sprite.z = 50
+    sprite.opacity = 0
+    if !ebdxFullPlayerModel?(sprite) && sprite.bitmap.width > sprite.bitmap.height * 2
+      sprite.src_rect.width = sprite.bitmap.width / 5
+    end
+    return sprite
+  end
+
+  def pbCreateEBDXPlayerBackSprites
+    @battle.player.each_with_index do |pl, i|
+      pbCreateEBDXPlayerBackSprite(i, pl)
+    end
+  end
+
+  def ebdxFullPlayerModel?(sprite)
+    return false if !sprite
+    return !!sprite.instance_variable_get(:@ebdx_full_player_model)
+  end
+
+  def ebdxResetPlayerThrowFrame(sprite)
+    return if !sprite || !sprite.bitmap
+    sprite.visible = true
+    sprite.instance_variable_set(:@ebdx_retreat_start_x, nil)
+    if ebdxFullPlayerModel?(sprite)
+      sprite.src_rect.set(0, 0, sprite.bitmap.width, sprite.bitmap.height)
+      return
+    end
+    frameWidth = sprite.bitmap.width / 5
+    if frameWidth > 0
+      sprite.src_rect.width = frameWidth
+      sprite.src_rect.x = 0
+    end
+  end
+
+  def ebdxAdvancePlayerThrowFrame(sprite)
+    return if !sprite || !sprite.bitmap || ebdxFullPlayerModel?(sprite)
+    frameWidth = sprite.bitmap.width / 5
+    return if frameWidth <= 0
+    currentFrame = (sprite.src_rect.x / frameWidth).to_i
+    nextFrame = [currentFrame + 1, 4].min
+    sprite.src_rect.x = nextFrame * frameWidth
+  end
+
+  def ebdxRetreatPlayerSprite(sprite, frame, duration = 21)
+    return if !sprite || !sprite.bitmap
+    startX = sprite.instance_variable_get(:@ebdx_retreat_start_x)
+    if startX.nil?
+      startX = sprite.x
+      sprite.instance_variable_set(:@ebdx_retreat_start_x, startX)
+    end
+    width = sprite.src_rect.width > 0 ? sprite.src_rect.width : sprite.bitmap.width
+    targetX = -((width * sprite.zoom_x).ceil + 32)
+    progress = [(frame + 1).to_f / duration, 1.0].min
+    sprite.x = (startX + (targetX - startX) * progress).round
+    sprite.opacity = [(255 * (1.0 - progress)).to_i, 0].max
+    sprite.visible = false if progress >= 1.0
+  end
+
+  #=============================================================================
   #  Initialize sprites (using KIF's native PokemonBattlerSprite)
   #=============================================================================
   def initializeSprites
-    # Player back sprites
-    @battle.player.each_with_index do |pl, i|
-      plfile = GameData::TrainerType.player_back_sprite_filename(pl.trainer_type)
-      pbAddSprite("player_#{i}", 0, 0, plfile, @viewport)
-      if @sprites["player_#{i}"].bitmap.nil?
-        @sprites["player_#{i}"].bitmap = Bitmap.new(2, 2)
-      end
-      @sprites["player_#{i}"].x = 40 + i*100
-      @sprites["player_#{i}"].y = Graphics.height - @sprites["player_#{i}"].bitmap.height
-      @sprites["player_#{i}"].z = 50
-      @sprites["player_#{i}"].opacity = 0
-      @sprites["player_#{i}"].src_rect.width /= 5 if @sprites["player_#{i}"].bitmap.width > @sprites["player_#{i}"].bitmap.height
-    end
+    pbCreateEBDXPlayerBackSprites
 
     # Trainer front sprites (using basic Sprite for KIF compatibility)
     if @battle.opponent
@@ -871,12 +869,6 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
     pbGraphicsUpdate
     pbInputUpdate
     pbFrameUpdate(cw)
-    $chat_window.update if defined?($chat_window) && $chat_window
-    if defined?(MultiplayerUI) && MultiplayerUI.respond_to?(:tick_battle_overlay_ui)
-      MultiplayerUI.tick_battle_overlay_ui
-    elsif defined?(MultiplayerUI) && MultiplayerUI.respond_to?(:update_hotkey_hud)
-      MultiplayerUI.update_hotkey_hud
-    end
   end
 
   def pbInputUpdate
@@ -1272,30 +1264,6 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
   end
 
   def pbDisposeSprites
-    if @animations
-      @animations.each do |anim|
-        next if !anim || !anim.respond_to?(:dispose)
-        begin
-          anim.dispose
-        rescue
-        end
-      end
-      @animations.clear
-    end
-    ["ballshadow", "captureball"].each do |key|
-      next if !@sprites || !@sprites[key]
-      sprite = @sprites[key]
-      begin
-        sprite.visible = false if sprite.respond_to?(:visible=)
-        sprite.opacity = 0 if sprite.respond_to?(:opacity=)
-        if key == "ballshadow" && sprite.respond_to?(:bitmap) && sprite.bitmap && !sprite.bitmap.disposed?
-          sprite.bitmap.dispose rescue nil
-        end
-        sprite.dispose if !sprite.disposed?
-      rescue
-      end
-      @sprites[key] = nil
-    end
     pbDisposeSpriteHash(@sprites)
     @commandWindow.dispose if @commandWindow && @commandWindow.respond_to?(:dispose)
     @fightWindow.dispose if @fightWindow && @fightWindow.respond_to?(:dispose)
@@ -1303,25 +1271,6 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
     @targetWindow.dispose if @targetWindow && @targetWindow.respond_to?(:dispose) && @targetWindow.is_a?(TargetWindowEBDX)
     @playerLineUp.dispose if @playerLineUp && @playerLineUp.respond_to?(:dispose)
     @opponentLineUp.dispose if @opponentLineUp && @opponentLineUp.respond_to?(:dispose)
-    if @abilityMsgBg && !@abilityMsgBg.disposed?
-      @abilityMsgBg.dispose rescue nil
-      @abilityMsgBg = nil
-    end
-    tracked_viewports = [@viewport, @dexview, @msgview]
-    [@viewport, @dexview, @msgview].each do |vp|
-      vp.dispose if vp && !vp.disposed?
-    end
-    transition_viewport = nil
-    if defined?(EliteBattle) && EliteBattle.respond_to?(:get) && EliteBattle.respond_to?(:set)
-      transition_viewport = EliteBattle.get(:tviewport)
-      if transition_viewport && !transition_viewport.disposed? &&
-         ![@viewport, @dexview, @msgview].include?(transition_viewport)
-        transition_viewport.dispose
-      end
-      EliteBattle.set(:tviewport, nil)
-    end
-    tracked_viewports << transition_viewport if transition_viewport
-    EBDXOverlayCleanup.cleanup(tracked_viewports) if defined?(EBDXOverlayCleanup)
   end
 
   #=============================================================================
@@ -1606,13 +1555,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
         playerSendouts.each_with_index do |pair, m|
           next if !@sprites["player_#{m}"]
           @sprites["player_#{m}"].opacity = 0
-          if @sprites["player_#{m}"].bitmap
-            frameWidth = @sprites["player_#{m}"].bitmap.width / 5
-            if frameWidth > 0
-              @sprites["player_#{m}"].src_rect.width = frameWidth
-              @sprites["player_#{m}"].src_rect.x = 0
-            end
-          end
+          ebdxResetPlayerThrowFrame(@sprites["player_#{m}"])
         end
 
         # EBDX: 44 frames for player fade-in + vector zoom animation
@@ -1640,8 +1583,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
         playerSendouts.each_with_index do |pair, m|
           next if !@sprites["player_#{m}"]
           if j == 0 && @sprites["player_#{m}"].bitmap
-            frameWidth = @sprites["player_#{m}"].bitmap.width / 5
-            @sprites["player_#{m}"].src_rect.x = frameWidth if frameWidth > 0
+            ebdxAdvancePlayerThrowFrame(@sprites["player_#{m}"])
           end
           @sprites["player_#{m}"].x -= 2 if j > 0
         end
@@ -1654,12 +1596,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
         playerSendouts.each_with_index do |pair, m|
           next if !@sprites["player_#{m}"]
           if @sprites["player_#{m}"].bitmap && j % 2 == 0
-            frameWidth = @sprites["player_#{m}"].bitmap.width / 5
-            if frameWidth > 0
-              currentFrame = (@sprites["player_#{m}"].src_rect.x / frameWidth).to_i
-              nextFrame = [currentFrame + 1, 4].min
-              @sprites["player_#{m}"].src_rect.x = nextFrame * frameWidth
-            end
+            ebdxAdvancePlayerThrowFrame(@sprites["player_#{m}"])
           end
           @sprites["player_#{m}"].x += 3 if j < 4
         end
@@ -1725,6 +1662,12 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
     # Ball trajectory animation (48 frames like EBDX)
     48.times do |j|
       ballFrame = (ballFrame + 1) % 8
+
+      if startBattle && !skipTrainerAnim
+        playerSendouts.each_with_index do |pair, m|
+          ebdxRetreatPlayerSprite(@sprites["player_#{m}"], j)
+        end
+      end
 
       playerSendouts.each do |idxBattler, pkmn|
         next if !pokeballs[idxBattler]
@@ -2296,50 +2239,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
   #  Source: EBDX/Plugins/Elite Battle DX/[000] Scripts/Battle Scene Animations/Battler Capture.rb
   #=============================================================================
   def pbThrowAndDeflect(ball, targetBattler); end
-  def pbHideCaptureBall(idxBattler)
-    dataBox = @sprites["dataBox_#{idxBattler}"] if @sprites
-    8.times do
-      if dataBox && dataBox.respond_to?(:opacity) && dataBox.respond_to?(:opacity=) && dataBox.opacity > 0
-        dataBox.opacity -= 32
-      end
-      shadow = @sprites["ballshadow"] if @sprites
-      if shadow
-        shadow.opacity -= 32 if shadow.respond_to?(:opacity) && shadow.respond_to?(:opacity=) && shadow.opacity > 0
-        shadow.visible = false if shadow.respond_to?(:visible=) && shadow.opacity <= 0
-      end
-      ball = @sprites["captureball"] if @sprites
-      if ball
-        ball.opacity -= 64 if ball.respond_to?(:opacity) && ball.respond_to?(:opacity=) && ball.opacity > 0
-        ball.visible = false if ball.respond_to?(:visible=) && ball.opacity <= 0
-      end
-      pbUpdate
-    end
-    if dataBox && dataBox.respond_to?(:visible=)
-      dataBox.visible = false
-    end
-    if @sprites
-      shadow = @sprites["ballshadow"]
-      if shadow
-        begin
-          shadow.bitmap.dispose if shadow.respond_to?(:bitmap) && shadow.bitmap && !shadow.bitmap.disposed?
-        rescue
-        end
-        begin
-          shadow.dispose if !shadow.disposed?
-        rescue
-        end
-        @sprites["ballshadow"] = nil
-      end
-      ball = @sprites["captureball"]
-      if ball
-        begin
-          ball.dispose if !ball.disposed?
-        rescue
-        end
-        @sprites["captureball"] = nil
-      end
-    end
-  end
+  def pbHideCaptureBall(idxBattler); end
 
   def pbThrow(ball, shakes, critical, targetBattler, showPlayer = false)
     @orgPos = nil; @playerfix = false if @safaribattle
@@ -2621,8 +2521,6 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
     end
     @sprites["ballshadow"].dispose if @sprites["ballshadow"]
     @sprites["captureball"].dispose if @sprites["captureball"]
-    @sprites["ballshadow"] = nil if @sprites
-    @sprites["captureball"] = nil if @sprites
     pbShowAllDataboxes(0)
     @vector.reset
   end

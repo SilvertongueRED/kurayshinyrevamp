@@ -332,8 +332,14 @@ class Game_Player < Game_Character
   def update_command_new
     dir = Input.dir4
     chat_typing = defined?($chat_window) && $chat_window && $chat_window.input_mode
+    # Freeze walking while a modal MP overlay (Profile F8, Case F7, Player List,
+    # Squad) is open so controller directions navigate the menu instead of moving
+    # the character. Mirrors the same guard already used for event interaction.
+    mp_ui_blocked = (defined?(MultiplayerUI) &&
+                     MultiplayerUI.respond_to?(:block_overworld_mouse_input?) &&
+                     MultiplayerUI.block_overworld_mouse_input?) rescue false
     unless pbMapInterpreterRunning? || $game_temp.message_window_showing ||
-           $PokemonTemp.miniupdate || $game_temp.in_menu || chat_typing
+           $PokemonTemp.miniupdate || $game_temp.in_menu || chat_typing || mp_ui_blocked
       # Move player in the direction the directional button is being pressed
       if @moved_last_frame ||
          (dir > 0 && dir == @lastdir && Graphics.frame_count - @lastdirframe > Graphics.frame_rate / 20)

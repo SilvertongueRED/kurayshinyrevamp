@@ -22,4 +22,48 @@ module EBDXToggle
   def self.enabled?
     return $PokemonSystem && $PokemonSystem.mp_ebdx_enabled == 1
   end
+
+  # ---------------------------------------------------------------------------
+  #  Asset availability probe.
+  #  EBDX's battle UI needs its art under Graphics/EBDX/Pictures/. If that art
+  #  is missing on this install, pbBitmap returns 1x1 placeholders and the
+  #  battle scene crashes (BagWindowEBDX -> Bitmap.new(w, height/4 == 0):
+  #  "failed to create bitmap"). When the art is absent we report false here so
+  #  pbNewBattleScene transparently falls back to the working vanilla battle UI.
+  #  This is purely local rendering: multiplayer sync/compat is unaffected, and
+  #  any player who DOES have the EBDX art keeps full EBDX automatically. Drop
+  #  the art back into Graphics/EBDX/Pictures/ and EBDX re-enables itself.
+  # ---------------------------------------------------------------------------
+  @assets_available = nil
+  def self.assets_available?
+    return @assets_available unless @assets_available.nil?
+    required = [
+      "Graphics/EBDX/Pictures/UI/btnCmd",
+      "Graphics/EBDX/Pictures/UI/moveSelButtons",
+      "Graphics/EBDX/Pictures/Bag/itemContainer",
+      "Graphics/EBDX/Pictures/Bag/pocketIcons"
+    ]
+    @assets_available = true
+    begin
+      required.each do |path|
+        if (pbResolveBitmap(path) rescue nil).nil?
+          @assets_available = false
+          break
+        end
+      end
+    rescue
+      @assets_available = false
+    end
+    if !@assets_available && !$ebdx_assets_warned
+      $ebdx_assets_warned = true
+      msg = "[EBDX] Battle UI art (Graphics/EBDX/Pictures/) is missing - using the standard battle UI. Restore those assets to re-enable EBDX visuals."
+      (MultiplayerDebug.info("EBDX", msg) rescue nil) if defined?(MultiplayerDebug)
+      p msg if $DEBUG
+    end
+    return @assets_available
+  end
+
+  def self.reset_asset_cache
+    @assets_available = nil
+  end
 end

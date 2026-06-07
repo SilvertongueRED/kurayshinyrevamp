@@ -555,6 +555,19 @@ module MultiplayerClient
     end
   end
 
+  # Force-clears local battle/menu/event state and rebroadcasts busy=0. Recovers
+  # from a co-op battle that hung or black-screened without running its normal
+  # teardown, which would otherwise leave the player stuck "in battle" on the
+  # server (squad-state broadcasts get skipped and new co-op battles blocked).
+  def self.reset_battle_state!
+    @in_battle = false
+    @in_event = false
+    @in_menu_depth = 0
+    @player_busy = nil  # force update_busy_state to (re)send busy=0
+    update_busy_state()
+  rescue
+  end
+
   def self.in_battle?
     !!@in_battle
   end
@@ -637,6 +650,27 @@ module MultiplayerClient
       return m[:name].to_s if m
     end
     sid
+  end
+
+  # Turn a raw trade-abort reason into something a human can read. The server
+  # sends e.g. "CANCELLED_BY_SID115"; show the player's name instead of the SID.
+  def self._humanize_trade_abort_reason(reason)
+    r = reason.to_s
+    if r =~ /\ACANCELLED_BY_(.+)\z/
+      sid  = $1
+      name = find_name_for_sid(sid)
+      name = sid if name.nil? || name.to_s.strip.empty?
+      return _INTL("Cancelled by {1}", name)
+    end
+    case r
+    when "AUTH_REQUIRED"                  then _INTL("Account not set up yet \u2014 try again")
+    when "TIMEOUT"                        then _INTL("Timed out")
+    when "DISCONNECT", "PEER_DISCONNECT"  then _INTL("Other player disconnected")
+    when "DECLINED"                       then _INTL("Declined")
+    else r
+    end
+  rescue
+    reason.to_s
   end
 
   # Client-side string sanitizer — strip control chars before display/storage.
@@ -1369,6 +1403,12 @@ module MultiplayerClient
 
       @connected = true
       @auth_sent = false
+      # Fresh connection: clear any stale local battle/busy flags left over
+      # from a previous session that ended abnormally (e.g. a hung co-op battle).
+      @in_battle = false
+      @in_event = false
+      @in_menu_depth = 0
+      @player_busy = false
       ##MultiplayerDebug.info("C-003", "Connection established in #{elapsed}s")
       puts "[Multiplayer] Connected to server."
 
@@ -1580,14 +1620,34 @@ module MultiplayerClient
                   if added.any? && @squad[:leader] == my
                     nm = @squad[:members].find{|m| m[:sid]==added.first}
                     enqueue_toast(_INTL("{1} joined your squad.", nm ? nm[:name] : added.first))
+                    # Push our (leader) clock + weather so the new member can sync.
+                    (MPEnvSync.broadcast_env rescue nil) if defined?(MPEnvSync)
                   end
-                  if prev[:leader] != @squad[:leader] && @squad[:leader] == my
+                  if prev[:leader] != @squad[:leader] && @squad[:leader] == my && @squad[:members].length > 1
                     enqueue_toast(_INTL("You are now the squad leader."))
                   end
                 end
               rescue => e
                 ##MultiplayerDebug.warn("C-SQUAD", "Toast diff err: #{e.message}")
               end
+            end
+            # MP co-op: align our time-of-day + weather to the squad leader on join
+            # (and clear the offset when the squad goes away).
+            (MPEnvSync.on_squad_state(prev, @squad) rescue nil) if defined?(MPEnvSync)
+            # MP co-op: if everyone else left/quit and I'm the lone survivor of what
+            # was a 2+ person squad, auto-leave instead of lingering as the leader of
+            # a phantom one-person squad (the player previously had to leave by hand).
+            begin
+              my2 = @session_id.to_s
+              if prev && prev[:members].is_a?(Array) && prev[:members].length >= 2 &&
+                 @squad && @squad[:members].is_a?(Array) && @squad[:members].length == 1 &&
+                 @squad[:members].first[:sid].to_s == my2
+                ##MultiplayerDebug.info("C-SQUAD", "Last one standing -> auto-leaving solo squad")
+                leave_squad if respond_to?(:leave_squad)
+                (MPEnvSync.clear rescue nil) if defined?(MPEnvSync)
+              end
+            rescue => e
+              ##MultiplayerDebug.warn("C-SQUAD", "auto-leave check err: #{e.message}")
             end
             next
           end
@@ -1864,12 +1924,19 @@ module MultiplayerClient
               when "SQUAD_FULL"       then _INTL("Your squad is full.")
               when "NOT_LEADER"       then _INTL("Only the squad leader can do that.")
               when "NOT_IN_SQUAD"     then _INTL("That player isn’t in your squad.")
-              when "ALREADY_IN_SQUAD" then _INTL("You are already in a squad.")
+              when "ALREADY_IN_SQUAD" then _INTL("You're already in a squad together \u2014 just start a co-op battle (refreshing squad\u2026).")
               when "SQUAD_NOT_FOUND"  then _INTL("Squad not found.")
               when "INVITE_EXPIRED"   then _INTL("This invite could not be accepted.")
               when "TARGET_OFFLINE"   then _INTL("That player is offline.")
               else _INTL("Squad error: {1}", err)
               end
+            # Recovery: a stale ALREADY/INVITEE_IN_SQUAD usually means we're
+            # still validly squadded after a bad battle. Clear stuck busy and
+            # refresh the squad menu so co-op works again without reconnecting.
+            if err == "ALREADY_IN_SQUAD" || err == "INVITEE_IN_SQUAD"
+              (reset_battle_state! rescue nil)
+              (send_data("REQ_SQUAD") rescue nil)
+            end
             enqueue_toast(human)
             next
           end
@@ -2075,7 +2142,7 @@ module MultiplayerClient
               end
             end
             ##MultiplayerDebug.warn("C-TRADE", "Trade #{tid} aborted: #{reason}")
-            enqueue_toast(_INTL("Trade aborted: {1}", reason.to_s))
+            enqueue_toast(_INTL("Trade aborted: {1}", _humanize_trade_abort_reason(reason)))
             push_trade_event(type: :abort, data: { trade_id: tid.to_s, reason: reason.to_s })
             next
           end
@@ -2608,6 +2675,18 @@ module MultiplayerClient
                   _handle_coop_target_intent(sid, battle_id, turn.to_i, attacker_idx.to_i, target_idx.to_i)
                 end
 
+              elsif payload.start_with?("SQUAD_ENV_REQ:")
+                # A squadmate is asking the leader for the shared time/weather.
+                (MPEnvSync.on_env_request(sid) rescue nil) if defined?(MPEnvSync)
+
+              elsif payload.start_with?("SQUAD_ENV:")
+                # Format: SQUAD_ENV:<epoch_f>|<weather_type>|<weather_power>
+                parts = payload.sub("SQUAD_ENV:", "").split("|", 3)
+                if parts.length == 3
+                  epoch, wtype, wpow = parts
+                  (MPEnvSync.on_env_received(sid, epoch.to_f, wtype, wpow.to_i) rescue nil) if defined?(MPEnvSync)
+                end
+
               elsif payload.start_with?("COOP_RUN_INCREMENT:")
                 # Format: COOP_RUN_INCREMENT:<battle_id>|<turn>|<new_value>
                 parts = payload.sub("COOP_RUN_INCREMENT:", "").split("|", 3)
@@ -2869,7 +2948,14 @@ module MultiplayerClient
           if data.start_with?("AUTH_FAIL:")
             reason = data.sub("AUTH_FAIL:", "").strip
             ##MultiplayerDebug.warn("C-PLATINUM", "Authentication failed: #{reason}")
-            # Server will likely kick us, just log it
+            # Discord linking is OPTIONAL. If a Discord-based auth failed (e.g. the
+            # ID is not linked on this server), fall back ONCE to a plain anonymous
+            # account so platinum / trading still works without Discord.
+            unless @auth_discord_failed
+              @auth_discord_failed = true
+              @auth_sent = false
+              (_send_platinum_auth_now rescue nil)
+            end
             next
           end
 
@@ -3307,8 +3393,10 @@ module MultiplayerClient
       server_key = "#{@host}:#{@port}"
       tid = $Trainer.id rescue 0
 
-      # Discord auth takes priority — stable identity across reinstalls
-      if defined?(DiscordIDStorage)
+      # Discord auth takes priority — stable identity across reinstalls. Skipped
+      # once a Discord auth has already failed, so we fall back to an anonymous
+      # account (Discord linking is optional, not required).
+      if defined?(DiscordIDStorage) && !@auth_discord_failed
         discord_id = DiscordIDStorage.get(server_key)
         if discord_id && !discord_id.empty?
           send_data("AUTH:#{tid}:DISCORD:#{discord_id}")

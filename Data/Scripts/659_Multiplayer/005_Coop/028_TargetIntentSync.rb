@@ -86,6 +86,23 @@ module CoopTargetIntent
     MultiplayerDebug.warn("COOP-TGT", "broadcast failed: #{e.class}: #{e.message}") if defined?(MultiplayerDebug)
   end
 
+  # Live (tentative) hover broadcast: fired while the player is STILL moving the
+  # target cursor, so a teammate sees in real time which foe this Pokemon is
+  # aiming at before it is locked in. Same wire format + receiver as broadcast.
+  # Only single-target foe moves owned by the local player qualify.
+  def broadcast_hover(battle, attacker_idx, hovered_idx, target_data)
+    return unless defined?(CoopBattleState) && CoopBattleState.in_coop_battle?
+    return if attacker_idx.nil? || hovered_idx.nil? || hovered_idx < 0
+    single = true
+    begin; single = (target_data.num_targets == 1); rescue; single = true; end
+    return unless single
+    return unless (battle.pbOwnedByPlayer?(attacker_idx) rescue false)
+    return unless (battle.opposes?(attacker_idx, hovered_idx) rescue false)
+    broadcast(battle, attacker_idx, hovered_idx)
+  rescue
+    nil
+  end
+
   #-----------------------------------------------------------------------------
   # Receive: an ally chose a target (called from the network handler)
   #-----------------------------------------------------------------------------
@@ -96,15 +113,28 @@ module CoopTargetIntent
     cur_id = CoopBattleState.battle_id rescue nil
     return false if cur_id && battle_id && cur_id.to_s != battle_id.to_s
 
-    # Only honour intents from actual allies. Compare as strings so a sid
-    # type/format mismatch can never silently drop a teammate's intent (this was
-    # a prime suspect for the marker never appearing). If the ally list is known
-    # and this sid really is not in it, ignore; otherwise accept.
+    # Ally filtering is now ADVISORY ONLY. The server only relays COOP_TGT_INTENT
+    # to the sender's own squad members (coop_recipients_for), and the battle_id
+    # guard above already proves this intent belongs to the current battle. So any
+    # intent that reaches us here is, by construction, from a teammate in this
+    # exact co-op battle. The previous code hard-dropped intents whose sid format
+    # didn't exactly match get_ally_sids -- and because the live COOP_TGT_INTENT
+    # path uses the server FROM: sid while the confirmed/action-sync path uses a
+    # different sid source, that mismatch silently ate every LIVE hover update
+    # (the confirmed marker showed, but it "never updated when the ally moved
+    # their cursor", and "one client showed nothing"). We now NEVER drop on a sid
+    # mismatch; we only log when the sid isn't recognised, after a fuzzy compare.
     if CoopBattleState.respond_to?(:get_ally_sids)
       allies = (CoopBattleState.get_ally_sids rescue []) || []
-      if allies.any? && !allies.map { |s| s.to_s }.include?(from_sid.to_s)
-        MultiplayerDebug.warn("COOP-TGT", "intent from non-ally #{from_sid} (allies=#{allies.inspect}) - ignoring") if defined?(MultiplayerDebug)
-        return false
+      if allies.any?
+        _nf = from_sid.to_s.gsub(/\ASID/i, "")
+        matched = allies.any? do |s|
+          a = s.to_s.gsub(/\ASID/i, "")
+          a == _nf || (!a.empty? && !_nf.empty? && (a.include?(_nf) || _nf.include?(a)))
+        end
+        unless matched
+          MultiplayerDebug.warn("COOP-TGT", "intent sid #{from_sid} not in ally list #{allies.inspect} - accepting anyway (battle_id matched)") if defined?(MultiplayerDebug)
+        end
       end
     end
 
@@ -142,6 +172,23 @@ module CoopTargetIntent
 
   def any_for_turn?(battle)
     !active_targets(battle).empty?
+  end
+
+  # Returns [[attacker_idx, target_idx], ...] for intents valid this round.
+  # Used by the fixed Squad Target HUD (662/002_SquadTargetHUD.rb).
+  def intent_pairs(battle)
+    out = []
+    return out unless battle
+    cur = current_turn_for(battle)
+    @remote_intents.each do |atk, info|
+      next unless (info[:turn].to_i - cur).abs <= 1
+      t = info[:target]
+      next if t.nil? || t < 0
+      out << [atk.to_i, t.to_i]
+    end
+    out
+  rescue
+    []
   end
 end
 

@@ -74,7 +74,7 @@ module KIFCases
               @animating = false
               _show_msg("Error: #{e.message}")
             end
-          elsif _input_n_trigger? || mouse_action == :buy            # [N] Buy to inventory
+          elsif _input_n_trigger? || Input.trigger?(Input::R) || mouse_action == :buy  # [N]/R Buy to inventory
             begin
               _try_buy_to_inventory
             rescue => e
@@ -307,9 +307,9 @@ module KIFCases
 
       # [N] Buy to inventory
       bmp.font.color = Color.new(0, 0, 0, 100)
-      bmp.draw_text(359, 7, 130, 20, "[N] Buy (#{_case_cost})", 0)
+      bmp.draw_text(359, 7, 150, 20, "[N/R] Buy (#{_case_cost})", 0)
       bmp.font.color = can_buy ? Color.new(180, 255, 180, 230) : Color.new(80, 80, 100, 150)
-      bmp.draw_text(358, 6, 130, 20, "[N] Buy (#{_case_cost})", 0)
+      bmp.draw_text(358, 6, 150, 20, "[N/R] Buy (#{_case_cost})", 0)
 
       bmp.fill_rect(w - 80, 5, 2, 20, Color.new(120, 120, 160, 100))
 

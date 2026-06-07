@@ -645,7 +645,7 @@ class BagWindowEBDX
     # item name sprite
     bmp = pbBitmap(@path + @nameImg)
     @sprites["name"] = Sprite.new(@viewport)
-    @sprites["name"].bitmap = Bitmap.new(bmp.width*1.2, bmp.height)
+    @sprites["name"].bitmap = Bitmap.new([(bmp.width*1.2).to_i, 1].max, [bmp.height, 1].max)
     pbSetSystemFont(@sprites["name"].bitmap)
     @sprites["name"].x = -@sprites["name"].width - @sprites["name"].width%10
     @sprites["name"].y = @viewport.height - 56
@@ -656,7 +656,7 @@ class BagWindowEBDX
     # item pocket buttons
     for i in 0...4
       @sprites["pocket#{i}"] = Sprite.new(@viewport)
-      @sprites["pocket#{i}"].bitmap = Bitmap.new(pbmp.width, pbmp.height/4)
+      @sprites["pocket#{i}"].bitmap = Bitmap.new([pbmp.width, 1].max, [pbmp.height/4, 1].max)
       @sprites["pocket#{i}"].bitmap.blt(0, 0, pbmp, Rect.new(0, (pbmp.height/4)*i, pbmp.width, pbmp.height/4))
       @sprites["pocket#{i}"].bitmap.blt((pbmp.width - ibmp.width)/2, (pbmp.height/4 - ibmp.height/4)/2, ibmp, Rect.new(0, (ibmp.height/4)*i, ibmp.width, ibmp.height/4))
       @sprites["pocket#{i}"].center!
@@ -668,7 +668,7 @@ class BagWindowEBDX
     # last used item sprite
     @sprites["pocket4"] = Sprite.new(@viewport)
     bmp = pbBitmap(@path + @lastImg)
-    @sprites["pocket4"].bitmap = Bitmap.new(bmp.width, bmp.height/2)
+    @sprites["pocket4"].bitmap = Bitmap.new([bmp.width, 1].max, [bmp.height/2, 1].max)
     pbSetSystemFont(@sprites["pocket4"].bitmap)
     @sprites["pocket4"].x = 24
     @sprites["pocket4"].ey = @viewport.height - 62
@@ -685,7 +685,7 @@ class BagWindowEBDX
     # confirmation buttons
     @sprites["confirm"] = Sprite.new(@viewport)
     bmp = pbBitmap(@path + @confirmImg)
-    @sprites["confirm"].bitmap = Bitmap.new(bmp.width, bmp.height)
+    @sprites["confirm"].bitmap = Bitmap.new([bmp.width, 1].max, [bmp.height, 1].max)
     pbSetSmallFont(@sprites["confirm"].bitmap); bmp.dispose
     @sprites["confirm"].center!
     @sprites["confirm"].x = @viewport.width/2 - @viewport.width + @viewport.width%8

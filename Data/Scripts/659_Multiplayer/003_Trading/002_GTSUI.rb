@@ -893,12 +893,12 @@ module GTSUI
       hint_y = CONTENT_H - 20
       b.fill_rect(8, hint_y - 4, RIGHT_W - 16, 1, SECTION_LINE)
       if is_mine?(entry)
-        pbDrawShadowText(b, 12, hint_y, RIGHT_W - 24, 14, "Click or [Z] Cancel", DIM, SHADOW, 2)
+        pbDrawShadowText(b, 12, hint_y, RIGHT_W - 24, 14, "[Z]/[A]/Click: Cancel   Left/Right: Buttons", DIM, SHADOW, 2)
       else
         if entry["kind"].to_s == "pokemon"
-          pbDrawShadowText(b, 12, hint_y, RIGHT_W - 24, 14, "Click or [Z] to act", DIM, SHADOW, 2)
+          pbDrawShadowText(b, 12, hint_y, RIGHT_W - 24, 14, "[Z]/[A]/Click: Act   Left/Right: Buttons", DIM, SHADOW, 2)
         else
-          pbDrawShadowText(b, 12, hint_y, RIGHT_W - 24, 14, "Click or [Z] Buy", DIM, SHADOW, 2)
+          pbDrawShadowText(b, 12, hint_y, RIGHT_W - 24, 14, "[Z]/[A]/Click: Buy   Left/Right: Buttons", DIM, SHADOW, 2)
         end
       end
     end
@@ -1021,7 +1021,7 @@ module GTSUI
           break
         end
 
-        if Input.trigger?(Input::C) || Input.trigger?(Input::MOUSELEFT)
+        if Input.trigger?(Input::C) || Input.trigger?(Input::A) || Input.trigger?(Input::MOUSELEFT)
           # Mouse click: check if inside box
           if Input.trigger?(Input::MOUSELEFT)
             mx = Input.mouse_x rescue nil; my = Input.mouse_y rescue nil
@@ -1264,8 +1264,8 @@ module GTSUI
         @focus = :footer; draw_left; draw_footer; return
       end
 
-      # Z/C = act on listing (submenu for pokemon, direct buy for items)
-      if Input.trigger?(Input::C) && selected_listing
+      # Z/C or A = act on listing (submenu for pokemon, direct buy for items)
+      if (Input.trigger?(Input::C) || Input.trigger?(Input::A)) && selected_listing
         act_on_listing(selected_listing); return
       end
 
@@ -1280,7 +1280,7 @@ module GTSUI
         @footer_index = (@footer_index + 1) % btn_count; draw_footer
       elsif Input.trigger?(Input::UP)
         @focus = :list; draw_left; draw_footer
-      elsif Input.trigger?(Input::C)
+      elsif Input.trigger?(Input::C) || Input.trigger?(Input::A)
         execute_footer_action(@footer_index)
       end
     end
@@ -1300,6 +1300,14 @@ module GTSUI
     # Search
     # ========================================================================
     def activate_search
+      # Respect the PIF "Text Entry" setting: Cursor -> on-screen keyboard.
+      if ($PokemonSystem.textinput != 1 rescue false)
+        term = (pbEnterText(_INTL("Search"), 0, 30, @search_text || "", 0, nil, true) rescue nil)
+        if term
+          @search_text = term; @sel_index = 0; @scroll = 0; apply_filter; redraw_all
+        end
+        return
+      end
       @search_active = true; @cursor_frame = 0; @focus = :list; draw_left
     end
 

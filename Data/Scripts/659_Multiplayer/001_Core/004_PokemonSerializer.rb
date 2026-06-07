@@ -617,7 +617,10 @@ module PokemonSerializer
       {
         "sid" => ally[:sid].to_s,
         "name" => ally[:name].to_s,
-        "party" => ally_party_serialized
+        "party" => ally_party_serialized,
+        # MP outfit sync: carry the participant's real outfit with the invite so
+        # joiners can render the correct clothes without depending on delta-SYNC.
+        "appearance" => (ally[:appearance] || ally["appearance"])
       }
     end
 
@@ -673,7 +676,8 @@ module PokemonSerializer
       {
         sid: ally_data["sid"] || ally_data[:sid],
         name: ally_data["name"] || ally_data[:name],
-        party: ally_party
+        party: ally_party,
+        appearance: (ally_data["appearance"] || ally_data[:appearance])
       }
     end
 

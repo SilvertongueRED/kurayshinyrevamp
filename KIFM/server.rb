@@ -2910,8 +2910,13 @@ end
 
 # Extract platinum amount from offer (supports both "platinum" and legacy "money" keys)
 def extract_platinum_from_offer(offer)
-  amount = offer["platinum"] || offer["money"] || 0
-  amount.to_i
+  return 0 unless offer.is_a?(Hash)
+  # Only the explicit "platinum" key counts as premium currency. Do NOT fall
+  # back to "money": "money" is in-game Pokedollars and is also what older /
+  # non-fork clients place in their trade offer. Treating it as platinum made
+  # ordinary item / Pokemon trades spuriously demand a Platinum-linked account
+  # and abort with AUTH_REQUIRED.
+  offer["platinum"].to_i
 end
 
 # ===================================
@@ -2951,6 +2956,31 @@ def calculate_wild_platinum(wild_level, wild_catch_rate, wild_stage, active_batt
   platinum.round
 end
 
+# Auto-provision a plain (anonymous) platinum account for a participant who has
+# none yet. Linking a Discord account is OPTIONAL: a player should never be
+# blocked from trading just because they have not linked. Creates a 0-balance
+# account so balance checks still prevent overspending. Returns the uuid or nil.
+def _auto_provision_platinum_account(platinum_accounts, client_data, sid)
+  entry = client_data.find { |_s, cd| cd[:id] == sid }
+  return nil unless entry
+  cd = entry[1]
+  return cd[:platinum_uuid] if cd[:platinum_uuid]
+  uuid = platinum_generate_uuid
+  PLATINUM_MUTEX.synchronize do
+    platinum_accounts[uuid] = {
+      "tid"      => cd[:tid],
+      "name"     => (cd[:name] || "Unknown"),
+      "platinum" => 0
+    }
+  end
+  platinum_save!(platinum_accounts) rescue nil
+  cd[:platinum_uuid] = uuid
+  MultiplayerDebug.info("PLATINUM-TRADE", "Auto-provisioned account for #{sid} (no link required)") if defined?(MultiplayerDebug)
+  uuid
+rescue
+  nil
+end
+
 # Validate platinum balances for trade and lock amounts
 def platinum_validate_trade(trades, platinum_accounts, client_data, trade_id)
   t = trades[trade_id]
@@ -2985,6 +3015,11 @@ def platinum_validate_trade(trades, platinum_accounts, client_data, trade_id)
   # Get UUIDs from client_data
   a_uuid = client_data.values.find { |h| h[:id] == a_sid }&.dig(:platinum_uuid)
   b_uuid = client_data.values.find { |h| h[:id] == b_sid }&.dig(:platinum_uuid)
+
+  # Discord linking is OPTIONAL. If a participant has no account yet, make one
+  # on the fly instead of refusing the trade. Balance checks below still apply.
+  a_uuid ||= _auto_provision_platinum_account(platinum_accounts, client_data, a_sid)
+  b_uuid ||= _auto_provision_platinum_account(platinum_accounts, client_data, b_sid)
 
   unless a_uuid && b_uuid
     return { success: false, reason: "AUTH_REQUIRED" }
@@ -3338,6 +3373,41 @@ def broadcast_squad_state_to_members(squads, member_squad, sid_sockets, client_d
   squads[squad_id][:members].each { |sid| safe_send_sid(sid_sockets, sid, pkt) }
   MultiplayerDebug.info("SQUAD", "Broadcast state for squad #{squad_id}: #{pkt}")
   broadcast_coop_push_now_to_squad(squads, member_squad, sid_sockets, client_data, squad_id)
+end
+
+# After a member is removed (leave OR disconnect), settle the squad. If it has
+# dropped to <=1 member, DISBAND it so the lone survivor doesn't linger as the
+# leader of a phantom one-person squad (they used to have to leave by hand). A
+# survivor who is mid-battle is not pushed a state change here (can crash battle
+# scenes); the client's own auto-leave net finishes the job once they're back in
+# the overworld.
+def disband_or_update_squad_after_removal(squads, member_squad, sid_sockets, client_data, sq_id, removed_sid)
+  sq = squads[sq_id]
+  return unless sq
+  if sq[:leader] == removed_sid && sq[:members].any?
+    sq[:leader] = sq[:members].first
+  end
+  if sq[:members].length <= 1
+    sq[:members].dup.each do |lone|
+      member_squad.delete(lone)
+      sock = sid_sockets[lone]
+      busy = sock && client_data[sock] && client_data[sock][:busy].to_i == 1
+      safe_send_sid(sid_sockets, lone, "SQUAD_STATE:NONE") unless busy
+    end
+    squads.delete(sq_id)
+    MultiplayerDebug.info("SQUAD", "Disbanded squad #{sq_id} (dropped to <=1 member after #{removed_sid} left)")
+  else
+    any_busy = sq[:members].any? do |m|
+      s = sid_sockets[m]; s && client_data[s] && client_data[s][:busy].to_i == 1
+    end
+    if any_busy
+      MultiplayerDebug.warn("SQUAD", "Skipping squad state broadcast for squad #{sq_id} (members in battle)")
+    else
+      broadcast_squad_state_to_members(squads, member_squad, sid_sockets, client_data, sq_id)
+    end
+  end
+rescue => e
+  MultiplayerDebug.error("SQUAD", "disband_or_update_squad_after_removal error: #{e.message}")
 end
 
 def repair_membership!(squads, member_squad, sid)
@@ -5043,6 +5113,22 @@ loop do
             next
           end
 
+          # ======================================
+          # === Squad Environment sync (time-of-day + weather), squad-wide.
+          # === Bypasses the proximity gate (coop_recipients_for) so it still
+          # === works the moment a far-away player joins the squad.
+          # ======================================
+          if data.start_with?("SQUAD_ENV_REQ:") || data.start_with?("SQUAD_ENV:")
+            sq_id = member_squad[sid.to_s]
+            if sq_id && squads[sq_id]
+              squads[sq_id][:members].each do |rsid|
+                next if rsid.to_s == sid.to_s
+                safe_send_sid(sid_sockets, rsid, "FROM:#{sid}|#{data}")
+              end
+            end
+            next
+          end
+
           if data.start_with?("COOP_MOVE_SYNC:")
             payload = data.sub("COOP_MOVE_SYNC:", "")
             recips = coop_recipients_for(sid, squads, member_squad, client_data)
@@ -5569,20 +5655,8 @@ loop do
               member_squad.delete(leaver)
               MultiplayerDebug.info("SQUAD", "Member #{leaver} left squad #{sq_id}")
 
-              if squads[sq_id][:leader] == leaver && squads[sq_id][:members].any?
-                new_leader = squads[sq_id][:members].first
-                squads[sq_id][:leader] = new_leader
-                MultiplayerDebug.info("SQUAD", "Auto-transferred leadership in squad #{sq_id} to #{new_leader}")
-              end
-
-              if squads[sq_id][:members].empty?
-                squads.delete(sq_id)
-                MultiplayerDebug.info("SQUAD", "Disbanded squad #{sq_id} (last member left)")
-                safe_send(c, "SQUAD_STATE:NONE")
-              else
-                broadcast_squad_state_to_members(squads, member_squad, sid_sockets, client_data, sq_id)
-                safe_send(c, "SQUAD_STATE:NONE")
-              end
+              safe_send(c, "SQUAD_STATE:NONE")
+              disband_or_update_squad_after_removal(squads, member_squad, sid_sockets, client_data, sq_id, leaver)
             rescue => e
               MultiplayerDebug.error("SQUAD", "LEAVE error by #{leaver}: #{e.message}")
               safe_send(c, "SQUAD_ERROR:SERVER")
@@ -7598,28 +7672,7 @@ loop do
             if sq_id && squads[sq_id]
               squads[sq_id][:members].delete(sid_str)
               member_squad.delete(sid_str)
-              if squads[sq_id][:leader] == sid_str && squads[sq_id][:members].any?
-                new_leader = squads[sq_id][:members].first
-                squads[sq_id][:leader] = new_leader
-                MultiplayerDebug.info("SQUAD", "Auto-transferred leadership (disconnect) in squad #{sq_id} to #{new_leader}")
-              end
-              if squads[sq_id][:members].empty?
-                squads.delete(sq_id)
-                MultiplayerDebug.info("SQUAD", "Disbanded squad #{sq_id} (leader or last member disconnected)")
-              else
-                # CRITICAL: Don't broadcast squad state if any remaining members are in battle
-                # This prevents crashing clients who are in battle scenes
-                any_member_busy = squads[sq_id][:members].any? do |member_sid|
-                  member_socket = sid_sockets[member_sid]
-                  member_socket && client_data[member_socket] && client_data[member_socket][:busy].to_i == 1
-                end
-
-                if any_member_busy
-                  MultiplayerDebug.warn("SQUAD", "Skipping squad state broadcast for squad #{sq_id} (members in battle)")
-                else
-                  broadcast_squad_state_to_members(squads, member_squad, sid_sockets, client_data, sq_id)
-                end
-              end
+              disband_or_update_squad_after_removal(squads, member_squad, sid_sockets, client_data, sq_id, sid_str)
             end
           rescue => e
             MultiplayerDebug.error("SQUAD", "Disconnect cleanup error for #{sid}: #{e.message}")
@@ -7715,28 +7768,7 @@ loop do
           if sq_id && squads[sq_id]
             squads[sq_id][:members].delete(sid_str)
             member_squad.delete(sid_str)
-            if squads[sq_id][:leader] == sid_str && squads[sq_id][:members].any?
-              new_leader = squads[sq_id][:members].first
-              squads[sq_id][:leader] = new_leader
-              MultiplayerDebug.info("SQUAD", "Auto-transferred leadership (error) in squad #{sq_id} to #{new_leader}")
-            end
-            if squads[sq_id][:members].empty?
-              squads.delete(sq_id)
-              MultiplayerDebug.info("SQUAD", "Disbanded squad #{sq_id} (error path)")
-            else
-              # CRITICAL: Don't broadcast squad state if any remaining members are in battle
-              # This prevents crashing clients who are in battle scenes
-              any_member_busy = squads[sq_id][:members].any? do |member_sid|
-                member_socket = sid_sockets[member_sid]
-                member_socket && client_data[member_socket] && client_data[member_socket][:busy].to_i == 1
-              end
-
-              if any_member_busy
-                MultiplayerDebug.warn("SQUAD", "Skipping squad state broadcast for squad #{sq_id} (members in battle, error path)")
-              else
-                broadcast_squad_state_to_members(squads, member_squad, sid_sockets, client_data, sq_id)
-              end
-            end
+            disband_or_update_squad_after_removal(squads, member_squad, sid_sockets, client_data, sq_id, sid_str)
           end
 
         end

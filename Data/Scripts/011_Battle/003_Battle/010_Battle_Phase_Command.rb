@@ -204,6 +204,7 @@ class PokeBattle_Battle
       actioned.push(idxBattler)
       commandsEnd = false   # Whether to cancel choosing all other actions this round
       loop do
+        break if @decision!=0   # MP: ally/opponent ended the battle (e.g. ran) -- stop prompting
         cmd = pbCommandMenu(idxBattler,actioned.length==1)
         # If being Sky Dropped, can't do anything except use a move
         if cmd>0 && @battlers[idxBattler].effects[PBEffects::SkyDrop]>=0

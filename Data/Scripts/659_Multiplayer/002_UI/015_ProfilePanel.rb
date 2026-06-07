@@ -480,7 +480,7 @@ if defined?(Scene_Map)
           bmp.font.bold  = false
           bmp.font.size  = 8
           bmp.font.color = @btn_hovered ? Color.new(180, 140, 220) : Color.new(130, 100, 170)
-          bmp.draw_text(title_x, title_y + 15, title_w, 10, @btn_hovered ? "Click to change" : "[Z / Enter]", 1)
+          bmp.draw_text(title_x, title_y + 15, title_w, 10, @btn_hovered ? "A / Z / Click" : "[A / Z]", 1)
 
           bmp.font.bold  = true
           bmp.font.size  = 10
@@ -606,11 +606,30 @@ if defined?(Scene_Map)
         }
       end
 
-      # Mouse hover + click detection for the action box.
+      # Drive the three action buttons' highlight from @sel_btn so both mouse and
+      # controller share one selection model.
+      def self._sync_hover_from_sel
+        t = (@sel_btn || 0) == 0
+        r = (@sel_btn || 0) == 1
+        c = (@sel_btn || 0) == 2
+        if t != @btn_hovered || r != @return_btn_hovered || c != @convert_btn_hovered
+          @btn_hovered = t
+          @return_btn_hovered = r
+          @convert_btn_hovered = c
+          _redraw
+        end
+      end
+
+      # Mouse hover + click detection for the action box. The mouse only takes
+      # over the selection when it actually moves, so an idle mouse does not fight
+      # the controller's current selection.
       def self._handle_btn_mouse(my_uuid)
         mx = (Input.mouse_x rescue nil)
         my = (Input.mouse_y rescue nil)
         return unless mx && my
+        mouse_moved = (@last_mx != mx || @last_my != my)
+        @last_mx = mx
+        @last_my = my
 
         sw = Graphics.width
         sh = Graphics.height
@@ -643,11 +662,9 @@ if defined?(Scene_Map)
           over_convert = mx >= convert_x && mx < convert_x + convert_w &&
                          my >= convert_y && my < convert_y + convert_h
 
-          if over_title != @btn_hovered || over_return != @return_btn_hovered || over_convert != @convert_btn_hovered
-            @btn_hovered = over_title
-            @return_btn_hovered = over_return
-            @convert_btn_hovered = over_convert
-            _redraw
+          if mouse_moved && (over_title || over_return || over_convert)
+            @sel_btn = over_title ? 0 : (over_return ? 1 : 2)
+            _sync_hover_from_sel
           end
 
           if (Input.trigger?(Input::MOUSELEFT) rescue false)
@@ -659,7 +676,7 @@ if defined?(Scene_Map)
           over = mx >= abs_btn_x && mx < abs_btn_x + layout[:w] &&
                  my >= abs_btn_y && my < abs_btn_y + layout[:h]
 
-          if over != @btn_hovered || @return_btn_hovered || @convert_btn_hovered
+          if mouse_moved && (over != @btn_hovered || @return_btn_hovered || @convert_btn_hovered)
             @btn_hovered = over
             @return_btn_hovered = false
             @convert_btn_hovered = false
@@ -933,6 +950,9 @@ if defined?(Scene_Map)
         @request_time = Time.now
         @btn_hovered = false
         @return_btn_hovered = false
+        @sel_btn     = 0      # controller selection: 0=Change Title 1=Return Home 2=Cash Out
+        @last_mx     = nil
+        @last_my     = nil
 
         cached = @cache[@target_uuid]
         cached_data = cached.is_a?(Hash) ? cached[:data] : nil
@@ -1005,12 +1025,26 @@ if defined?(Scene_Map)
           mouse_clicked = (Input.trigger?(Input::MOUSELEFT) rescue false)
           if _own_profile_target?
             _handle_btn_mouse(my_uuid)
-            if !mouse_clicked && Input.trigger?(Input::C)
-              _handle_change_title
+            # Controller selection of the three buttons (movement is frozen while
+            # the panel is open, so directions are free to drive the menu).
+            if Input.trigger?(Input::DOWN) || Input.trigger?(Input::RIGHT)
+              @sel_btn = ((@sel_btn || 0) + 1) % 3
+              (pbPlayCursorSE rescue nil)
+            elsif Input.trigger?(Input::UP) || Input.trigger?(Input::LEFT)
+              @sel_btn = ((@sel_btn || 0) + 2) % 3
+              (pbPlayCursorSE rescue nil)
+            end
+            _sync_hover_from_sel
+            if !mouse_clicked && (Input.trigger?(Input::C) || Input.trigger?(Input::A))
+              case (@sel_btn || 0)
+              when 0 then _handle_change_title
+              when 1 then _handle_return_to_pallet
+              when 2 then _handle_convert_platinum_to_money
+              end
             end
           else
             _handle_btn_mouse(my_uuid)
-            if !mouse_clicked && Input.trigger?(Input::C)
+            if !mouse_clicked && (Input.trigger?(Input::C) || Input.trigger?(Input::A))
               _handle_remote_teleport
             end
           end

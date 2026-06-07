@@ -611,9 +611,19 @@ class MultiplayerOptScene < PokemonOption_Scene
         if pending
           MultiplayerSettingsSync.pending_all_settings = nil
           begin
-            options_load_json(pending)
+            options_load_json(MultiplayerSettingsSync.filter_safe_settings(pending))
           rescue => e
             MultiplayerDebug.error("MP-SYNC", "options_load_json failed: #{e.message}") if defined?(MultiplayerDebug)
+          end
+        end
+        # Apply deferred MP settings on the MAIN thread (see handle_settings_response)
+        pending_mp = MultiplayerSettingsSync.pending_mp_settings
+        if pending_mp
+          MultiplayerSettingsSync.pending_mp_settings = nil
+          begin
+            MultiplayerSettingsSync.apply_mp_settings(pending_mp)
+          rescue => e
+            MultiplayerDebug.error("MP-SYNC", "apply_mp_settings failed: #{e.message}") if defined?(MultiplayerDebug)
           end
         end
         pbMessage(msg)
@@ -696,6 +706,33 @@ module MultiplayerSettingsSync
     @pending_all_settings = settings
   end
 
+  # Pending MP-settings hash to apply on the main thread (apply_mp_settings does
+  # font/graphics ops via PokemonFamilyConfig that are unsafe on the net thread)
+  @pending_mp_settings = nil
+  def self.pending_mp_settings
+    @pending_mp_settings
+  end
+
+  def self.pending_mp_settings=(settings)
+    @pending_mp_settings = settings
+  end
+
+  # Identity/session/persistence keys that must NEVER be copied between players
+  # during a settings sync. $PokemonSystem is saved to disk, so cloning these
+  # from another player would corrupt your save / squad identity.
+  NEVER_SYNC_KEYS = %w[
+    uuid client_uuid player_uuid session session_id sid squad squad_id
+    platinum platinum_token platinum_tokens platinum_uuid discord discord_id
+    discord_link discord_display_name trainer_name player_name playername
+    save save_slot device_id persistent_id account_id
+  ]
+
+  # Strips never-sync keys from an ALL-settings hash before it is applied.
+  def filter_safe_settings(h)
+    return h unless h.is_a?(Hash)
+    h.reject { |k, _| NEVER_SYNC_KEYS.include?(k.to_s.sub(/^@/, "").downcase) }
+  end
+
   def self.clear_pending_message
     @pending_sync_message = nil
   end
@@ -712,7 +749,13 @@ module MultiplayerSettingsSync
         if defined?(MultiplayerDebug)
           MultiplayerDebug.info("MP-SYNC", "Parsed MP settings: #{settings.inspect}")
         end
-        apply_mp_settings(settings)
+        # Defer application to the MAIN thread. apply_mp_settings touches
+        # PokemonFamilyConfig (font/graphics ops) which are NOT thread-safe in
+        # RGSS; running them here on the network reader thread (concurrently
+        # with the main thread's Graphics.update busy-wait) corrupted the
+        # renderer and black-screened the next co-op battle. Drained on the
+        # main thread in wait_for_sync_response, mirroring the ALL path.
+        MultiplayerSettingsSync.pending_mp_settings = settings
         # Queue message for main thread instead of showing directly
         MultiplayerSettingsSync.pending_sync_message = _INTL("Multiplayer settings synchronized!")
         if defined?(MultiplayerDebug)
@@ -766,6 +809,12 @@ module MultiplayerSettingsSync
   # Apply multiplayer settings from hash
   def apply_mp_settings(settings)
     return unless settings.is_a?(Hash)
+
+    # Normalize keys to symbols so this works whether the JSON round-trip
+    # produced string or symbol keys (prevents a silent no-op sync).
+    norm = {}
+    settings.each { |k, v| norm[k.to_s.to_sym] = v }
+    settings = norm
 
     if defined?(MultiplayerDebug)
       MultiplayerDebug.info("MP-SYNC", "apply_mp_settings BEFORE: family=#{$PokemonSystem.mp_family_enabled}, abilities=#{$PokemonSystem.mp_family_abilities_enabled}, rate=#{$PokemonSystem.mp_family_rate}, font=#{$PokemonSystem.mp_family_font_enabled}, timeout=#{$PokemonSystem.mp_coop_timeout_disabled}")

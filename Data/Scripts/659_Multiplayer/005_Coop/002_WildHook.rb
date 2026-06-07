@@ -207,7 +207,7 @@ module CoopWildHook
         end
         ##MultiplayerDebug.info("PARTY-USAGE", "=" * 70)
 
-        out << { sid: sid, name: name, party: party }
+        out << { sid: sid, name: name, party: party, appearance: (MultiplayerUI.appearance_payload(pinfo) rescue nil) }
         break if out.length >= limit
       end
     rescue => e
@@ -301,6 +301,18 @@ module CoopWildHook
         npc.id = initiator_sid  # Keep for RNG sync and other systems
         npc.multiplayer_sid = initiator_sid  # For coop capture SID tracking
         npc.party = initiator_party
+        # MP outfit sync: stamp the initiator's REAL outfit straight onto the NPC so
+        # the joiner never renders them in a generic trainer sprite. Prefer the
+        # appearance embedded in the invite (immune to delta-SYNC gaps -- the root
+        # cause of this exact bug); fall back to the locally cached outfit.
+        begin
+          if defined?(MultiplayerUI)
+            _ca = (MultiplayerUI.appearance_from_hash(initiator_entry[:appearance]) rescue nil)
+            _ca ||= (MultiplayerUI.remote_trainer_appearance(npc.id) rescue nil)
+            npc.custom_appearance = _ca if _ca
+          end
+        rescue
+        end
 
         # Add dummy pokedex with required interface (battle init requires it)
         unless npc.respond_to?(:pokedex)
@@ -361,6 +373,15 @@ module CoopWildHook
           npc.id = sid  # Keep for RNG sync and other systems
           npc.multiplayer_sid = sid  # For coop capture SID tracking
           npc.party = party
+          # MP outfit sync: stamp this ally's real outfit (embedded -> cached).
+          begin
+            if defined?(MultiplayerUI)
+              _ca = (MultiplayerUI.appearance_from_hash(ally_data[:appearance]) rescue nil)
+              _ca ||= (MultiplayerUI.remote_trainer_appearance(npc.id) rescue nil)
+              npc.custom_appearance = _ca if _ca
+            end
+          rescue
+          end
 
           # Add dummy pokedex with required interface (battle init requires it)
           unless npc.respond_to?(:pokedex)
@@ -994,7 +1015,8 @@ if defined?(Kernel) && (method(:pbBattleOnStepTaken) rescue true)
       my_info = {
         sid: MultiplayerClient.session_id.to_s,
         name: (defined?($Trainer) && $Trainer && $Trainer.respond_to?(:name) ? $Trainer.name : "Host").to_s,
-        party: my_party
+        party: my_party,
+        appearance: (defined?(MultiplayerUI) ? (MultiplayerUI.local_appearance_payload rescue nil) : nil)
       }
       all_participants = [my_info] + allies
 
@@ -1053,6 +1075,15 @@ if defined?(Kernel) && (method(:pbBattleOnStepTaken) rescue true)
         npc.id = ally[:sid].to_s  # Keep for RNG sync and other systems
         npc.multiplayer_sid = ally[:sid].to_s  # For coop capture SID tracking
         npc.party = ally[:party]
+        # MP outfit sync: stamp this ally's real outfit (embedded -> cached).
+        begin
+          if defined?(MultiplayerUI)
+            _ca = (MultiplayerUI.appearance_from_hash(ally[:appearance]) rescue nil)
+            _ca ||= (MultiplayerUI.remote_trainer_appearance(npc.id) rescue nil)
+            npc.custom_appearance = _ca if _ca
+          end
+        rescue
+        end
 
         # Add dummy pokedex with required interface (battle init requires it)
         unless npc.respond_to?(:pokedex)

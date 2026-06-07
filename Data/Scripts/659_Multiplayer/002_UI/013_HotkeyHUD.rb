@@ -116,6 +116,21 @@ if defined?(Scene_Map)
         false
       end
 
+      # Programmatic minimize/maximize (so a controller hotkey can do what the
+      # mouse does by clicking the left strip / sliver).
+      def minimized?
+        @minimized
+      end
+
+      def set_minimized(v)
+        @minimized = !!v
+        @minimize_cooldown = 12
+        @mouse_over_area = false if @minimized
+        @deployed = false if @minimized
+        @force_redraw = true
+      rescue
+      end
+
       def update
         return unless alive?
         @ticks += 1
@@ -780,6 +795,39 @@ if defined?(Scene_Map)
     rescue
     end
 
+    # Minimize/maximize the on-screen MP overlays (hotkey HUD icons + chat
+    # window) together. Bound to a spare controller button via ControlRebind so
+    # it can be done without the mouse. Returns the new minimized state.
+    def self.overlays_minimized?
+      hud = ($hotkey_hud rescue nil)
+      (hud && hud.respond_to?(:minimized?) && hud.minimized?) rescue false
+    end
+
+    def self.toggle_overlays_minimized
+      newstate = !overlays_minimized?
+      set_overlays_minimized(newstate)
+      newstate
+    rescue
+      nil
+    end
+
+    def self.set_overlays_minimized(v)
+      v = !!v
+      hud = ensure_hotkey_hud
+      hud.set_minimized(v) if hud && hud.respond_to?(:set_minimized)
+      if defined?(ChatState)
+        if v
+          ChatState.handle_minimized = true
+        else
+          ChatState.handle_minimized = false
+          ChatState.deployed = true
+        end
+      end
+      v
+    rescue
+      nil
+    end
+
     def self.tick_battle_overlay_ui
       update_hotkey_hud
       GTSUI.tick_open_shortcut if defined?(GTSUI) && GTSUI.respond_to?(:tick_open_shortcut)
@@ -810,6 +858,8 @@ if defined?(Scene_Map)
     def update
       kif_hkhud_update
       MultiplayerUI.update_hotkey_hud if defined?(MultiplayerUI)
+      # Apply any squad-leader weather that arrived over the network (main thread).
+      MPEnvSync.pump if defined?(MPEnvSync)
     end
   end
 

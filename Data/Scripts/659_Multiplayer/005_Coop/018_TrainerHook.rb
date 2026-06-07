@@ -531,6 +531,14 @@ def start_coop_trainer_battle_as_initiator(battle_id, ally_sids, trainer, traine
     npc = NPCTrainer.new(ally_name.to_s, trainer_type)
     npc.id = sid.to_s
     npc.party = ally_party
+    # MP outfit sync: stamp the ally's real outfit directly so a co-op trainer
+    # battle renders their clothes instead of a generic sprite (independent of
+    # which back-sprite slot they land in).
+    begin
+      _ca = (MultiplayerUI.remote_trainer_appearance(npc.id) rescue nil) if defined?(MultiplayerUI)
+      npc.custom_appearance = _ca if _ca
+    rescue
+    end
 
     # Add dummy pokedex with required interface (battle init requires it)
     unless npc.respond_to?(:pokedex)

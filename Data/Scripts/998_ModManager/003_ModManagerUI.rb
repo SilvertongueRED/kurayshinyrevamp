@@ -466,6 +466,9 @@ module ModManager
         b.font.size = 18
         pbDrawShadowText(b, 0, CONTENT_H / 2 - 12, RIGHT_W, 24,
                          "No mods installed", DIM, SHADOW, 2)
+        pbSetSmallFont(b)
+        pbDrawShadowText(b, 12, CONTENT_H - 22, RIGHT_W - 24, 14,
+                         "S:Search   Left/Right:Bottom row buttons", DIM, SHADOW, 2)
         return
       end
 
@@ -634,28 +637,74 @@ module ModManager
 
       # Controls hint at bottom
       pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14,
-                       "Z: Actions  |  F: Filter  |  S: Search", DIM, SHADOW, 2)
+                       "Z/A:Act  F:Filter  S:Search  Left/Right:Bottom row", DIM, SHADOW, 2)
     end
 
     FOOTER_BUTTONS = ["Mod Browser", "Share Code", "Modder Tools", "Back"]
+
+    # Footer labels including the live Auto-Update toggle state.
+    def footer_labels
+      au = ((ModAutoUpdate.enabled? rescue true) ? "ON" : "OFF")
+      ["Mod Browser", "Share Code", "Modder Tools", "Auto-Upd: #{au}", "Back"]
+    end
+
+    def toggle_autoupdate
+      cur = (ModAutoUpdate.enabled? rescue true)
+      (ModAutoUpdate.set_enabled(!cur) rescue nil)
+      draw_footer
+      if !cur
+        show_message("Auto-update on launch: ON\n\nMods that are newer on the KIF Mods repo will install automatically at launch, then the game restarts to apply them.")
+      else
+        show_message("Auto-update on launch: OFF\n\nMods will no longer update automatically when you launch the game.")
+      end
+    end
 
     def draw_footer
       b = @footer_spr.bitmap
       b.clear
       b.fill_rect(0, 0, SCREEN_W, FOOTER_H, FOOTER_BG)
 
-      buttons = FOOTER_BUTTONS
-      btn_w = SCREEN_W / buttons.length
-
+      buttons = footer_labels
       pbSetSmallFont(b)
-      buttons.each_with_index do |label, i|
-        bx = i * btn_w
-        if @focus == :footer && @footer_index == i
-          draw_rounded_rect(b, bx + 4, 4, btn_w - 8, FOOTER_H - 8, FOOTER_SEL)
-          pbDrawShadowText(b, bx, 0, btn_w, FOOTER_H, label, WHITE, SHADOW, 2)
+
+      # Even spacing: size each button to its own label, then spread the
+      # leftover width as equal gaps (including both ends) so the row stays
+      # visually balanced no matter how long each individual label is.
+      # Shrink the font (then the padding) until the whole row fits inside
+      # SCREEN_W, so the last label can never run off the right edge.
+      n      = buttons.length
+      pad    = 6
+      fs     = 18
+      widths = nil
+      total  = nil
+      loop do
+        b.font.size = fs rescue nil
+        widths = buttons.map { |label| b.text_size(label).width + pad * 2 }
+        total  = widths.inject(0, :+)
+        break if total + (n + 1) * 2 <= SCREEN_W
+        if fs > 11
+          fs -= 1
+        elsif pad > 2
+          pad -= 1
         else
-          pbDrawShadowText(b, bx, 0, btn_w, FOOTER_H, label, GRAY, SHADOW, 2)
+          break
         end
+      end
+      gap    = ((SCREEN_W - total) / (n + 1).to_f).floor
+      gap    = 2 if gap < 2
+
+      @footer_rects = []
+      x = gap
+      buttons.each_with_index do |label, i|
+        cw = widths[i]
+        if @focus == :footer && @footer_index == i
+          draw_rounded_rect(b, x, 4, cw, FOOTER_H - 8, FOOTER_SEL)
+          pbDrawShadowText(b, x, 0, cw, FOOTER_H, label, WHITE, SHADOW, 2)
+        else
+          pbDrawShadowText(b, x, 0, cw, FOOTER_H, label, GRAY, SHADOW, 2)
+        end
+        @footer_rects << [x, cw]
+        x += cw + gap
       end
     end
 
@@ -725,6 +774,19 @@ module ModManager
     # Live Search
     #==========================================================================
     def activate_search
+      # Respect the PIF "Text Entry" setting: Cursor -> on-screen keyboard,
+      # Keyboard -> inline typing (the existing GetAsyncKeyState path).
+      if ($PokemonSystem.textinput != 1 rescue false)
+        term = (pbEnterText(_INTL("Search mods"), 0, 30, @search_text || "", 0, nil, true) rescue nil)
+        if term
+          @search_text = term
+          @sel_index = 0
+          @scroll = 0
+          apply_filter
+          draw_title; draw_left; draw_right
+        end
+        return
+      end
       @search_active = true
       @cursor_frame = 0
       @focus = :list
@@ -843,9 +905,19 @@ module ModManager
       # Footer hit test
       fy = @footer_spr.y
       if my >= fy && my < fy + FOOTER_H
-        btn_count = FOOTER_BUTTONS.length
-        btn_w = SCREEN_W / btn_count
-        btn_idx = (mx / btn_w).floor.clamp(0, btn_count - 1)
+        btn_count = footer_labels.length
+        rects = @footer_rects || []
+        btn_idx = nil
+        rects.each_with_index do |(rx, rw), i|
+          if mx >= rx && mx < rx + rw
+            btn_idx = i
+            break
+          end
+        end
+        if btn_idx.nil?  # click landed in a gap -> nearest equal-width cell
+          btn_w = SCREEN_W / btn_count
+          btn_idx = (mx / btn_w).floor.clamp(0, btn_count - 1)
+        end
         @focus = :footer
         @footer_index = btn_idx
         if clicked
@@ -853,7 +925,8 @@ module ModManager
           when 0 then open_browser
           when 1 then do_share_code
           when 2 then open_modder_tools
-          when 3 then @running = false
+          when 3 then toggle_autoupdate
+          when 4 then @running = false
           end
           return
         end
@@ -917,9 +990,10 @@ module ModManager
         changed = true
       end
 
-      # Tab to footer
-      if Input.trigger?(Input::LEFT) || Input.trigger?(Input::RIGHT)
+      # Tab to footer (d-pad LEFT/RIGHT or the L/R shoulder buttons)
+      if Input.trigger?(Input::LEFT) || Input.trigger?(Input::RIGHT) || Input.trigger?(Input::L) || Input.trigger?(Input::R)
         @focus = :footer
+        @footer_index = 0 if @footer_index >= footer_labels.length
         draw_left
         draw_footer
         return
@@ -938,14 +1012,14 @@ module ModManager
     end
 
     def handle_footer_input
-      btn_count = FOOTER_BUTTONS.length
+      btn_count = footer_labels.length
       if Input.trigger?(Input::LEFT)
         @footer_index = (@footer_index - 1) % btn_count
         draw_footer
       elsif Input.trigger?(Input::RIGHT)
         @footer_index = (@footer_index + 1) % btn_count
         draw_footer
-      elsif Input.trigger?(Input::UP)
+      elsif Input.trigger?(Input::UP) || Input.trigger?(Input::L) || Input.trigger?(Input::R)
         @focus = :list
         draw_left
         draw_footer
@@ -954,7 +1028,8 @@ module ModManager
         when 0 then open_browser        # Mod Browser
         when 1 then do_share_code       # Share Code
         when 2 then open_modder_tools   # Modder Tools
-        when 3 then @running = false    # Back
+        when 3 then toggle_autoupdate   # Auto-Update toggle
+        when 4 then @running = false    # Back
         end
       end
     end

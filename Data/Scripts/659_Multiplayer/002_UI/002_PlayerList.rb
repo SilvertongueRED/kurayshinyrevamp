@@ -50,6 +50,63 @@ module MultiplayerUI
     }
   end
 
+  # Build a TrainerAppearance (battle custom_appearance) for a connected player's
+  # SID from their synced outfit, so co-op allies / PvP opponents show their real
+  # outfit in battle instead of a generic NPC sprite. Returns nil for unknown
+  # SIDs (normal NPC trainers), so callers safely fall back to the default sprite.
+  def self.remote_trainer_appearance(sid)
+    return nil unless defined?(TrainerAppearance)
+    return nil if sid.nil?
+    players = (MultiplayerClient.instance_variable_get(:@players) rescue nil)
+    return nil unless players.is_a?(Hash)
+    pd = players[sid.to_s]
+    if pd.nil?
+      # Fuzzy fallback: tolerate "SID40" vs "40" style key differences between
+      # the initiator and joiner branches so a stubbed/prefixed sid still resolves
+      # the right player's outfit (otherwise a co-op ally shows a wrong outfit).
+      norm = sid.to_s.gsub(/\ASID/i, "")
+      unless norm.empty?
+        players.each do |k, v|
+          if k.to_s.gsub(/\ASID/i, "") == norm
+            pd = v; break
+          end
+        end
+      end
+    end
+    return nil unless pd
+    d = normalize_trainer_appearance(pd)
+    TrainerAppearance.new(
+      d[:skin_tone], d[:hat], d[:clothes], d[:hair],
+      d[:hair_color], d[:clothes_color], d[:hat_color],
+      d[:hat2], d[:hat2_color]
+    )
+  rescue
+    nil
+  end
+
+  # Build a TrainerAppearance from a raw outfit hash (symbol OR string keys, e.g.
+  # one embedded in a co-op battle invite and round-tripped through JSON). Returns
+  # nil when the hash carries no real outfit data, so callers can cleanly fall back
+  # to remote_trainer_appearance / the generic sprite instead of stamping a blank
+  # default outfit over a good one. This is the reliable, sync-independent source
+  # that fixes the joiner seeing a co-op ally in the wrong (generic) clothes.
+  def self.appearance_from_hash(raw)
+    return nil unless defined?(TrainerAppearance)
+    return nil unless raw.is_a?(Hash) && !raw.empty?
+    has_data = [:clothes, :outfit, :hat, :hat2, :hair, :skin_tone].any? do |k|
+      raw.key?(k) || raw.key?(k.to_s)
+    end
+    return nil unless has_data
+    d = normalize_trainer_appearance(raw)
+    TrainerAppearance.new(
+      d[:skin_tone], d[:hat], d[:clothes], d[:hair],
+      d[:hair_color], d[:clothes_color], d[:hat_color],
+      d[:hat2], d[:hat2_color]
+    )
+  rescue
+    nil
+  end
+
   def self.local_trainer_appearance
     return nil unless defined?($Trainer) && $Trainer
     normalize_trainer_appearance(
@@ -65,6 +122,32 @@ module MultiplayerUI
     )
   rescue
     nil
+  end
+
+  # JSON-safe (string-keyed) outfit hash for embedding inside a co-op battle
+  # invite. Returns nil when the source has no real outfit data, so we never embed
+  # a fabricated default that would later stamp over a resolvable outfit.
+  def self.appearance_payload(raw)
+    return nil unless raw.is_a?(Hash)
+    has = [:clothes, :outfit, :hat, :hat2, :hair, :skin_tone, :hair_color, :clothes_color].any? do |k|
+      raw.key?(k) || raw.key?(k.to_s)
+    end
+    return nil unless has
+    d = normalize_trainer_appearance(raw)
+    {
+      "clothes" => d[:clothes], "hat" => d[:hat], "hat2" => d[:hat2], "hair" => d[:hair],
+      "skin_tone" => d[:skin_tone], "hair_color" => d[:hair_color],
+      "hat_color" => d[:hat_color], "hat2_color" => d[:hat2_color],
+      "clothes_color" => d[:clothes_color]
+    }
+  rescue
+    nil
+  end
+
+  # The local player's own outfit as a JSON-safe payload (used by the co-op battle
+  # initiator so squadmates always receive the initiator's real clothes).
+  def self.local_appearance_payload
+    appearance_payload(local_trainer_appearance)
   end
 
   def self.sid_for_uuid(uuid)

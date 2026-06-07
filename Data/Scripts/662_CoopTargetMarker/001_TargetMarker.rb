@@ -64,6 +64,22 @@ class PokeBattle_Scene
       return
     end
 
+    # No need for an ally target marker once a single foe is left -- there is no
+    # ambiguity about who to hit.
+    begin
+      alive_foes = 0
+      @battle.battlers.each_with_index do |b, i|
+        next unless b && !(b.fainted? rescue true)
+        next if (@battle.pbOwnedByPlayer?(i) rescue true)
+        alive_foes += 1
+      end
+      if alive_foes <= 1
+        coop_hide_ally_target_markers
+        return
+      end
+    rescue
+    end
+
     # Gentle pulse so the marker is easy to notice
     @coop_intent_pulse ||= 0
     @coop_intent_pulse += 1
@@ -78,13 +94,17 @@ class PokeBattle_Scene
     end
 
     targets.each_key do |idx|
-      poke = (@sprites["pokemon_#{idx}"] rescue nil)
-      b    = (@battle.battlers[idx] rescue nil)
-      if !poke || (poke.respond_to?(:disposed?) && poke.disposed?) || !b || b.fainted?
+      spr_poke = (@sprites["pokemon_#{idx}"] rescue nil)
+      b        = (@battle.battlers[idx] rescue nil)
+      # Only the foe being alive matters -- never skip just because the sprite is
+      # momentarily missing (EBDX rebuilds battler sprites and they can be nil for
+      # a frame). A nil sprite simply triggers the canonical-slot fallback below.
+      if !b || (b.fainted? rescue true)
         spr = @coop_intent_markers[idx]
         spr.visible = false if spr && !spr.disposed?
         next
       end
+      poke = (spr_poke && !(spr_poke.respond_to?(:disposed?) && spr_poke.disposed?)) ? spr_poke : nil
 
       spr = @coop_intent_markers[idx]
       if !spr || spr.disposed?
@@ -94,21 +114,36 @@ class PokeBattle_Scene
       next unless spr
 
       bw = (spr.bitmap ? spr.bitmap.width : 104)
-      px = (poke.x rescue (Graphics.width / 2))
-      py = (poke.y rescue (Graphics.height / 2))
 
-      # Estimate the visual TOP of the (bottom-origin) battler sprite so the marker
-      # floats just above its head regardless of EBDX zoom.
-      sprite_h = 160
-      begin
-        if poke.respond_to?(:src_rect) && poke.src_rect && poke.src_rect.height > 0
-          zy = (poke.respond_to?(:zoom_y) ? (poke.zoom_y || 1.0) : 1.0)
-          sprite_h = (poke.src_rect.height * zy).to_i
-        elsif poke.bitmap && !poke.bitmap.disposed?
-          sprite_h = poke.bitmap.height
+      # Anchor priority: the live battler sprite's screen position (bottom-centre
+      # origin). If that's missing or parked at a junk coordinate (0,0 / way
+      # off-screen, which happens for a frame or two under EBDX), fall back to the
+      # canonical battler slot so the arrow still floats over the right Pokemon.
+      px = nil; py = nil; sprite_h = 160
+      if poke
+        tx = (poke.x rescue nil); ty = (poke.y rescue nil)
+        if tx && ty && tx > 0 && ty > 0 && tx < (Graphics.width + 96) && ty < (Graphics.height + 96)
+          px = tx; py = ty
+          begin
+            if poke.respond_to?(:src_rect) && poke.src_rect && poke.src_rect.height > 0
+              zy = (poke.respond_to?(:zoom_y) ? (poke.zoom_y || 1.0) : 1.0)
+              sprite_h = (poke.src_rect.height * zy).to_i
+            elsif poke.bitmap && !poke.bitmap.disposed?
+              sprite_h = poke.bitmap.height
+            end
+          rescue
+            sprite_h = 160
+          end
         end
-      rescue
-        sprite_h = 160
+      end
+      if px.nil? || py.nil?
+        begin
+          ss = (@battle.sideSizes[idx % 2] rescue 2)
+          pos = PokeBattle_SceneConstants.pbBattlerPosition(idx, ss)
+          px = pos[0]; py = pos[1]
+        rescue
+          px = (Graphics.width * 3 / 4); py = (Graphics.height / 3)
+        end
       end
       sprite_h = 96 if sprite_h < 96
       sprite_h = 320 if sprite_h > 320
@@ -117,6 +152,7 @@ class PokeBattle_Scene
       spr.x = px - bw / 2
       spr.y = py - sprite_h - marker_h + 8
       spr.y = 2 if spr.y < 2
+      spr.y = (Graphics.height - marker_h - 2) if spr.y > (Graphics.height - marker_h - 2)
       spr.opacity = pulse
       spr.visible = true
 
@@ -226,6 +262,7 @@ module CoopTargetMarkerHooks
       klass.send(:define_method, :pbFrameUpdate) do |cw = nil|
         coop_tgtmarker_pbFrameUpdate(cw)
         coop_update_ally_target_markers rescue nil
+        coop_update_squad_target_hud rescue nil
       end
     end
 
@@ -247,6 +284,7 @@ module CoopTargetMarkerHooks
         coop_tgtmarker_pbBeginAttackPhase
         CoopTargetIntent.on_attack_phase_begin(@battle) rescue nil if defined?(CoopTargetIntent)
         coop_hide_ally_target_markers rescue nil
+        coop_hide_squad_target_hud rescue nil
       end
     end
 
@@ -255,6 +293,7 @@ module CoopTargetMarkerHooks
       klass.send(:alias_method, :coop_tgtmarker_pbDisposeSprites, :pbDisposeSprites)
       klass.send(:define_method, :pbDisposeSprites) do
         coop_dispose_ally_target_markers rescue nil
+        coop_dispose_squad_target_hud rescue nil
         coop_tgtmarker_pbDisposeSprites
       end
     end
