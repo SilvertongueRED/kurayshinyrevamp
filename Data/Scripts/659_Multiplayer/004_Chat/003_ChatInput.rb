@@ -935,6 +935,22 @@ module Input
     return unless defined?(ChatTabs) && defined?(ChatCommands) && defined?(ChatNetwork)
     return unless chat_input_available?
 
+    # PIF "Text Entry = Cursor": pop the on-screen cursor keyboard instead of inline
+    # typing, so a controller player can compose a chat message and it routes through
+    # the exact same parse/send path the inline editor uses.
+    if ($PokemonSystem.textinput != 1 rescue false)
+      begin
+        text = (pbEnterText(_INTL("Chat"), 0, 240, "", 0, nil, true) rescue nil)
+        if text && !text.strip.empty?
+          cmd = ChatCommands.parse(text)
+          cmd ? ChatNetwork.send_command(cmd) : ChatNetwork.send_message(text)
+        end
+      rescue => e
+        ##MultiplayerDebug.error("CHAT-INPUT", "cursor-keyboard error: #{e.message}")
+      end
+      return
+    end
+
     begin
       $chat_window.input_mode = true
       $chat_window.reset_scroll

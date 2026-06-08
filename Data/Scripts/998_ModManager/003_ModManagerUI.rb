@@ -673,8 +673,11 @@ module ModManager
       # Shrink the font (then the padding) until the whole row fits inside
       # SCREEN_W, so the last label can never run off the right edge.
       n      = buttons.length
-      pad    = 6
-      fs     = 18
+      # Tighter padding + a higher starting size so the bottom-row labels render
+      # ~8% larger than before (they had been shrunk too small), while the same
+      # fit loop still guarantees nothing runs off the 512px-wide row.
+      pad    = 3
+      fs     = 20
       widths = nil
       total  = nil
       loop do
@@ -684,7 +687,7 @@ module ModManager
         break if total + (n + 1) * 2 <= SCREEN_W
         if fs > 11
           fs -= 1
-        elsif pad > 2
+        elsif pad > 1
           pad -= 1
         else
           break

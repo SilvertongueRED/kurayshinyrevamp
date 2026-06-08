@@ -97,29 +97,55 @@ module MultiplayerUI
           pbSEPlay("GUI menu close"); break
         elsif Input.trigger?(Input::USE)
           sel = win.index
-          chosen_sid = squad[:members][sel][:sid]
+          member      = squad[:members][sel]
+          chosen_sid  = member[:sid].to_s
+          chosen_name = member[:name].to_s
+          is_self     = (chosen_sid == my_sid)
 
-          if is_leader
-            opts = chosen_sid != leader ? [_INTL("Kick"), _INTL("Make Leader"), _INTL("Cancel")]
-                                        : [_INTL("Leave Squad"), _INTL("Cancel")]
-            act = pbMessage(_INTL("Action:"), opts, 0)
-            if chosen_sid != leader
-              case act
-              when 0 then MultiplayerClient.kick_from_squad(chosen_sid)
-              when 1 then MultiplayerClient.transfer_leadership(chosen_sid)
-              end
-            else
-              if act == 0
-                MultiplayerClient.leave_squad
-                break
-              end
-            end
+          # Combined action menu: the SAME per-player actions as the F3 Player List
+          # (minus Invite to Squad -- they're already here) plus squad management.
+          opts = []
+          acts = []
+          if is_self
+            opts << _INTL("View Profile");       acts << :profile
           else
-            act = pbMessage(_INTL("Action:"), [_INTL("Leave Squad"), _INTL("Cancel")], 0)
-            if act == 0
-              MultiplayerClient.leave_squad
-              break
-            end
+            opts << _INTL("View Profile");       acts << :profile
+            opts << _INTL("Send PM");            acts << :pm
+            opts << _INTL("Battle Request");     acts << :battle
+            opts << _INTL("Request Trade");      acts << :trade
+            opts << _INTL("Inspect Party");      acts << :inspect
+            opts << _INTL("Teleport to Player"); acts << :teleport
+          end
+          if is_leader && !is_self
+            opts << _INTL("Make Leader");        acts << :make_leader
+            opts << _INTL("Kick from Squad");    acts << :kick
+          end
+          opts << _INTL("Leave Squad");          acts << :leave
+          opts << _INTL("Cancel");               acts << :cancel
+
+          choice = pbMessage(_INTL("{1}:", chosen_name), opts, opts.length - 1)
+          act = acts[choice] || :cancel
+
+          # The player actions reuse the shared executor (identical to F3). They
+          # open their own UI or fire their own request, so close the squad window
+          # first to avoid overlapping overlays.
+          ctx_map = { :profile => 0, :pm => 1, :battle => 3, :trade => 4, :inspect => 5, :teleport => 6 }
+          if ctx_map.key?(act)
+            MultiplayerUI.instance_variable_set(:@squadwindow_open, false)
+            help.dispose if help && !help.disposed?
+            win.dispose  if win && !win.disposed?
+            bg.dispose   if bg && !bg.disposed?
+            viewport.dispose if viewport && !viewport.disposed?
+            (Input._execute_ctx_action(ctx_map[act], chosen_sid, chosen_name) rescue nil)
+            return
+          end
+
+          case act
+          when :make_leader then MultiplayerClient.transfer_leadership(chosen_sid)
+          when :kick        then MultiplayerClient.kick_from_squad(chosen_sid)
+          when :leave
+            MultiplayerClient.leave_squad
+            break
           end
 
           MultiplayerClient.request_squad_state

@@ -456,17 +456,22 @@ module GTSUI
         cursor = (@cursor_frame / 20) % 2 == 0 ? "|" : ""
         pbDrawShadowText(b, 10, 2, LEFT_W - 20, SEARCH_H, @search_text + cursor, WHITE, SHADOW)
       elsif @search_text.empty?
-        pbDrawShadowText(b, 10, 2, LEFT_W - 20, SEARCH_H, "Search...", DIM, SHADOW)
+        pbDrawShadowText(b, 10, 2, LEFT_W - 20, SEARCH_H, "Search...  [Y]", DIM, SHADOW)
       else
         pbDrawShadowText(b, 10, 2, LEFT_W - 20, SEARCH_H, @search_text, WHITE, SHADOW)
       end
 
-      # Filter bar
+      # Filter bar, flanked by "L" and "R" hints so it's obvious the shoulder
+      # bumpers cycle All / Items / Pokemon.
       filter_y = SEARCH_H + 2
-      btn_w = (LEFT_W - 12) / 3
+      b.font.size = 12
+      pbDrawShadowText(b, 1, filter_y - 2, 14, FILTER_H, "L", Color.new(150, 200, 255), SHADOW, 1)
+      pbDrawShadowText(b, LEFT_W - 15, filter_y - 2, 14, FILTER_H, "R", Color.new(150, 200, 255), SHADOW, 1)
+      area_x = 16
+      btn_w = (LEFT_W - 32) / 3
       b.font.size = 14
       KIND_FILTERS.each_with_index do |filt, i|
-        bx = 6 + i * btn_w
+        bx = area_x + i * btn_w
         if @kind_filter == filt
           draw_rounded_rect(b, bx, filter_y, btn_w - 2, FILTER_H - 2, FOOTER_SEL)
           pbDrawShadowText(b, bx, filter_y - 2, btn_w - 2, FILTER_H, KIND_LABELS[i], WHITE, SHADOW, 2)
@@ -1234,8 +1239,21 @@ module GTSUI
         return
       end
 
-      if _key_trigger?(0x53) # S
+      if _key_trigger?(0x53) || Input.trigger?(Input::Y) # S key OR controller Y => search
         activate_search; return
+      end
+
+      # L / R shoulder bumpers cycle the All / Items / Pokemon filter (the engine
+      # does not expose the left-stick click as an Input button, so Y is search and
+      # the bumpers drive the filter -- both surfaced as on-screen hints).
+      if Input.trigger?(Input::R)
+        idx = KIND_FILTERS.index(@kind_filter) || 0
+        @kind_filter = KIND_FILTERS[(idx + 1) % KIND_FILTERS.length]
+        @sel_index = 0; @scroll = 0; apply_filter; redraw_all; return
+      elsif Input.trigger?(Input::L)
+        idx = KIND_FILTERS.index(@kind_filter) || 0
+        @kind_filter = KIND_FILTERS[(idx - 1) % KIND_FILTERS.length]
+        @sel_index = 0; @scroll = 0; apply_filter; redraw_all; return
       end
 
       if _key_trigger?(0x09) # Tab

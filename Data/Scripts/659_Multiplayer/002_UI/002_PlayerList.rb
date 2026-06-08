@@ -528,7 +528,7 @@ module MultiplayerUI
   # Returns action index 0..6 or nil.
   def self.player_context_menu(name, screen_x, screen_y, viewport = nil)
     items = CTX_ACTIONS
-    ctx_h = CTX_PAD * 2 + 16 + items.length * CTX_ITEM_H
+    ctx_h = CTX_PAD * 2 + 16 + items.length * CTX_ITEM_H + 16  # +16 = bound-control footer
     sw = Graphics.width
     sh = Graphics.height
 
@@ -547,21 +547,28 @@ module MultiplayerUI
     ctx_spr.x = menu_x
     ctx_spr.y = menu_y
     ctx_spr.z = 200
-    hover = nil
+    hover = 0   # pre-select the first item so a single Confirm press works on controller
 
     _draw_ctx_menu(ctx_spr.bitmap, name, items, hover)
 
     result = nil
+    last_mx = nil
+    last_my = nil
     loop do
       Graphics.update
       Input.update
 
       mx = (Input.mouse_x rescue nil)
       my = (Input.mouse_y rescue nil)
+      mouse_moved = (!last_mx.nil? && (mx != last_mx || my != last_my))
+      last_mx = mx
+      last_my = my
 
       old_hover = hover
-      hover = nil
-      if mx && my && mx >= menu_x && mx < menu_x + CTX_W
+      # Only the MOUSE *moving* may change the highlight. A parked cursor that
+      # isn't over the menu must not wipe the controller's selection to nil every
+      # frame (that was why Confirm needed a second press / felt unresponsive).
+      if mouse_moved && mx && my && mx >= menu_x && mx < menu_x + CTX_W
         items.each_with_index do |_label, i|
           iy = menu_y + CTX_PAD + 16 + i * CTX_ITEM_H
           if my >= iy && my < iy + CTX_ITEM_H
@@ -573,9 +580,14 @@ module MultiplayerUI
       _draw_ctx_menu(ctx_spr.bitmap, name, items, hover) if hover != old_hover
 
       if (Input.trigger?(Input::MOUSELEFT) rescue false)
-        if hover
-          result = hover
-          pbSEPlay("GUI sel decision", 80) rescue nil
+        # Count a click only when it lands on an item; clicking elsewhere cancels.
+        if mx && my && mx >= menu_x && mx < menu_x + CTX_W
+          rel = my - (menu_y + CTX_PAD + 16)
+          ci = rel >= 0 ? (rel / CTX_ITEM_H).to_i : -1
+          if ci >= 0 && ci < items.size
+            result = ci
+            pbSEPlay("GUI sel decision", 80) rescue nil
+          end
         end
         break
       end
@@ -591,7 +603,7 @@ module MultiplayerUI
         hover = hover ? (hover + 1) % items.size : 0
         pbSEPlay("GUI sel cursor", 60) rescue nil
         _draw_ctx_menu(ctx_spr.bitmap, name, items, hover)
-      elsif Input.trigger?(Input::C) && hover
+      elsif (Input.trigger?(Input::C) || Input.trigger?(Input::USE)) && hover
         result = hover
         pbSEPlay("GUI sel decision", 80) rescue nil
         break
@@ -605,7 +617,7 @@ module MultiplayerUI
   end
 
   def self._draw_ctx_menu(bmp, name, items, hover)
-    ctx_h = CTX_PAD * 2 + 16 + items.length * CTX_ITEM_H
+    ctx_h = CTX_PAD * 2 + 16 + items.length * CTX_ITEM_H + 16  # +16 = bound-control footer
     bmp.clear
 
     bmp.fill_rect(0, 0, CTX_W, ctx_h, C_CTX_BG)
@@ -635,6 +647,17 @@ module MultiplayerUI
         bmp.font.color = C_CTX_TEXT
       end
       bmp.draw_text(CTX_PAD + 2, iy + 2, CTX_W - CTX_PAD * 2 - 4, CTX_ITEM_H - 4, label)
+    end
+    # Tooltip footer: reflect the player's ACTUAL Confirm / Cancel bindings (from
+    # the rebind menu) so controller users know what opens an action / backs out.
+    if defined?(ControlRebind)
+      bmp.font.bold  = false
+      bmp.font.size  = 11
+      bmp.font.color = Color.new(150, 160, 185)
+      _ok = (ControlRebind.confirm_label rescue "C")
+      _bk = (ControlRebind.cancel_label rescue "B")
+      bmp.draw_text(CTX_PAD + 2, ctx_h - 15, CTX_W - CTX_PAD * 2 - 4, 13,
+        _INTL("OK:{1}  Back:{2}", _ok, _bk))
     end
   end
 
@@ -1255,19 +1278,20 @@ module MultiplayerUI
         return
       end
 
-      # Close the player list first so the chat's update loop resumes
-      # and the chat context menu can render on top of the overworld.
+      # Show the BLOCKING, controller-friendly action menu on top of the list. It
+      # owns its own input loop (Graphics/Input.update), so the overworld cannot
+      # move while it's open, d-pad/Confirm navigate it, and BACK closes it. This
+      # replaces the old delegation to the chat's mouse-only popup, which left the
+      # overworld running (player walked) and needed a second press to confirm.
+      action = (MultiplayerUI.player_context_menu(name, scx, scy, nil) rescue nil)
+
+      # Cancelled (BACK / right-click / click-outside) -> stay in the player list.
+      return if action.nil?
+
+      # An action was chosen: close the list and run it via the shared executor.
       _dispose_all
       MultiplayerUI.instance_variable_set(:@playerlist_open, false)
-
-      # Delegate to the chat's persistent, non-blocking context menu.
-      # ChatInputHotkeys.handle_mouse (called every frame) will pick up
-      # the click/hover and invoke _execute_ctx_action exactly as it
-      # does when right-clicking a SID in chat.
-      if $chat_window && $chat_window.respond_to?(:open_context_menu)
-        $chat_window.open_context_menu(sid, name, scx, scy) rescue nil
-      end
-
+      (Input._execute_ctx_action(action, sid, name) rescue nil)
       throw(:playerlist_closed, true)
     end
 

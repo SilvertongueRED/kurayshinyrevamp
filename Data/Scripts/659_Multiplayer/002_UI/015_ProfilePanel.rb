@@ -983,6 +983,14 @@ if defined?(Scene_Map)
       def self.tick
         return unless @open
 
+        # This tick is hooked into Scene_Map#update from BOTH 013_HotkeyHUD.rb and
+        # 015_ProfilePanel.rb, so without a per-frame guard it processed input twice
+        # every frame -- that double-fire was the "hit or miss" navigation and the
+        # need to press Confirm twice. Run the input/animation body once per frame.
+        _fc = (Graphics.frame_count rescue 0)
+        return if @last_tick_frame == _fc
+        @last_tick_frame = _fc
+
         if (Input.trigger?(Input::MOUSERIGHT) rescue false)
           close
           return

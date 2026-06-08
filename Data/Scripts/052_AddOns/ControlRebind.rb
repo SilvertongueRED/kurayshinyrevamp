@@ -219,6 +219,38 @@ module ControlRebind
     source_name(b)
   end
 
+  # ---- Bound-control labels for in-menu tooltips -------------------------------
+  # The controller button currently bound to a logical action (reflects whatever
+  # the player set in the rebind menu). Used by the MP menus so their on-screen
+  # hints always match the player's real bindings.
+  def self.controller_label(action_button)
+    s = (@remap && @remap[action_button]) || action_button
+    source_name(s)
+  rescue
+    source_name(action_button) rescue "?"
+  end
+
+  def self.confirm_label; controller_label(Input::C); end
+  def self.cancel_label;  controller_label(Input::B); end
+  def self.action_label;  controller_label(Input::A); end
+
+  # "What opens this MP feature": the fixed F-key default plus any custom binding
+  # from the rebind menu (controller button / key / mouse).
+  MP_DEFAULT_KEYS = { :squad => "F4", :players => "F3", :chat => "T/F10",
+                      :gts => "F6", :cases => "F7", :profile => "F8",
+                      :hud => "" } unless const_defined?(:MP_DEFAULT_KEYS)
+  def self.mp_open_label(key)
+    base = (MP_DEFAULT_KEYS[key] || "").to_s
+    b = (mp_bind[key] rescue nil)
+    if base.empty?
+      b ? mp_source_name(b) : "-"
+    else
+      b ? "#{base} / #{mp_source_name(b)}" : base
+    end
+  rescue
+    (MP_DEFAULT_KEYS[key] rescue "") || ""
+  end
+
   def self.defaults
     h = {}
     buttons.each { |b| h[b] = b }
@@ -411,6 +443,48 @@ module ControlRebind
   # Controller-navigable rebind screen. Uses RAW input (bypass) the whole time so
   # it stays navigable no matter how the player has rebound things.
   #-----------------------------------------------------------------------------
+  # Is a Win32 virtual-key currently held down (level, not edge)?
+  def self.vk_down?(vk)
+    gaks = (GetAsyncKeyState rescue nil)
+    return false unless gaks
+    return false unless window_active?
+    (gaks.call(vk) & 0x8000) != 0
+  rescue
+    false
+  end
+
+  # Classic hold-to-bind capture. Returns the source currently HELD that is valid
+  # for the given row type, or nil. For :btn rows the source is one of the logical
+  # buttons or a d-pad/stick direction (Integer). For :mp rows it can additionally
+  # be a keyboard/mouse token (String). The first match wins; face buttons are
+  # checked before directions so a deliberate button press isn't shadowed.
+  def self.detect_held_source(type)
+    buttons.each { |b| return b if (Input.press?(b) rescue false) }
+    [Input::UP, Input::DOWN, Input::LEFT, Input::RIGHT].each do |d|
+      return d if (Input.press?(d) rescue false)
+    end
+    if type == :mp
+      key_sources.each { |tok, _l, vk| return tok if vk_down?(vk) }
+    end
+    nil
+  rescue
+    nil
+  end
+
+  # Commit a captured source onto a row (left column => remap, right column => MP).
+  def self.apply_binding(r, src)
+    return if r.nil? || src.nil?
+    if r[:type] == :btn
+      @remap[r[:key]] = src
+    elsif r[:type] == :mp
+      mp_bind[r[:key]] = src
+    end
+  rescue
+    nil
+  end
+
+  HOLD_FRAMES = 16 unless const_defined?(:HOLD_FRAMES)  # ~0.27s hold to confirm
+
   def self.open_menu
     ensure_init
     @bypass = true
@@ -424,32 +498,74 @@ module ControlRebind
     mp_actions.each { |k, l| rows << { :type => :mp,  :key => k, :label => l } }
     rows << { :type => :reset, :label => _INTL("Reset to defaults") }
 
-    sel    = 0
-    redraw = true
-    b_hold = 0
+    sel       = 0
+    redraw    = true
+    b_hold    = 0
+    listening = false   # classic hold-to-bind capture mode for rows[sel]
+    armed     = false   # require all inputs released once before capturing
+    hold_src  = nil
+    hold_cnt  = 0
     loop do
       Graphics.update
       Input.update
+
+      # ---------------- Capture (listen) mode ----------------
+      if listening
+        r = rows[sel]
+        # Esc cancels the capture (NOT B -- B may be the button being bound).
+        if vk_down?(0x1B)
+          listening = false; armed = false; hold_src = nil; hold_cnt = 0
+          (pbPlayCancelSE rescue nil)
+          draw_menu(spr.bitmap, rows, sel, false, 0)
+          next
+        end
+        cur = detect_held_source(r[:type])
+        if cur.nil?
+          armed = true          # everything released -> ready to capture
+          hold_src = nil; hold_cnt = 0
+        elsif !armed
+          # still holding the button that opened capture; wait for release
+        elsif cur == hold_src
+          hold_cnt += 1
+          if hold_cnt >= HOLD_FRAMES
+            apply_binding(r, cur)
+            listening = false; armed = false; hold_src = nil; hold_cnt = 0
+            (pbPlayDecisionSE rescue nil)
+          end
+        else
+          hold_src = cur; hold_cnt = 1
+        end
+        draw_menu(spr.bitmap, rows, sel, true, hold_cnt)
+        next
+      end
+
+      # ---------------- Normal navigation ----------------
       b_hold = (Input.press?(Input::B) ? b_hold + 1 : 0)
       if redraw
-        draw_menu(spr.bitmap, rows, sel)
+        draw_menu(spr.bitmap, rows, sel, false, 0)
         redraw = false
       end
       if Input.repeat?(Input::DOWN)
         sel = (sel + 1) % rows.length; redraw = true; (pbPlayCursorSE rescue nil)
       elsif Input.repeat?(Input::UP)
         sel = (sel - 1) % rows.length; redraw = true; (pbPlayCursorSE rescue nil)
-      elsif Input.trigger?(Input::RIGHT)
+      elsif Input.trigger?(Input::C) || Input.trigger?(Input::A)
         r = rows[sel]
-        if r[:type] == :btn; cycle(r[:key], 1); redraw = true; (pbPlayDecisionSE rescue nil)
-        elsif r[:type] == :mp; mp_cycle(r[:key], 1); redraw = true; (pbPlayDecisionSE rescue nil); end
-      elsif Input.trigger?(Input::LEFT)
-        r = rows[sel]
-        if r[:type] == :btn; cycle(r[:key], -1); redraw = true; (pbPlayDecisionSE rescue nil)
-        elsif r[:type] == :mp; mp_cycle(r[:key], -1); redraw = true; (pbPlayDecisionSE rescue nil); end
-      elsif Input.trigger?(Input::C)
-        if rows[sel][:type] == :reset
+        if r[:type] == :reset
           reset!; redraw = true; (pbPlayDecisionSE rescue nil)
+        else
+          # Enter classic hold-to-bind: now hold the button/key/mouse to assign.
+          listening = true; armed = false; hold_src = nil; hold_cnt = 0
+          (pbPlayDecisionSE rescue nil)
+          draw_menu(spr.bitmap, rows, sel, true, 0)
+        end
+      elsif Input.trigger?(Input::LEFT) || Input.trigger?(Input::RIGHT)
+        # Left/Right now CLEARS a binding (btn -> default, MP -> unbound).
+        r = rows[sel]
+        if r[:type] == :btn
+          @remap[r[:key]] = r[:key]; redraw = true; (pbPlayCancelSE rescue nil)
+        elsif r[:type] == :mp
+          mp_bind[r[:key]] = nil; redraw = true; (pbPlayCancelSE rescue nil)
         end
       elsif Input.trigger?(Input::B) || b_hold >= 18
         (pbPlayCancelSE rescue nil)
@@ -478,42 +594,46 @@ module ControlRebind
     ""
   end
 
-  def self.draw_menu(bmp, rows, sel)
+  def self.draw_menu(bmp, rows, sel, listening = false, hold_cnt = 0)
     w = bmp.width
     h = bmp.height
     bmp.clear
-    bmp.fill_rect(0, 0, w, h, Color.new(18, 16, 28, 235))
+    # Fully OPAQUE so the Options menu behind the rebind viewport never shows
+    # through (previously alpha 235 let it bleed and looked messy while scrolling).
+    bmp.fill_rect(0, 0, w, h, Color.new(18, 16, 28, 255))
     base   = Color.new(255, 255, 255)
     shadow = Color.new(0, 0, 0)
-    dim    = Color.new(170, 170, 190)
+    dim    = Color.new(180, 180, 200)
     selc   = Color.new(120, 220, 255)
     head   = Color.new(150, 255, 180)
     chg    = Color.new(255, 225, 120)
     pbSetSystemFont(bmp)
 
-    # ---- Vertical layout: scale so the rows fill the screen down to a small
-    # bottom margin, with a reserved description strip just above it. ----
-    title_h  = 34
-    hint_h   = 22
-    top      = title_h + hint_h + 8          # first row y
-    desc_h   = 40                            # description strip at the bottom
-    bottom_margin = 10
+    # ---- Vertical layout. Taller header + description strips (bigger, easier to
+    # read), so rows scale a touch smaller to keep everything on the 512x384 screen.
+    title_h  = 32
+    hint_h   = 38                            # two readable instruction lines
+    top      = title_h + hint_h + 6          # first row y
+    desc_h   = 58                            # two wrapped description lines
+    bottom_margin = 8
     # Right column has the most rows: MP header + mp_actions + reset.
     right_rows = mp_actions.length + 1
     avail = h - top - desc_h - bottom_margin
     # +1 accounts for the MP header line occupying one row slot.
     rowh = (avail / (right_rows + 1).to_f).floor
-    rowh = 30 if rowh < 30
+    rowh = 24 if rowh < 24
     rowh = 60 if rowh > 60
     val_font = [(rowh * 0.62).to_i, 16].max
     val_font = 30 if val_font > 30
 
-    bmp.font.size = title_h - 6 rescue nil
-    pbDrawShadowText(bmp, 0, 6, w, title_h, _INTL("Rebind Controls"), selc, shadow, 1)
-    bmp.font.size = 16 rescue nil
-    pbDrawShadowText(bmp, 0, title_h + 4, w, hint_h,
-      _INTL("Up/Down: move   Left/Right: change   Hold B / Esc: save & exit"),
-      dim, shadow, 1)
+    bmp.font.size = title_h - 4 rescue nil
+    pbDrawShadowText(bmp, 0, 4, w, title_h, _INTL("Rebind Controls"), selc, shadow, 1)
+    # Two-line instructions (bigger than the old single line, with breathing room).
+    bmp.font.size = 18 rescue nil
+    pbDrawShadowText(bmp, 0, title_h + 2, w, 18,
+      _INTL("Up/Down: move    Confirm: rebind    L/R: clear"), dim, shadow, 1)
+    pbDrawShadowText(bmp, 0, title_h + 20, w, 18,
+      _INTL("Hold a button / key / mouse to assign    Hold B / Esc: exit"), dim, shadow, 1)
 
     btn_rows = (0...rows.length).select { |i| rows[i][:type] == :btn }
     other    = (0...rows.length).select { |i| rows[i][:type] != :btn }
@@ -563,11 +683,40 @@ module ControlRebind
       y += rowh
     end
 
-    # ---- Description strip for the highlighted row. ----
-    dy = h - desc_h - bottom_margin + 4
-    bmp.fill_rect(16, dy - 6, w - 32, 2, Color.new(90, 90, 110, 200))
-    bmp.font.size = 17 rescue nil
-    pbDrawShadowText(bmp, 22, dy, w - 44, desc_h, row_description(rows[sel]), Color.new(220, 220, 235), shadow, 0)
+    # ---- Description / capture-prompt strip for the highlighted row. ----
+    dy = h - desc_h - bottom_margin + 2
+    bmp.fill_rect(12, dy - 6, w - 24, 2, Color.new(90, 90, 110, 200))
+    if listening
+      bmp.font.size = 19 rescue nil
+      lbl = (rows[sel][:label] rescue "this action")
+      pbDrawShadowText(bmp, 16, dy, w - 32, 22,
+        _INTL("HOLD a button / key / mouse to bind to \"{1}\"", lbl),
+        Color.new(255, 235, 150), shadow, 0)
+      pbDrawShadowText(bmp, 16, dy + 22, w - 32, 18,
+        _INTL("(Esc cancels.  D-Pad works here too.)"), Color.new(200, 200, 215), shadow, 0)
+      # Hold-progress bar so the player can see the bind is registering.
+      frac = [hold_cnt.to_f / [HOLD_FRAMES, 1].max, 1.0].min
+      bx = 16; by = dy + 44; bw = w - 32; bh = 7
+      bmp.fill_rect(bx, by, bw, bh, Color.new(40, 40, 55, 230))
+      bmp.fill_rect(bx, by, (bw * frac).to_i, bh, Color.new(120, 220, 255, 255))
+    else
+      bmp.font.size = 18 rescue nil
+      desc = row_description(rows[sel]).to_s
+      maxw = w - 32
+      # word-wrap into up to two lines so a bigger font never runs off the page
+      line1 = ""; line2 = ""
+      desc.split(" ").each do |word|
+        trial = line1.empty? ? word : (line1 + " " + word)
+        fits = ((bmp.text_size(trial).width rescue (trial.length * 9)) <= maxw)
+        if fits && line2.empty?
+          line1 = trial
+        else
+          line2 = line2.empty? ? word : (line2 + " " + word)
+        end
+      end
+      pbDrawShadowText(bmp, 16, dy, maxw, 24, line1, Color.new(225, 225, 240), shadow, 0)
+      pbDrawShadowText(bmp, 16, dy + 26, maxw, 24, line2, Color.new(225, 225, 240), shadow, 0) unless line2.empty?
+    end
   rescue
     nil
   end
@@ -668,8 +817,15 @@ ControlRebind.load rescue nil
 #-------------------------------------------------------------------------------
 unless defined?($input_dedupe_installed) && $input_dedupe_installed
   module InputDedupe
-    DEBOUNCE_FRAMES = 6  # ~100ms @60fps: covers dup-device + contact bounce,
-                         # well under a human's deliberate double-tap (>150ms).
+    DEBOUNCE_FRAMES = 3  # ~50ms @60fps: the engine's trigger? already requires a
+                         # release before a new edge, so a genuine dup-device /
+                         # contact bounce lands within 1-2 frames. 6 frames (100ms)
+                         # was long enough to also swallow a DELIBERATE second
+                         # confirm chained across a screen transition (e.g. pick a
+                         # case -> open the case, or pick a player -> pick an
+                         # action), which is exactly the "have to press confirm
+                         # twice to open anything" report. 3 frames still kills the
+                         # double-FIRE while never touching a real re-press (>120ms).
     GUARDED = begin
       [Input::A, Input::B, Input::C, Input::X, Input::Y, Input::Z, Input::L, Input::R]
     rescue

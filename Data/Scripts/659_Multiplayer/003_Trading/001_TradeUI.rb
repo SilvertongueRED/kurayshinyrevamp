@@ -718,6 +718,19 @@ module TradeUI
       @bmp.font.color = LAVENDER
       @bmp.draw_text(0, 6, w, 28, _INTL("Trading with {1}", @peer_name), 1)
 
+      # Bound-control tooltip: show which button (reflecting the rebind menu)
+      # opens the trade options / confirms, plus the keyboard + mouse equivalents.
+      if defined?(ControlRebind)
+        _ok = (ControlRebind.confirm_label rescue "C")
+        _bk = (ControlRebind.cancel_label rescue "B")
+        @bmp.font.size = 14
+        @bmp.font.color = Color.new(190, 190, 215)
+        @bmp.draw_text(0, h - 22, w, 18,
+          _INTL("{1} / Z / Click: open options    {2} / X: cancel", _ok, _bk), 1)
+        @bmp.font.size = 22
+        @bmp.font.color = LAVENDER
+      end
+
       pad = 24
       device_w = (w - pad*3) / 2
       device_h = h - 64 - 16
