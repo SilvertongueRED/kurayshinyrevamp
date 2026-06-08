@@ -78,16 +78,19 @@ class PokeBattle_Scene
   end
 
   def coop_update_squad_target_hud
-    # DISABLED: replaced by the live over-foe ALLY marker (001_TargetMarker.rb),
-    # which now tracks a teammate's hovered target in real time during target
-    # selection. The fixed top-left list blocked the foe HP boxes, so it is off.
-    coop_hide_squad_target_hud
-    return
+    # Re-enabled, relocated to the TOP-RIGHT (clear of the foe HP boxes at top-left,
+    # the command bar at the bottom, and the player HP boxes at bottom-right). This
+    # fixed list has no sprite-position/z-order dependency and is fed by BOTH your
+    # locked choices and the ally's synced action, so it shows on every client.
     return unless defined?(CoopBattleState) && CoopBattleState.respond_to?(:in_coop_battle?)
     unless CoopBattleState.in_coop_battle?
       coop_hide_squad_target_hud
       return
     end
+
+    # Ingest squad allies live hover targets that rode in on their SYNC packet
+    # (official-server-safe; the COOP_TGT_INTENT path is dropped there).
+    (CoopTargetIntent.ingest_sync_hovers(@battle) rescue nil) if defined?(CoopTargetIntent)
 
     pairs = coop_collect_target_pairs
     if pairs.nil? || pairs.empty?
@@ -117,17 +120,17 @@ class PokeBattle_Scene
   def coop_render_squad_target_hud(rows)
     title = (_INTL("SQUAD TARGETS") rescue "SQUAD TARGETS")
     pad   = 8
-    lh    = 22
-    w     = 240
+    lh    = 20
+    w     = 204
     h     = pad * 2 + lh + rows.length * lh
 
     spr = @coop_hud_sprite
     if !spr || spr.disposed?
       spr = Sprite.new(coop_hud_viewport)
-      spr.x = 6
-      spr.y = 6
       @coop_hud_sprite = spr
     end
+    spr.x = [Graphics.width - w - 4, 0].max
+    spr.y = 4
     spr.bitmap.dispose if spr.bitmap && !spr.bitmap.disposed?
     bmp = Bitmap.new(w, h)
     edge = Color.new(80, 220, 255, 255)

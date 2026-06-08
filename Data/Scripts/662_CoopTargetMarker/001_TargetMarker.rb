@@ -50,6 +50,13 @@ class PokeBattle_Scene
   # force=true -> draw even if CoopTargetIntent.active? is false (used by the
   # action-sync wait loop, which is always between command and attack phases).
   def coop_update_ally_target_markers(force = false)
+    # DISABLED: the floating over-foe ALLY marker proved unreliable (z-order /
+    # EBDX sprite-position dependent -- it drifted to the wrong spot and only
+    # showed for one client). Replaced by the fixed top-right Squad Target HUD
+    # (002_SquadTargetHUD.rb), which is sprite-independent and symmetric. Kept
+    # so existing hooks/dispose calls stay valid; it now only hides.
+    coop_hide_ally_target_markers
+    return
     return unless defined?(CoopTargetIntent) && defined?(CoopBattleState)
     @coop_intent_markers ||= {}
 

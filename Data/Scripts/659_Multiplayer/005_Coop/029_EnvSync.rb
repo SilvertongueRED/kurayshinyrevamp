@@ -36,6 +36,13 @@ module MPEnvSync
     return if le <= 0
     @time_offset = le - Time.now.to_f
     @time_active = true
+    # Invalidate PBDayNight's tone cache so the day/night tint recomputes on the
+    # next frame instead of lagging up to 30s behind the adopted clock. Only
+    # nils a timestamp (no graphics calls), so it is safe off the main thread.
+    begin
+      PBDayNight.instance_variable_set(:@dayNightToneLastUpdate, nil) if defined?(PBDayNight)
+    rescue
+    end
     MultiplayerDebug.info("MP-ENV", "Time synced to leader (offset=#{@time_offset.round(1)}s)") if defined?(MultiplayerDebug)
   rescue
     nil
@@ -143,9 +150,46 @@ module MPEnvSync
   # Called every frame on the MAIN thread (from Scene_Map#update). Applies any
   # weather that arrived over the network, safely on the render thread.
   def pump
+    # PRIMARY path on the official server: pull the leader env that rode in on
+    # their SYNC packet (see local_trainer_snapshot piggyback). The SQUAD_ENV
+    # request/response below it still works on a self-hosted server.
+    poll_leader_env_from_sync
     w = nil
     @env_mutex.synchronize { w = @pending_weather; @pending_weather = nil }
     apply_weather(w[0], w[1]) if w
+  rescue
+    nil
+  end
+
+  # Adopt the squad leader's time-of-day + weather from the leader-stamped keys
+  # (:tod/:wx/:wpow) that arrive inside their relayed SYNC. Throttled ~1/s;
+  # weather only re-applied on change. No fork-only server message required.
+  def poll_leader_env_from_sync
+    return unless defined?(MultiplayerClient)
+    return unless (MultiplayerClient.in_squad? rescue false)
+    return if (MultiplayerClient.is_leader? rescue false)
+    now = Time.now.to_f
+    return if @last_sync_poll && (now - @last_sync_poll) < 1.0
+    @last_sync_poll = now
+    leader = (MultiplayerClient.squad[:leader].to_s rescue nil)
+    return if leader.nil? || leader.empty?
+    players = (MultiplayerClient.players rescue nil)
+    return unless players.is_a?(Hash)
+    pd = players[leader]
+    if pd.nil?
+      norm = leader.gsub(/\ASID/i, "")
+      unless norm.empty?
+        players.each { |k, v| (pd = v; break) if k.to_s.gsub(/\ASID/i, "") == norm }
+      end
+    end
+    return unless pd.is_a?(Hash)
+    tod = pd[:tod]
+    set_time_from_leader(tod.to_f) if tod && tod.to_f > 0
+    wx = pd[:wx]; wpow = pd[:wpow]
+    if wx && (wx.to_s != @last_applied_wx.to_s || wpow.to_i != @last_applied_wpow.to_i)
+      @last_applied_wx = wx.to_s; @last_applied_wpow = wpow.to_i
+      set_pending_weather(wx, wpow)
+    end
   rescue
     nil
   end

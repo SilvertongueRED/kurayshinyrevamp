@@ -89,11 +89,32 @@ module ControlRebind
     [Input::C, Input::B, Input::A, Input::X, Input::Y, Input::Z, Input::L, Input::R]
   end
 
+  # Controller TRIGGERS (LT/RT). mkxp has no default binding for the analog
+  # triggers, so the player maps them to spare RGSS buttons via the engine F1
+  # "Key Bindings" menu: Left Trigger -> F5, Right Trigger -> F9 (the only two
+  # function buttons not already used by GTS(F6)/Cases(F7)/Screenshot(F8) and
+  # only debug-used for F9). We then expose them as assignable "LT"/"RT" sources.
+  # Guarded: a missing constant just drops that trigger (no crash).
+  def self.trigger_sources
+    @trigger_sources ||= begin
+      list = []
+      list << [Input::F5, "LT"] if defined?(Input::F5)
+      list << [Input::F9, "RT"] if defined?(Input::F9)
+      list
+    rescue
+      []
+    end
+  end
+
+  def self.trigger_buttons
+    trigger_sources.map { |b, _l| b }
+  end
+
   # Sources a player may assign to an action: the 8 action buttons PLUS the four
   # d-pad/stick directions, so the d-pad can be bound too (Left/Right cycles
   # through this whole list in the rebind screen).
   def self.assignable_sources
-    buttons + [Input::UP, Input::DOWN, Input::LEFT, Input::RIGHT]
+    buttons + [Input::UP, Input::DOWN, Input::LEFT, Input::RIGHT] + trigger_buttons
   end
 
   # Action rows for the UI: [logical_button, friendly_label]
@@ -186,6 +207,7 @@ module ControlRebind
   # The d-pad/stick is deliberately excluded so movement can never be hijacked.
   def self.mp_assignable
     [nil, Input::A, Input::X, Input::Y, Input::Z, Input::L, Input::R] +
+      trigger_buttons +
       key_sources.map { |tok, _l, _vk| tok }
   end
 
@@ -203,10 +225,12 @@ module ControlRebind
   end
 
   def self.source_name(b)
-    { Input::C => "C", Input::B => "B", Input::A => "A", Input::X => "X",
+    m = { Input::C => "C", Input::B => "B", Input::A => "A", Input::X => "X",
       Input::Y => "Y", Input::Z => "Z", Input::L => "L", Input::R => "R",
       Input::UP => "Up", Input::DOWN => "Down",
-      Input::LEFT => "Left", Input::RIGHT => "Right" }[b] || b.to_s
+      Input::LEFT => "Left", Input::RIGHT => "Right" }
+    trigger_sources.each { |btn, lbl| m[btn] = lbl }
+    m[b] || b.to_s
   end
 
   # Display name for an MP binding (controller button, key token, or unbound).
@@ -460,6 +484,7 @@ module ControlRebind
   # checked before directions so a deliberate button press isn't shadowed.
   def self.detect_held_source(type)
     buttons.each { |b| return b if (Input.press?(b) rescue false) }
+    trigger_buttons.each { |b| return b if (Input.press?(b) rescue false) }
     [Input::UP, Input::DOWN, Input::LEFT, Input::RIGHT].each do |d|
       return d if (Input.press?(d) rescue false)
     end
@@ -645,7 +670,7 @@ module ControlRebind
       r   = rows[i]
       col = (sel == i) ? selc : base
       if (sel == i)
-        bmp.fill_rect(x_label - 6, y, (x_val + 116) - (x_label - 6), rowh - 2, Color.new(70, 90, 140, 120))
+        bmp.fill_rect(x_label - 6, y, (x_val + 116) - (x_label - 6), rowh - 2, Color.new(46, 55, 86, 255))
       end
       if r[:type] == :reset
         c2 = (sel == i) ? selc : dim
@@ -685,7 +710,7 @@ module ControlRebind
 
     # ---- Description / capture-prompt strip for the highlighted row. ----
     dy = h - desc_h - bottom_margin + 2
-    bmp.fill_rect(12, dy - 6, w - 24, 2, Color.new(90, 90, 110, 200))
+    bmp.fill_rect(12, dy - 6, w - 24, 2, Color.new(74, 74, 92, 255))
     if listening
       bmp.font.size = 19 rescue nil
       lbl = (rows[sel][:label] rescue "this action")
@@ -697,7 +722,7 @@ module ControlRebind
       # Hold-progress bar so the player can see the bind is registering.
       frac = [hold_cnt.to_f / [HOLD_FRAMES, 1].max, 1.0].min
       bx = 16; by = dy + 44; bw = w - 32; bh = 7
-      bmp.fill_rect(bx, by, bw, bh, Color.new(40, 40, 55, 230))
+      bmp.fill_rect(bx, by, bw, bh, Color.new(36, 36, 50, 255))
       bmp.fill_rect(bx, by, (bw * frac).to_i, bh, Color.new(120, 220, 255, 255))
     else
       bmp.font.size = 18 rescue nil
@@ -835,10 +860,19 @@ unless defined?($input_dedupe_installed) && $input_dedupe_installed
     @seq           = 0
     @last_accept   = {}
     @cache         = {}
+    @released      = {}   # has button been released since its last accepted trigger?
     @c_fired_seq   = -1   # last frame logical C produced an accepted trigger
 
     def self.bump!
       @seq += 1
+      # A genuine re-press always has a RELEASE between edges; a hardware double-
+      # fire / duplicate-device echo does not. Track releases so we only ever
+      # swallow the latter -- a deliberate second confirm is never eaten (kills
+      # the "had to press confirm twice to open something" residual).
+      @released ||= {}
+      GUARDED.each { |b| @released[b] = true unless (Input.press?(b) rescue false) }
+    rescue
+      nil
     end
 
     def self.guarded?(b)
@@ -851,6 +885,7 @@ unless defined?($input_dedupe_installed) && $input_dedupe_installed
       return raw_val unless guarded?(b)
       @last_accept ||= {}
       @cache       ||= {}
+      @released    ||= {}
       @seq         ||= 0
       s = @seq
       c = @cache[b]
@@ -860,10 +895,11 @@ unless defined?($input_dedupe_installed) && $input_dedupe_installed
           false
         else
           last = @last_accept[b]
-          if last && (s - last) <= DEBOUNCE_FRAMES && (s - last) >= 0
-            false           # spurious duplicate edge / bounce -> swallow it
+          if last && (s - last) <= DEBOUNCE_FRAMES && (s - last) >= 0 && !@released[b]
+            false           # duplicate edge with NO release between -> bounce, swallow
           else
             @last_accept[b] = s
+            @released[b]    = false   # fresh accepted press; not released since
             true
           end
         end

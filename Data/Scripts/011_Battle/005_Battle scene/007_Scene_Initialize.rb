@@ -176,7 +176,12 @@ class PokeBattle_Scene
 
     #trainer = pbAddSprite("player_#{idxTrainer + 1}", spriteX, spriteY, trainerFile, @viewport)
     #
-    if idxTrainer == 0 # Player's sprite
+    # Co-op fix: the LOCAL player is not always trainer 0. On a joiner's client
+    # the initiator occupies slot 0, so keying 'my outfit' off idxTrainer==0
+    # drew the local player's clothes onto the ally. Detect the real $Trainer.
+    _bs_who = (@battle.player[idxTrainer] rescue nil)
+    _bs_local = (_bs_who && defined?($Trainer) && $Trainer) ? _bs_who.equal?($Trainer) : (idxTrainer == 0)
+    if _bs_local # Player's sprite
       x = 100
       y = 410
 

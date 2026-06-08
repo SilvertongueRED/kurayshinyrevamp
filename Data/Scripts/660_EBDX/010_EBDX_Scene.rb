@@ -280,8 +280,21 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
   def pbEBDXLayeredPlayerTrainerBitmap(player, idxTrainer)
     return nil if !defined?(generate_front_trainer_sprite_bitmap)
     allowEasterEgg = (pbInSafari? rescue false)
-    if idxTrainer == 0 && defined?($Trainer) && $Trainer
+    # Co-op fix: local player is not always trainer 0 (joiner sees initiator at
+    # slot 0). Detect the real $Trainer so the ally keeps THEIR outfit.
+    _is_local = (player && defined?($Trainer) && $Trainer) ? player.equal?($Trainer) : (idxTrainer == 0)
+    if _is_local
       return generate_front_trainer_sprite_bitmap(allowEasterEgg)
+    end
+    # Remote co-op ally: use their stamped custom_appearance (TrainerAppearance),
+    # then any synced outfit, before the clothes-field fallback below.
+    _ca = (player.custom_appearance rescue nil)
+    _ca ||= (MultiplayerUI.remote_trainer_appearance(player.id) rescue nil) if defined?(MultiplayerUI) && player.respond_to?(:id)
+    if _ca && defined?(generate_front_trainer_sprite_bitmap_from_appearance)
+      begin
+        return generate_front_trainer_sprite_bitmap_from_appearance(_ca, true)
+      rescue
+      end
     end
     if player.respond_to?(:clothes) && !player.clothes.nil? && player.clothes.to_s != ""
       hat = player.respond_to?(:hat) ? player.hat : nil

@@ -827,7 +827,7 @@ module ModManager
 
       @footer_spr = Sprite.new(@vp)
       @footer_spr.bitmap = Bitmap.new(SCREEN_W, FOOTER_H)
-      @footer_spr.y = SCREEN_H - FOOTER_H
+      @footer_spr.y = SCREEN_H - FOOTER_H - 16   # raised ~5% off the bottom edge
       @footer_spr.z = 10
 
       draw_title
@@ -1311,8 +1311,8 @@ module ModManager
 
       case @active_tab
       when :mods, :modpacks
-        tag_text = @filter_tag ? "T: Tag [#{@filter_tag}]" : "T: Tag"
-        pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "S: Search | #{tag_text} | O/(Y): Sort [#{sort_label}] | L/R: Switch", DIM, SHADOW)
+        tag_text = @filter_tag ? "T/LS: Tag [#{@filter_tag}]" : "T/LS: Tag"
+        pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "S/RS: Search | #{tag_text} | O/(Y): Sort [#{sort_label}] | L/R: Switch", DIM, SHADOW)
       when :share_code
         pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "Tab: Switch  |  Ctrl+V: Paste", DIM, SHADOW)
       end
@@ -1386,20 +1386,20 @@ module ModManager
     end
 
     def handle_input_mods
-      # Activate search (S key)
-      if _key_trigger?(0x53)
+      # Activate search (S key, or Right-Stick click = Input::Z)
+      if _key_trigger?(0x53) || Input.trigger?(Input::Z)
         activate_search
         return
       end
 
-      # Tag filter (T key or Z/Special button)
-      if _key_trigger?(0x54) || Input.trigger?(Input::Z)
+      # Tag filter (T key, or Left-Stick click = Input::Y)
+      if _key_trigger?(0x54) || Input.trigger?(Input::Y)
         cycle_tag_filter
         return
       end
 
-      # Cycle sort order (O key, or Y / X controller button): A-Z <-> Recently Updated
-      if _key_trigger?(0x4F) || Input.trigger?(Input::Y) || Input.trigger?(Input::X)
+      # Cycle sort order (O key, or controller Y button = Input::X): A-Z <-> Recently Updated
+      if _key_trigger?(0x4F) || Input.trigger?(Input::X)
         cycle_sort
         return
       end
@@ -1437,20 +1437,20 @@ module ModManager
         return
       end
 
-      # Search (S key)
-      if _key_trigger?(0x53)
+      # Search (S key, or Right-Stick click = Input::Z)
+      if _key_trigger?(0x53) || Input.trigger?(Input::Z)
         activate_search
         return
       end
 
-      # Tag filter (T key or Z/Special button)
-      if _key_trigger?(0x54) || Input.trigger?(Input::Z)
+      # Tag filter (T key, or Left-Stick click = Input::Y)
+      if _key_trigger?(0x54) || Input.trigger?(Input::Y)
         cycle_tag_filter_modpacks
         return
       end
 
-      # Cycle sort order (O key, or Y / X controller button): A-Z <-> Recently Updated
-      if _key_trigger?(0x4F) || Input.trigger?(Input::Y) || Input.trigger?(Input::X)
+      # Cycle sort order (O key, or controller Y button = Input::X): A-Z <-> Recently Updated
+      if _key_trigger?(0x4F) || Input.trigger?(Input::X)
         cycle_sort
         return
       end

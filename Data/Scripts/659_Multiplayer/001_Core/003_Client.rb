@@ -722,12 +722,37 @@ module MultiplayerClient
     run = (defined?($game_player) && $game_player && $game_player.move_speed > 3) ? 1 : 0
     fish = (defined?($PokemonGlobal) && $PokemonGlobal && $PokemonGlobal.fishing) ? 1 : 0
 
-    {
+    snap = {
       name: name, clothes: clothes, hat: hat, hat2: hat2, hair: hair,
       skin_tone: skin_tone, hair_color: hair_color, hat_color: hat_color, hat2_color: hat2_color, clothes_color: clothes_color,
       map: map_id, x: x, y: y, face: face,
       surf: surf, dive: dive, bike: bike, run: run, fish: fish
     }
+    # --- PIGGYBACK CHANNELS (ride SYNC) ------------------------------------
+    # SYNC is the one presence packet the OFFICIAL KIFM server always relays,
+    # and it reconstructs+rebroadcasts the FULL state generically (unknown keys
+    # survive). So we smuggle squad env + live battle-target here instead of the
+    # fork-only SQUAD_ENV / COOP_TGT_INTENT messages the official server drops.
+    # Receiver does @players[sid].merge!(kv), so these land automatically.
+    begin
+      # (a) Squad LEADER stamps time-of-day (epoch) + weather for members.
+      if (in_squad? rescue false) && (is_leader? rescue false)
+        snap[:tod] = (pbGetTimeNow.to_i rescue Time.now.to_i)
+        if defined?(MPEnvSync)
+          _wt, _wp = MPEnvSync.current_weather_payload
+          snap[:wx]   = _wt.to_s
+          snap[:wpow] = _wp.to_i
+        end
+      end
+      # (b) During a co-op battle, stamp the foe this player is hovering so
+      #     squadmates see it live (pre-confirm). Always present in-battle (even
+      #     as "") so a cleared hover propagates -- the merge! never deletes keys.
+      if defined?(CoopBattleState) && (CoopBattleState.in_coop_battle? rescue false)
+        snap[:bhov] = (defined?(CoopTargetIntent) ? (CoopTargetIntent.local_hover_token rescue "") : "").to_s
+      end
+    rescue
+    end
+    snap
   end
 
   # --- Identity persistence & account key (removed - uses platinum UUID) ---

@@ -28,6 +28,7 @@ module CoopTargetIntent
   # { attacker_idx => { :target => Integer, :turn => Integer, :sid => String } }
   @remote_intents = {}
   @active = false   # true only while the local player is choosing commands
+  @local_hover = "" # "battle_id:atk:tgt" the local player is hovering (rides SYNC)
 
   module_function
 
@@ -36,11 +37,13 @@ module CoopTargetIntent
   #-----------------------------------------------------------------------------
   def on_command_phase_begin(battle)
     @active = true
+    @local_hover = ""
     prune_stale(battle)
   end
 
   def on_attack_phase_begin(_battle)
     @active = false
+    @local_hover = ""
   end
 
   def active?
@@ -49,11 +52,13 @@ module CoopTargetIntent
 
   def clear
     @remote_intents = {}
+    @local_hover = ""
   end
 
   def reset
     @remote_intents = {}
     @active = false
+    @local_hover = ""
   end
 
   def current_turn_for(battle)
@@ -98,6 +103,7 @@ module CoopTargetIntent
     return unless single
     return unless (battle.pbOwnedByPlayer?(attacker_idx) rescue false)
     return unless (battle.opposes?(attacker_idx, hovered_idx) rescue false)
+    set_local_hover(battle, attacker_idx, hovered_idx)
     broadcast(battle, attacker_idx, hovered_idx)
   rescue
     nil
@@ -189,6 +195,51 @@ module CoopTargetIntent
     out
   rescue
     []
+  end
+
+  #-----------------------------------------------------------------------------
+  # Live hover over SYNC (official-server safe; COOP_TGT_INTENT is dropped there)
+  #-----------------------------------------------------------------------------
+  def set_local_hover(battle, atk, tgt)
+    bid = (CoopBattleState.battle_id rescue nil)
+    @local_hover = "#{bid}:#{atk.to_i}:#{tgt.to_i}"
+  rescue
+    nil
+  end
+
+  def local_hover_token
+    @local_hover.to_s
+  end
+
+  # Pull squad allies live hover tokens out of their relayed SYNC record
+  # (@players[sid][:bhov] == "battle_id:atk:tgt") and feed them into the same
+  # @remote_intents the Squad Target HUD reads. Called every frame in-battle.
+  def ingest_sync_hovers(battle)
+    return unless battle && defined?(MultiplayerClient) && defined?(CoopBattleState)
+    return unless CoopBattleState.in_coop_battle?
+    players = (MultiplayerClient.players rescue nil)
+    return unless players.is_a?(Hash)
+    bid = (CoopBattleState.battle_id rescue nil)
+    cur = current_turn_for(battle)
+    allies = (CoopBattleState.get_ally_sids rescue []) || []
+    allies.each do |asid|
+      pd = players[asid.to_s]
+      if pd.nil?
+        norm = asid.to_s.gsub(/\ASID/i, "")
+        players.each { |k, v| (pd = v; break) if k.to_s.gsub(/\ASID/i, "") == norm } unless norm.empty?
+      end
+      next unless pd.is_a?(Hash)
+      tok = pd[:bhov].to_s
+      next if tok.empty?
+      parts = tok.split(":")
+      next unless parts.length == 3
+      b_id, atk, tgt = parts[0], parts[1].to_i, parts[2].to_i
+      next if bid && !b_id.to_s.empty? && bid.to_s != b_id.to_s
+      next if tgt < 0
+      receive(asid.to_s, b_id, cur, atk, tgt)
+    end
+  rescue
+    nil
   end
 end
 
