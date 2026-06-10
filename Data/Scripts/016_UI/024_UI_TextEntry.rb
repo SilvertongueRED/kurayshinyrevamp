@@ -686,14 +686,16 @@ class PokemonEntryScene2
       next if pbMoveCursor
       if Input.trigger?(Input::SPECIAL)
         pbChangeTab
-      elsif Input.trigger?(Input::ACTION)
-        @cursorpos = OK
-        @sprites["cursor"].setCursorPos(@cursorpos)
       elsif Input.trigger?(Input::BACK)
         @helper.delete
         pbPlayCancelSE
         pbUpdateOverlay
-      elsif Input.trigger?(Input::USE)
+      elsif Input.trigger?(Input::USE) || Input.trigger?(Input::ACTION)
+        # Accept BOTH Confirm (C/USE) and Action (A) as "select the current cell".
+        # A controller whose face button is bound only to A (e.g. players who
+        # unbound Pad A from C to stop the MP double-confirm) could otherwise never
+        # confirm OK in this on-screen grid -- leaving them trapped in the keyboard
+        # with no way out but to force-quit. (Lost: A as a jump-to-OK shortcut.)
         case @cursorpos
         when BACK   # Backspace
           @helper.delete

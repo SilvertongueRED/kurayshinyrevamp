@@ -1028,7 +1028,13 @@ if defined?(Scene_Map)
           end
         end
 
-        if !@loading && @data
+        # Process controller/mouse input as soon as there is data to act on, even
+        # while a background refresh is still @loading. For your own profile the
+        # data is built locally and is present immediately, so gating on !@loading
+        # (the old condition) meant the controller did nothing until the server's
+        # PROFILE_DATA arrived -- the "have to wiggle the mouse before the pad does
+        # anything" symptom. The panel renders from @data regardless of @loading.
+        if @data
           my_uuid = (MultiplayerClient.platinum_uuid rescue nil)
           mouse_clicked = (Input.trigger?(Input::MOUSELEFT) rescue false)
           if _own_profile_target?

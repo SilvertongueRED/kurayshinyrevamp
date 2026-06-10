@@ -728,30 +728,7 @@ module MultiplayerClient
       map: map_id, x: x, y: y, face: face,
       surf: surf, dive: dive, bike: bike, run: run, fish: fish
     }
-    # --- PIGGYBACK CHANNELS (ride SYNC) ------------------------------------
-    # SYNC is the one presence packet the OFFICIAL KIFM server always relays,
-    # and it reconstructs+rebroadcasts the FULL state generically (unknown keys
-    # survive). So we smuggle squad env + live battle-target here instead of the
-    # fork-only SQUAD_ENV / COOP_TGT_INTENT messages the official server drops.
-    # Receiver does @players[sid].merge!(kv), so these land automatically.
-    begin
-      # (a) Squad LEADER stamps time-of-day (epoch) + weather for members.
-      if (in_squad? rescue false) && (is_leader? rescue false)
-        snap[:tod] = (pbGetTimeNow.to_i rescue Time.now.to_i)
-        if defined?(MPEnvSync)
-          _wt, _wp = MPEnvSync.current_weather_payload
-          snap[:wx]   = _wt.to_s
-          snap[:wpow] = _wp.to_i
-        end
-      end
-      # (b) During a co-op battle, stamp the foe this player is hovering so
-      #     squadmates see it live (pre-confirm). Always present in-battle (even
-      #     as "") so a cleared hover propagates -- the merge! never deletes keys.
-      if defined?(CoopBattleState) && (CoopBattleState.in_coop_battle? rescue false)
-        snap[:bhov] = (defined?(CoopTargetIntent) ? (CoopTargetIntent.local_hover_token rescue "") : "").to_s
-      end
-    rescue
-    end
+    # (Squad env-sync + live battle-target piggyback removed by request.)
     snap
   end
 
@@ -1584,8 +1561,15 @@ module MultiplayerClient
 
           # --- Squad: state update ---
           if data.start_with?("SQUAD_STATE:")
-            # Deep copy using JSON (safe alternative to Marshal)
-            prev = @squad ? _deep_copy_hash(@squad) : nil
+            # Deep copy of the squad with SYMBOL keys preserved.
+            # NOTE: _deep_copy_hash uses a raw MiniJSON round-trip, which turns
+            # symbol keys into strings -- that made prev[:members] nil and silently
+            # broke the join/leader toasts AND the auto-leave-when-alone check.
+            prev = nil
+            if @squad
+              prev = { leader: @squad[:leader],
+                       members: (@squad[:members] || []).map { |m| { sid: m[:sid], name: m[:name] } } }
+            end
             body = data.sub("SQUAD_STATE:", "")
             if body == "NONE"
               @squad = nil
@@ -1645,8 +1629,6 @@ module MultiplayerClient
                   if added.any? && @squad[:leader] == my
                     nm = @squad[:members].find{|m| m[:sid]==added.first}
                     enqueue_toast(_INTL("{1} joined your squad.", nm ? nm[:name] : added.first))
-                    # Push our (leader) clock + weather so the new member can sync.
-                    (MPEnvSync.broadcast_env rescue nil) if defined?(MPEnvSync)
                   end
                   if prev[:leader] != @squad[:leader] && @squad[:leader] == my && @squad[:members].length > 1
                     enqueue_toast(_INTL("You are now the squad leader."))
@@ -1656,20 +1638,22 @@ module MultiplayerClient
                 ##MultiplayerDebug.warn("C-SQUAD", "Toast diff err: #{e.message}")
               end
             end
-            # MP co-op: align our time-of-day + weather to the squad leader on join
-            # (and clear the offset when the squad goes away).
-            (MPEnvSync.on_squad_state(prev, @squad) rescue nil) if defined?(MPEnvSync)
             # MP co-op: if everyone else left/quit and I'm the lone survivor of what
             # was a 2+ person squad, auto-leave instead of lingering as the leader of
             # a phantom one-person squad (the player previously had to leave by hand).
             begin
-              my2 = @session_id.to_s
-              if prev && prev[:members].is_a?(Array) && prev[:members].length >= 2 &&
-                 @squad && @squad[:members].is_a?(Array) && @squad[:members].length == 1 &&
-                 @squad[:members].first[:sid].to_s == my2
-                ##MultiplayerDebug.info("C-SQUAD", "Last one standing -> auto-leaving solo squad")
-                leave_squad if respond_to?(:leave_squad)
-                (MPEnvSync.clear rescue nil) if defined?(MPEnvSync)
+              my2 = @session_id.to_s.strip
+              if prev && prev[:members].is_a?(Array) && @squad && @squad[:members].is_a?(Array)
+                prev_others = prev[:members].count  { |m| m[:sid].to_s.strip != my2 }
+                now_others  = @squad[:members].count { |m| m[:sid].to_s.strip != my2 }
+                still_me    = @squad[:members].empty? ||
+                              @squad[:members].any? { |m| m[:sid].to_s.strip == my2 }
+                # Everyone else left/disconnected and I am the lone survivor of what
+                # was a 2+ person squad -> auto-leave instead of lingering solo.
+                if prev_others >= 1 && now_others == 0 && still_me
+                  ##MultiplayerDebug.info("C-SQUAD", "Last one standing -> auto-leaving solo squad")
+                  leave_squad if respond_to?(:leave_squad)
+                end
               end
             rescue => e
               ##MultiplayerDebug.warn("C-SQUAD", "auto-leave check err: #{e.message}")

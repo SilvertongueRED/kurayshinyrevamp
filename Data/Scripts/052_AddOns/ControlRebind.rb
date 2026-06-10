@@ -98,8 +98,8 @@ module ControlRebind
   def self.trigger_sources
     @trigger_sources ||= begin
       list = []
-      list << [Input::F5, "LT"] if defined?(Input::F5)
-      list << [Input::F9, "RT"] if defined?(Input::F9)
+      list << [Input::F5, "Aux 1"] if defined?(Input::F5)
+      list << [Input::F9, "Aux 2"] if defined?(Input::F9)
       list
     rescue
       []
@@ -194,6 +194,10 @@ module ControlRebind
       list << ["Mouse3","Mouse3",0x04]  # middle
       list << ["Mouse4","Mouse4",0x05]  # X1 / back
       list << ["Mouse5","Mouse5",0x06]  # X2 / forward
+      # Letters A-Z and digits 0-9 so ANY keyboard key can be bound (the rebind
+      # screen captures whatever is held). Tokens are the bare character.
+      ("A".."Z").each { |c| list << [c, c, c.ord] }            # VK 0x41..0x5A
+      (0..9).each      { |n| list << [n.to_s, n.to_s, 0x30 + n] }  # VK 0x30..0x39
       list
     end
   end
@@ -308,9 +312,15 @@ module ControlRebind
     nil
   end
 
+  # Default MP hotkey bindings. Tab is bound to the HUD min/max toggle out of
+  # the box (works everywhere via the global poller below); rebindable in menu.
+  def self.defaults_mp
+    { :hud => "Tab" }
+  end
+
   def self.reset!
     @remap = defaults
-    @mp_bind = {}
+    @mp_bind = defaults_mp.dup
   end
 
   def self.bind_path
@@ -321,7 +331,11 @@ module ControlRebind
 
   def self.save
     ensure_init
-    lines = buttons.map { |b| "#{source_name(b)}=#{source_name(@remap[b] || b)}" }
+    lines = buttons.map do |b|
+      s = @remap[b] || b
+      val = s.is_a?(String) ? "K:#{s}" : source_name(s)
+      "#{source_name(b)}=#{val}"
+    end
     mp_bind.each do |act, b|
       next if b.nil?
       val = b.is_a?(String) ? "K:#{b}" : source_name(b)
@@ -334,10 +348,13 @@ module ControlRebind
 
   def self.load
     @remap = defaults
-    @mp_bind = {}
+    @mp_bind = defaults_mp.dup
     return unless File.exist?(bind_path)
     name_to_btn = {}
     assignable_sources.each { |b| name_to_btn[source_name(b)] = b }
+    # Back-compat: older saves used "LT"/"RT" labels for the two trigger buttons.
+    name_to_btn["LT"] = Input::F5 if defined?(Input::F5)
+    name_to_btn["RT"] = Input::F9 if defined?(Input::F9)
     File.read(bind_path).each_line do |ln|
       ln = ln.strip
       next if ln.empty?
@@ -354,8 +371,15 @@ module ControlRebind
       else
         k, v = ln.split("=", 2)
         next unless k && v
-        a = name_to_btn[k]; s = name_to_btn[v]
-        @remap[a] = s if a && s
+        a = name_to_btn[k]
+        next unless a
+        if v.start_with?("K:")
+          tok = v.sub("K:", "")
+          @remap[a] = tok if key_token_for(tok)
+        else
+          s = name_to_btn[v]
+          @remap[a] = s if s
+        end
       end
     end
   rescue
@@ -457,10 +481,66 @@ module ControlRebind
     return unless defined?(MultiplayerClient)
     @mp_bind.each do |action, btn|
       next unless btn
+      next if action == :hud   # HUD toggle is polled globally (works in menus/battles)
       mp_trigger(action) if mp_source_fired?(btn)
     end
   rescue
     nil
+  end
+
+  # Polled EVERY frame (all scenes) so the HUD/chat min-max toggle works inside
+  # menus, battles, etc -- not just the overworld. Only :hud is global; the other
+  # MP hotkeys stay overworld-only (you should not open GTS mid-battle).
+  def self.global_poll
+    return if @bypass
+    btn = (@mp_bind && @mp_bind[:hud])
+    return unless btn
+    mp_trigger(:hud) if mp_source_fired?(btn)
+  rescue
+    nil
+  end
+
+  # --- Frame-stable keyboard state for action (btn) rows bound to a key --------
+  # When a logical action button is rebound to a KEYBOARD key (its @remap value is
+  # a String token), Input.trigger?/press? must answer from that key. We snapshot
+  # the needed VKs once per frame so repeated trigger? calls within a frame all
+  # agree (a real engine-style edge). Costs nothing unless a key is actually bound.
+  def self.poll_remap_keys!
+    @key_frame_states = {}
+    return if @bypass
+    rm = @remap || {}
+    toks = rm.values.select { |s| s.is_a?(String) }
+    return if toks.empty?
+    gaks = (GetAsyncKeyState rescue nil)
+    return unless gaks
+    active = window_active?
+    @key_prev ||= {}
+    seen = {}
+    toks.uniq.each do |tok|
+      ent = key_token_for(tok); next unless ent
+      vk = ent[2]
+      down = active && ((gaks.call(vk) & 0x8000) != 0)
+      prev = @key_prev[vk] || false
+      @key_frame_states[vk] = { :down => down, :edge => (down && !prev) }
+      seen[vk] = down
+    end
+    seen.each { |vk, d| @key_prev[vk] = d }
+  rescue
+    @key_frame_states = {}
+  end
+
+  def self.remap_key_down?(tok)
+    ent = key_token_for(tok); return false unless ent
+    st = (@key_frame_states || {})[ent[2]]; st ? st[:down] : false
+  rescue
+    false
+  end
+
+  def self.remap_key_edge?(tok)
+    ent = key_token_for(tok); return false unless ent
+    st = (@key_frame_states || {})[ent[2]]; st ? st[:edge] : false
+  rescue
+    false
   end
 
   #-----------------------------------------------------------------------------
@@ -488,9 +568,10 @@ module ControlRebind
     [Input::UP, Input::DOWN, Input::LEFT, Input::RIGHT].each do |d|
       return d if (Input.press?(d) rescue false)
     end
-    if type == :mp
-      key_sources.each { |tok, _l, vk| return tok if vk_down?(vk) }
-    end
+    # Keyboard / mouse keys are now bindable to BOTH action rows and MP rows.
+    # Controller buttons + directions are checked first (above) so a key that is
+    # also a game button maps to the button.
+    key_sources.each { |tok, _l, vk| return tok if vk_down?(vk) }
     nil
   rescue
     nil
@@ -658,7 +739,7 @@ module ControlRebind
     pbDrawShadowText(bmp, 0, title_h + 2, w, 18,
       _INTL("Up/Down: move    Confirm: rebind    L/R: clear"), dim, shadow, 1)
     pbDrawShadowText(bmp, 0, title_h + 20, w, 18,
-      _INTL("Hold a button / key / mouse to assign    Hold B / Esc: exit"), dim, shadow, 1)
+      _INTL("Hold a button / key / mouse to assign    Start / Esc: exit"), dim, shadow, 1)
 
     btn_rows = (0...rows.length).select { |i| rows[i][:type] == :btn }
     other    = (0...rows.length).select { |i| rows[i][:type] != :btn }
@@ -758,16 +839,32 @@ unless defined?($control_rebind_installed) && $control_rebind_installed
       alias_method :_rebind_orig_trigger?, :trigger?
       alias_method :_rebind_orig_press?,   :press?
       alias_method :_rebind_orig_repeat?,  :repeat?
-      def trigger?(b); _rebind_orig_trigger?(ControlRebind.src(b)); end
-      def press?(b);   _rebind_orig_press?(ControlRebind.src(b));   end
-      def repeat?(b);  _rebind_orig_repeat?(ControlRebind.src(b));  end
+      def trigger?(b)
+        s = ControlRebind.src(b)
+        return ControlRebind.remap_key_edge?(s) if s.is_a?(String)
+        _rebind_orig_trigger?(s)
+      end
+      def press?(b)
+        s = ControlRebind.src(b)
+        return ControlRebind.remap_key_down?(s) if s.is_a?(String)
+        _rebind_orig_press?(s)
+      end
+      def repeat?(b)
+        s = ControlRebind.src(b)
+        return ControlRebind.remap_key_down?(s) if s.is_a?(String)
+        _rebind_orig_repeat?(s)
+      end
     end
   end
   if Input.respond_to?(:release?)
     module Input
       class << self
         alias_method :_rebind_orig_release?, :release?
-        def release?(b); _rebind_orig_release?(ControlRebind.src(b)); end
+        def release?(b)
+          s = ControlRebind.src(b)
+          return false if s.is_a?(String)
+          _rebind_orig_release?(s)
+        end
       end
     end
   end
@@ -954,17 +1051,94 @@ unless defined?($mp_confirm_bridge_installed) && $mp_confirm_bridge_installed
   module Input
     class << self
       alias_method :_mpconfirm_prev_trigger?, :trigger?
+
+      # Unified single-press confirm for the Multiplayer menus (F3 Player List,
+      # F4 Squad, F6 GTS, F7 Cases, F8 Profile, chat menus -- anything where
+      # ControlRebind.mp_confirm_bridge_active? is true).
+      #
+      # Why this exists: those menus confirm on Input::USE (== C). A controller
+      # face button (Pad A) may be bound to logical C, logical A, or BOTH. The
+      # global de-duplicator above can swallow the single Pad-A edge inside these
+      # menus (its confirm-coalescer drops A when C fired the same frame, and its
+      # debounce can clip a press), which is the "have to press Pad A twice" bug.
+      #
+      # This reads the ENGINE trigger?/press? for the (remapped) C and A buttons
+      # directly -- bypassing the de-duplicator entirely -- OR-collapses the C+A
+      # double-binding into ONE logical press, and re-arms only after the button is
+      # physically released. Net effect: exactly one confirm per real press, no
+      # double-fire, no missed first press. Computed once per frame for stability.
+      @mpc_frame      = -1
+      @mpc_val        = false
+      @mpc_was_down   = false   # confirm button physically held on the previous poll
+      @mpc_active_was = false   # was the confirm bridge active on the previous poll
+
+      # Return TRUE on exactly the frame a fresh Confirm/Action press BEGINS.
+      #
+      # We derive the rising edge OURSELVES from the raw engine press? (level) state
+      # of the physical buttons bound to logical C and A -- we do NOT trust the
+      # engine trigger? edge here. Some controllers deliver one physical press as
+      # TWO trigger? edges (the hardware double-fire this whole subsystem exists
+      # for). Reading that raw trigger? inside the bridge re-exposed the double in
+      # MP menus: the first edge advanced a menu and the second edge (next frame)
+      # immediately acted again on the new screen, so the user saw "nothing useful
+      # happened, press again" -- the reported double-press. A press?-derived edge
+      # fires EXACTLY ONCE per physical press (immune to that bounce) and bypasses
+      # the de-duplicator, so the first press is never eaten either.
+      #
+      # No separate "armed" flag (which previously got stuck FALSE across a menu
+      # transition and ate the first press). We only compare against last poll's
+      # physical state, and when the bridge first becomes active we treat whatever
+      # is currently held as already-consumed (require a release first) so the very
+      # press that OPENED the menu can't leak through as an in-menu confirm.
+      def _mpc_confirm_single?
+        f = (Graphics.frame_count rescue 0)
+        return @mpc_val if f == @mpc_frame
+        @mpc_frame = f
+        cC = (ControlRebind.src(Input::C) rescue Input::C)
+        cA = (ControlRebind.src(Input::A) rescue Input::A)
+        down = ((_rebind_orig_press?(cC) rescue false) ||
+                (_rebind_orig_press?(cA) rescue false)) ? true : false
+        @mpc_was_down = down unless @mpc_active_was   # prime on bridge activation
+        @mpc_active_was = true
+        @mpc_val      = (down && !@mpc_was_down)
+        @mpc_was_down = down
+        @mpc_val
+      rescue
+        false
+      end
+
       def trigger?(b)
-        base = _mpconfirm_prev_trigger?(b)
-        return base if base
-        if (b == Input::C) && (ControlRebind.mp_confirm_bridge_active? rescue false)
-          return _mpconfirm_prev_trigger?(Input::A)
+        active = (ControlRebind.mp_confirm_bridge_active? rescue false)
+        if (b == Input::C || b == Input::A) && active   # USE==C, ACTION==A
+          return _mpc_confirm_single?
         end
-        base
+        @mpc_active_was = false unless active   # re-prime next time the bridge opens
+        _mpconfirm_prev_trigger?(b)
       rescue
         _mpconfirm_prev_trigger?(b)
       end
     end
   end
   $mp_confirm_bridge_installed = true
+end
+
+#-------------------------------------------------------------------------------
+# Per-frame GLOBAL hooks (run in EVERY scene via Input.update):
+#   1) refresh the frame-stable state of any keyboard key bound to an action row
+#   2) poll the global HUD/chat min-max toggle (Tab by default) so it works in
+#      menus, battles, etc -- not just the overworld.
+# Installed last so it wraps the de-dup/bridge chain. Fully guarded.
+#-------------------------------------------------------------------------------
+unless defined?($control_rebind_frame_hook) && $control_rebind_frame_hook
+  module Input
+    class << self
+      alias_method :_ctrlrebind_prev_update, :update
+      def update(*a)
+        _ctrlrebind_prev_update(*a)
+        ControlRebind.poll_remap_keys! rescue nil
+        ControlRebind.global_poll rescue nil
+      end
+    end
+  end
+  $control_rebind_frame_hook = true
 end

@@ -858,8 +858,6 @@ if defined?(Scene_Map)
     def update
       kif_hkhud_update
       MultiplayerUI.update_hotkey_hud if defined?(MultiplayerUI)
-      # Apply any squad-leader weather that arrived over the network (main thread).
-      MPEnvSync.pump if defined?(MPEnvSync)
     end
   end
 

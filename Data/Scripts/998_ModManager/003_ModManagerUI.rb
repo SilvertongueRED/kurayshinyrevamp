@@ -60,6 +60,7 @@ module ModManager
       @active_filter = nil
       @footer_index = 0  # 0=Browser, 1=Modder Tools, 2=Back
       @focus = :list     # :list or :footer
+      @sort_mode = :az   # :az (A-Z) or :recent (most recently installed/updated)
     end
 
     def main
@@ -278,6 +279,41 @@ module ModManager
       info
     end
 
+    # Short label for the active sort, shown in the title hint.
+    def sort_label
+      @sort_mode == :recent ? "Recent" : "A-Z"
+    end
+
+    # Local "last installed/updated" time for a mod: the folder's filesystem
+    # mtime (set when the mod was installed or updated on disk). Unknown -> 0.0,
+    # which sorts to the bottom of a newest-first list.
+    def mod_install_time(mod_info)
+      fp = (mod_info.folder_path rescue nil)
+      return 0.0 if fp.nil? || fp.empty? || !File.exist?(fp)
+      File.mtime(fp).to_f
+    rescue
+      0.0
+    end
+
+    # Re-order a filtered list by @sort_mode while keeping the pinned specials in
+    # place: KIF Multiplayer / Aleks(NPT) stay on top, the loose-mods summary
+    # stays at the bottom, and only the real mods in the middle are re-sorted.
+    def apply_sort(list)
+      return list unless list.is_a?(Array)
+      top    = list.select { |m| _is_mp_entry?(m) || (m.id == "_aleks_npt") }
+      bottom = list.select { |m| m.id == "_loose_mods_summary" }
+      mid    = list.reject { |m| _is_special_entry?(m) }
+      case @sort_mode
+      when :recent
+        mid = mid.sort_by { |m| -mod_install_time(m) }   # newest first
+      else
+        mid = mid.sort_by { |m| m.name.to_s.downcase }
+      end
+      top + mid + bottom
+    rescue
+      list
+    end
+
     def apply_filter
       list = @all_mods
       # Search filter
@@ -294,7 +330,7 @@ module ModManager
       if @active_filter
         list = list.select { |m| m.tags.include?(@active_filter) }
       end
-      @filtered_mods = list
+      @filtered_mods = apply_sort(list)
       @sel_index = @sel_index.clamp(0, [(@filtered_mods.length - 1), 0].max)
       ensure_visible
     end
@@ -343,7 +379,7 @@ module ModManager
         pbDrawShadowText(b, SCREEN_W - 8, 0, -1, TITLE_H,
                          "Update: v#{local_v} -> v#{@mm_remote_version} [U]", YELLOW, SHADOW, 1)
       else
-        count_text = "#{@filtered_mods.length} mod(s)"
+        count_text = "Sort: #{sort_label} [O/Y]  |  #{@filtered_mods.length} mod(s)"
         count_text += " (filter: #{@active_filter})" if @active_filter
         pbDrawShadowText(b, SCREEN_W - 8, 0, -1, TITLE_H, count_text, DIM, SHADOW, 1)
       end
@@ -467,8 +503,9 @@ module ModManager
         pbDrawShadowText(b, 0, CONTENT_H / 2 - 12, RIGHT_W, 24,
                          "No mods installed", DIM, SHADOW, 2)
         pbSetSmallFont(b)
-        pbDrawShadowText(b, 12, CONTENT_H - 22, RIGHT_W - 24, 14,
-                         "S:Search   Left/Right:Bottom row buttons", DIM, SHADOW, 2)
+        b.font.size = 16
+        pbDrawShadowText(b, 12, CONTENT_H - 24, RIGHT_W - 24, 18,
+                         "S/RS:Search   Left/Right:Bottom row", DIM, SHADOW, 2)
         return
       end
 
@@ -635,9 +672,18 @@ module ModManager
         y += 4
       end
 
-      # Controls hint at bottom
-      pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14,
-                       "Z/A:Act  F:Filter  S:Search  Left/Right:Bottom row", DIM, SHADOW, 2)
+      # Controls hint at bottom (pin an explicit size; the global small font gets
+      # bumped to 25 elsewhere). ~5% larger (16 -> 17) with a wider box and a
+      # gentle auto-shrink so the longer "F/LS:Filter" text never overlaps.
+      pbSetSmallFont(b)
+      _hint = "Z/A:Act  F/LS:Filter  S/RS:Search  L/R:Bottom row"
+      _hbox = RIGHT_W - 10
+      _fs = 17
+      b.font.size = _fs
+      while _fs > 15 && (b.text_size(_hint).width rescue 0) > _hbox
+        _fs -= 1; b.font.size = _fs
+      end
+      pbDrawShadowText(b, 6, hint_y - 3, _hbox, 19, _hint, DIM, SHADOW, 2)
     end
 
     FOOTER_BUTTONS = ["Mod Browser", "Share Code", "Modder Tools", "Back"]
@@ -736,14 +782,16 @@ module ModManager
         return
       end
 
-      # Activate search (S key)
-      if _key_trigger?(0x53)  # S
+      # Activate search (S key, or Right-Stick click = Input::Z) -- mirrors the Mod
+      # Browser page so the same control opens search on both screens.
+      if _key_trigger?(0x53) || Input.trigger?(Input::Z)  # S
         activate_search
         return
       end
 
-      # MM update (U key or Z/Special button)
-      if (_key_trigger?(0x55) || Input.trigger?(Input::Z)) && @mm_update_available  # U
+      # MM update (U key). Right-Stick/Z is now reserved for search above, so the
+      # self-update prompt is reachable via the U key.
+      if _key_trigger?(0x55) && @mm_update_available  # U
         do_mm_update
         return
       end
@@ -757,6 +805,19 @@ module ModManager
         else
           @active_filter = nil
         end
+        @sel_index = 0
+        @scroll = 0
+        apply_filter
+        draw_title
+        draw_left
+        draw_right
+        return
+      end
+
+      # Cycle sort order (O key, or controller Y button = Input::X):
+      # A-Z <-> Recently installed/updated. Mirrors the Mod Browser page.
+      if _key_trigger?(0x4F) || Input.trigger?(Input::X)  # O
+        @sort_mode = (@sort_mode == :recent) ? :az : :recent
         @sel_index = 0
         @scroll = 0
         apply_filter
@@ -780,7 +841,21 @@ module ModManager
       # Respect the PIF "Text Entry" setting: Cursor -> on-screen keyboard,
       # Keyboard -> inline typing (the existing GetAsyncKeyState path).
       if ($PokemonSystem.textinput != 1 rescue false)
-        term = (pbEnterText(_INTL("Search mods"), 0, 30, @search_text || "", 0, nil, true) rescue nil)
+        term = :__osk_err
+        begin
+          term = ModManager.osk_prompt(self, @vp, "Search mods", @search_text || "", 30)
+        rescue => e
+          (StabilityDebug.error("MODMGR", "OSK search failed: #{e.class}: #{e.message}") rescue nil)
+          term = :__osk_err
+        end
+        if term == :__osk_err
+          # On-screen keyboard errored -- fall back to inline keyboard capture.
+          @search_active = true
+          @cursor_frame = 0
+          @focus = :list
+          draw_left
+          return
+        end
         if term
           @search_text = term
           @sel_index = 0

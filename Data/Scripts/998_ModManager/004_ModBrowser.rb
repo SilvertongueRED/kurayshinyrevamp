@@ -6,6 +6,197 @@
 #==============================================================================
 
 module ModManager
+
+  #============================================================================
+  # On-screen keyboard for controller / cursor text entry.
+  #
+  # Self-contained: draws into the CALLER's own viewport. This REPLACES the old
+  # pbEnterText -> PokemonEntryScene2 handoff, which built its scene AND its fade
+  # viewport at z=99999 -- BEHIND the mod-manager viewport (z=100000) -- so the
+  # keyboard rendered invisibly and the external scene/fade swap crashed when
+  # launched from the Mod Manager. Drawing in-viewport avoids the whole handoff.
+  #
+  # `scene` must respond to draw_rounded_rect / draw_border / _key_trigger? /
+  # _key_pressed?. Returns the typed String, or nil if cancelled.
+  #============================================================================
+  OSK_CHARS = [
+    %w[1 2 3 4 5 6 7 8 9 0],
+    %w[q w e r t y u i o p],
+    %w[a s d f g h j k l -],
+    %w[z x c v b n m _ . ,]
+  ]
+  OSK_ACTIONS = ["SHIFT", "SPACE", "DEL", "OK"]
+
+  def self.osk_prompt(scene, viewport, prompt, initial = "", max_len = 30)
+    text  = (initial || "").dup
+    shift = false
+    row   = 0
+    col   = 0
+    frame = 0
+    confirm_held = true   # swallow any button still held from opening search
+    confirm_armed = false # require one full release before a press counts
+
+    cols   = OSK_CHARS[0].length
+    key_w  = 32
+    key_h  = 28
+    pad    = 5
+    grid_w = cols * (key_w + pad) - pad
+    box_w  = grid_w + 24
+    rows_n = OSK_CHARS.length
+    box_h  = 64 + (rows_n + 1) * (key_h + pad) + 14
+
+    white  = Color.new(255, 255, 255)
+    dimc   = Color.new(165, 165, 185)
+    shadow = Color.new(20, 18, 30)
+
+    dim = Sprite.new(viewport)
+    dim.bitmap = Bitmap.new(512, 384)
+    dim.bitmap.fill_rect(0, 0, 512, 384, Color.new(0, 0, 0, 160))
+    dim.z = 99000
+
+    box = Sprite.new(viewport)
+    box.bitmap = Bitmap.new(box_w, box_h)
+    box.x = (512 - box_w) / 2
+    box.y = (384 - box_h) / 2
+    box.z = 99001
+
+    result = nil
+    begin
+      loop do
+        b = box.bitmap
+        b.clear
+        scene.draw_rounded_rect(b, 0, 0, box_w, box_h, Color.new(34, 30, 50))
+        scene.draw_border(b, 0, 0, box_w, box_h, Color.new(130, 110, 200))
+
+        b.font.name = (MessageConfig.pbGetSystemFontName rescue "Power Green")
+        b.font.size = 22
+        pbDrawShadowText(b, 12, 6, box_w - 24, 22, prompt, white, shadow)
+
+        cur = (frame / 20) % 2 == 0 ? "|" : ""
+        scene.draw_rounded_rect(b, 12, 32, box_w - 24, 24, Color.new(20, 17, 32))
+        b.font.size = 20
+        pbDrawShadowText(b, 18, 33, box_w - 36, 22, text + cur, white, shadow)
+
+        gy = 64
+        b.font.size = 20
+        OSK_CHARS.each_with_index do |krow, r|
+          krow.each_with_index do |ch, c|
+            kx  = 12 + c * (key_w + pad)
+            ky  = gy + r * (key_h + pad)
+            sel = (row == r && col == c)
+            scene.draw_rounded_rect(b, kx, ky, key_w, key_h,
+              sel ? Color.new(120, 100, 210) : Color.new(54, 48, 74))
+            disp = (shift && ch =~ /[a-z]/) ? ch.upcase : ch
+            pbDrawShadowText(b, kx, ky + 3, key_w, key_h - 4, disp, sel ? white : dimc, shadow, 2)
+          end
+        end
+
+        ar    = OSK_CHARS.length
+        ay    = gy + ar * (key_h + pad)
+        act_w = (grid_w - (OSK_ACTIONS.length - 1) * pad) / OSK_ACTIONS.length
+        OSK_ACTIONS.each_with_index do |label, c|
+          ax  = 12 + c * (act_w + pad)
+          sel = (row == ar && col == c)
+          on  = (label == "SHIFT" && shift)
+          bg  = sel ? Color.new(120, 100, 210) : (on ? Color.new(80, 70, 130) : Color.new(54, 48, 74))
+          scene.draw_rounded_rect(b, ax, ay, act_w, key_h, bg)
+          pbDrawShadowText(b, ax, ay + 3, act_w, key_h - 4, label, sel ? white : dimc, shadow, 2)
+        end
+
+        Graphics.update
+        Input.update
+        frame += 1
+
+        # Physical keyboard still works while in cursor mode.
+        if scene._key_trigger?(0x08)
+          text = text[0...-1] unless text.empty?
+        end
+        if scene._key_trigger?(0x0D)
+          result = text; break
+        end
+        (0x41..0x5A).each do |vk|
+          if scene._key_trigger?(vk)
+            kc = (vk - 0x41 + 97).chr
+            kc = kc.upcase if scene._key_pressed?(0x10)
+            text += kc if text.length < max_len
+          end
+        end
+        (0x30..0x39).each { |vk| text += (vk - 0x30).to_s if scene._key_trigger?(vk) && text.length < max_len }
+        text += " " if scene._key_trigger?(0x20) && text.length < max_len
+
+        # Cursor / d-pad navigation.
+        moved = false
+        rows_total = OSK_CHARS.length + 1
+        if Input.repeat?(Input::UP)
+          row = (row - 1) % rows_total; moved = true
+        elsif Input.repeat?(Input::DOWN)
+          row = (row + 1) % rows_total; moved = true
+        elsif Input.repeat?(Input::LEFT)
+          col -= 1; moved = true
+        elsif Input.repeat?(Input::RIGHT)
+          col += 1; moved = true
+        end
+        if moved
+          maxc = (row < OSK_CHARS.length) ? OSK_CHARS[row].length : OSK_ACTIONS.length
+          col %= maxc
+          (pbPlayCursorSE rescue nil)
+        end
+
+        # Cancel (B / X).
+        if Input.trigger?(Input::B)
+          result = nil; break
+        end
+
+        # Confirm: multi-path so it fires no matter how the controller's face
+        # button maps. We OR independent reads, all collapsed to ONE action per
+        # physical press by the release gate + `confirm_armed` latch:
+        #   - a de-duplicated trigger? edge on USE(C)/ACTION(A) (the exact path
+        #     the MP menus + rebind screen use, proven to work on this pad), and
+        #   - the RAW engine press? of the physical sources bound to C and A
+        #     (bypasses the de-dup/bridge layers), release-gated below.
+        cC = (ControlRebind.src(Input::USE)    rescue Input::USE)
+        cA = (ControlRebind.src(Input::ACTION) rescue Input::ACTION)
+        down = (Input._rebind_orig_press?(cC) rescue (Input.press?(Input::USE)    rescue false)) ||
+               (Input._rebind_orig_press?(cA) rescue (Input.press?(Input::ACTION) rescue false))
+        edge = (Input.trigger?(Input::USE) rescue false) || (Input.trigger?(Input::ACTION) rescue false)
+        confirm_armed = true unless down
+        if confirm_armed && (edge || (down && !confirm_held))
+          if row < OSK_CHARS.length
+            ch = OSK_CHARS[row][col]
+            ch = ch.upcase if shift && ch =~ /[a-z]/
+            text += ch if text.length < max_len
+          else
+            case OSK_ACTIONS[col]
+            when "SHIFT" then shift = !shift
+            when "SPACE" then text += " " if text.length < max_len
+            when "DEL"   then text = text[0...-1] unless text.empty?
+            when "OK"    then result = text; break
+            end
+          end
+          (pbPlayDecisionSE rescue nil)
+        end
+        confirm_held = down
+      end
+
+      # Drain the confirm/cancel button so the press that closed the keyboard
+      # does not leak into the underlying menu (avoids an accidental select).
+      drain = 0
+      while drain < 30
+        Graphics.update
+        Input.update
+        break unless (Input.press?(Input::USE) rescue false) ||
+                     (Input.press?(Input::ACTION) rescue false) ||
+                     (Input.press?(Input::B) rescue false)
+        drain += 1
+      end
+    ensure
+      (box.bitmap.dispose rescue nil)
+      (box.dispose rescue nil)
+      (dim.bitmap.dispose rescue nil)
+      (dim.dispose rescue nil)
+    end
+    result
+  end
   #============================================================================
   # Debug logger — writes to modmanager_debug.txt in game root
   #============================================================================
@@ -827,7 +1018,7 @@ module ModManager
 
       @footer_spr = Sprite.new(@vp)
       @footer_spr.bitmap = Bitmap.new(SCREEN_W, FOOTER_H)
-      @footer_spr.y = SCREEN_H - FOOTER_H - 16   # raised ~5% off the bottom edge
+      @footer_spr.y = SCREEN_H - FOOTER_H        # flush to bottom edge (no black bar, less overlap)
       @footer_spr.z = 10
 
       draw_title
@@ -1276,30 +1467,33 @@ module ModManager
         y += 14
       end
 
-      # Action hint
+      # Action hint (pin an explicit small size; the global small font is bumped to
+      # 25 by other screens, which would render these hints oversized).
+      pbSetSmallFont(b)
+      b.font.size = 16
       if GitHub.just_installed[folder]
-        pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14, "Restart required", YELLOW, SHADOW, 2)
+        pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 18, "Restart required", YELLOW, SHADOW, 2)
       elsif is_special
         if _special_installed?(folder)
           local_v = _special_local_version(folder)
           remote_v = json["version"]
           if local_v && remote_v && ModManager.compare_versions(remote_v, local_v) > 0
-            pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14, "Z: Update  |  X: Back", DIM, SHADOW, 2)
+            pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 18, "Z: Update  |  X: Back", DIM, SHADOW, 2)
           else
-            pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14, "Already installed  |  X: Back", DIM, SHADOW, 2)
+            pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 18, "Already installed  |  X: Back", DIM, SHADOW, 2)
           end
         else
           size_hint = (folder == "_kif_multiplayer") ? "~100 MB" : "~5 GB"
-          pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14, "Z: Install (#{size_hint})  |  X: Back", DIM, SHADOW, 2)
+          pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 18, "Z: Install (#{size_hint})  |  X: Back", DIM, SHADOW, 2)
         end
       elsif local
         if GitHub.has_update?(folder, json)
-          pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14, "Z: Update  |  X: Back", DIM, SHADOW, 2)
+          pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 18, "Z: Update  |  X: Back", DIM, SHADOW, 2)
         else
-          pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14, "Already installed  |  X: Back", DIM, SHADOW, 2)
+          pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 18, "Already installed  |  X: Back", DIM, SHADOW, 2)
         end
       else
-        pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 14, "Z: Install  |  X: Back", DIM, SHADOW, 2)
+        pbDrawShadowText(b, x, hint_y, RIGHT_W - 24, 18, "Z: Install  |  X: Back", DIM, SHADOW, 2)
       end
     end
 
@@ -1309,14 +1503,35 @@ module ModManager
       b.fill_rect(0, 0, SCREEN_W, FOOTER_H, FOOTER_BG)
       pbSetSmallFont(b)
 
-      case @active_tab
-      when :mods, :modpacks
-        tag_text = @filter_tag ? "T/LS: Tag [#{@filter_tag}]" : "T/LS: Tag"
-        pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "S/RS: Search | #{tag_text} | O/(Y): Sort [#{sort_label}] | L/R: Switch", DIM, SHADOW)
-      when :share_code
-        pbDrawShadowText(b, 8, 0, -1, FOOTER_H, "Tab: Switch  |  Ctrl+V: Paste", DIM, SHADOW)
+      back_text = "Esc/Start:Back"
+      left_text =
+        case @active_tab
+        when :mods, :modpacks
+          tag_text = @filter_tag ? "T/LS:Tag[#{@filter_tag}]" : "T/LS:Tag"
+          "S/RS:Search | #{tag_text} | O/Y:Sort[#{sort_label}] | L/R:Switch"
+        when :share_code
+          "Tab: Switch  |  Ctrl+V: Paste"
+        else
+          ""
+        end
+
+      # The shared "small" font is bumped to 25 elsewhere, so pin an explicit size.
+      # ~5% larger than before (18 -> 19) for readability; shrink only as far as
+      # needed so the hint + right-aligned Back never run off the 512px row. The
+      # Back label is nudged ~8% of the screen width left off the right edge.
+      back_shift = (SCREEN_W * 0.08).to_i
+      fs = 19
+      b.font.size = fs
+      back_w = b.text_size(back_text).width
+      back_x = SCREEN_W - 8 - back_w - back_shift
+      avail  = back_x - 8 - 10
+      while fs > 13 && b.text_size(left_text).width > avail
+        fs -= 1
+        b.font.size = fs
       end
-      pbDrawShadowText(b, SCREEN_W - 8, 0, -1, FOOTER_H, "X: Back", DIM, SHADOW, 1)
+
+      pbDrawShadowText(b, 8, 0, avail, FOOTER_H, left_text, DIM, SHADOW)
+      pbDrawShadowText(b, back_x, 0, back_w + 2, FOOTER_H, back_text, DIM, SHADOW)
     end
 
     def update_background_loading
@@ -1608,6 +1823,40 @@ module ModManager
     # Live Search
     #==========================================================================
     def activate_search
+      # Respect the PIF "Text Entry" setting: Cursor -> on-screen keyboard, so a
+      # controller user gets the navigable letter grid instead of an invisible
+      # keyboard-capture field. (Keyboard mode keeps the inline live-typing path.)
+      if ($PokemonSystem.textinput != 1 rescue false)
+        term = :__osk_err
+        begin
+          term = ModManager.osk_prompt(self, @vp, "Search mods", @search_text || "", 30)
+        rescue => e
+          (StabilityDebug.error("MODMGR", "OSK search failed: #{e.class}: #{e.message}") rescue nil)
+          term = :__osk_err
+        end
+        if term == :__osk_err
+          # On-screen keyboard errored -- fall back to inline keyboard capture.
+          @search_active = true
+          @cursor_frame  = 0
+          draw_left
+          return
+        end
+        if term
+          @search_text   = term
+          @sel_index     = 0
+          @scroll        = 0
+          @last_drawn_sel = -1
+          if @active_tab == :modpacks
+            apply_filter_modpacks
+          else
+            apply_filter
+          end
+          draw_title
+          draw_left
+          draw_right
+        end
+        return
+      end
       @search_active = true
       @cursor_frame = 0
       draw_left
