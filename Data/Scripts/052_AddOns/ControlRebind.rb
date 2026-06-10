@@ -312,10 +312,13 @@ module ControlRebind
     nil
   end
 
-  # Default MP hotkey bindings. Tab is bound to the HUD min/max toggle out of
-  # the box (works everywhere via the global poller below); rebindable in menu.
+  # Default MP hotkey bindings. These are the fixed F-key shortcuts from base
+  # KIFM, pre-populated so the rebind menu shows them bound out of the box.
+  # Tab is the HUD min/max toggle (works everywhere via the global poller).
   def self.defaults_mp
-    { :hud => "Tab" }
+    { :squad   => "F4", :players => "F3", :chat => "T",
+      :gts     => "F6", :cases   => "F7", :profile => "F8",
+      :hud     => "Tab" }
   end
 
   def self.reset!
@@ -737,9 +740,9 @@ module ControlRebind
     # Two-line instructions (bigger than the old single line, with breathing room).
     bmp.font.size = 18 rescue nil
     pbDrawShadowText(bmp, 0, title_h + 2, w, 18,
-      _INTL("Up/Down: move    Confirm: rebind    L/R: clear"), dim, shadow, 1)
+      _INTL("Up/Down: move    Confirm/click: rebind    L/R: clear"), dim, shadow, 1)
     pbDrawShadowText(bmp, 0, title_h + 20, w, 18,
-      _INTL("Hold a button / key / mouse to assign    Start / Esc: exit"), dim, shadow, 1)
+      _INTL("Hold a button / key to assign    Start / Esc: exit"), dim, shadow, 1)
 
     btn_rows = (0...rows.length).select { |i| rows[i][:type] == :btn }
     other    = (0...rows.length).select { |i| rows[i][:type] != :btn }
