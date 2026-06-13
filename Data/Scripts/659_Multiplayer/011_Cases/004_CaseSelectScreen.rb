@@ -76,7 +76,7 @@ module KIFCases
       end
       _update_cursor if @cursor != old
 
-      if Input.trigger?(Input::C)
+      if MPMenuConfirm.pressed?(:case_select)
         slot = SLOTS[@cursor]
         if slot == :locked
           pbSEPlay("GUI sel buzzer", 80) rescue nil
@@ -97,6 +97,14 @@ module KIFCases
       my = (Input.mouse_y rescue nil)
       return unless mx && my && @grid_x
 
+      # Only a MOVING mouse may drive the cursor. A parked cursor sitting over a
+      # cell used to snap @cursor back to that cell every frame, which fought the
+      # controller's d-pad and made the selection oscillate between two cells until
+      # you wiggled the mouse. Track the last position and ignore a still cursor.
+      mouse_moved = (!@last_mx.nil? && (mx != @last_mx || my != @last_my))
+      @last_mx = mx
+      @last_my = my
+
       # Check if mouse is over any cell
       SLOTS.each_with_index do |_slot, i|
         col = i % GRID_COLS
@@ -105,15 +113,20 @@ module KIFCases
         cy = @grid_y + row * (CELL_H + CELL_PAD)
 
         if mx >= cx && mx < cx + CELL_W && my >= cy && my < cy + CELL_H
-          # Mouse is over this cell — move cursor if different
-          if @cursor != i
+          # Follow the mouse with the cursor ONLY when it moved this frame.
+          if mouse_moved && @cursor != i
             @cursor = i
             _update_cursor
           end
 
-          # Left-click to select
+          # Left-click selects the cell physically under the pointer (i), not the
+          # controller's @cursor, so a click always opens what you clicked.
           if (Input.trigger?(Input::MOUSELEFT) rescue false)
-            slot = SLOTS[@cursor]
+            if @cursor != i
+              @cursor = i
+              _update_cursor
+            end
+            slot = SLOTS[i]
             if slot == :locked
               pbSEPlay("GUI sel buzzer", 80) rescue nil
             else

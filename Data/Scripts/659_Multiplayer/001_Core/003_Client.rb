@@ -728,7 +728,34 @@ module MultiplayerClient
       map: map_id, x: x, y: y, face: face,
       surf: surf, dive: dive, bike: bike, run: run, fish: fish
     }
-    # (Squad env-sync + live battle-target piggyback removed by request.)
+    # --- PIGGYBACK CHANNEL (ride SYNC; official-server-safe) ---------------
+    # SYNC is the presence packet the OFFICIAL KIFM server always relays, and the
+    # receiver does @players[sid].merge!(kv) so unknown keys survive. During a
+    # co-op battle we smuggle the foe THIS player is hovering (pre-confirm) so
+    # squadmates can draw the live ALLY arrow over it. The fork-only
+    # COOP_TGT_INTENT message is dropped by the official server; this keeps the
+    # live target preview working there.
+    begin
+      # (a) Squad LEADER stamps time-of-day (epoch) + weather so members can align
+      #     their day/night clock + overworld weather to the leader's (squad-leader
+      #     authority). Members poll these out of the leader's relayed SYNC ~1/s.
+      if (in_squad? rescue false) && (is_leader? rescue false) &&
+         (defined?(MPEnvSync) ? (MPEnvSync.env_pref_on? rescue true) : true)
+        snap[:tod] = (pbGetTimeNow.to_i rescue Time.now.to_i)
+        if defined?(MPEnvSync)
+          _wt, _wp = MPEnvSync.current_weather_payload
+          snap[:wx]   = _wt.to_s
+          snap[:wpow] = _wp.to_i
+        end
+      end
+      # (b) During a co-op battle, stamp the foe THIS player is hovering (pre-confirm)
+      #     so squadmates can draw the live ALLY arrow over it.
+      if defined?(CoopBattleState) && (CoopBattleState.in_coop_battle? rescue false) &&
+         (defined?(CoopTargetIntent) ? (CoopTargetIntent.arrow_pref_on? rescue true) : true)
+        snap[:bhov] = (defined?(CoopTargetIntent) ? (CoopTargetIntent.local_hover_token rescue "") : "").to_s
+      end
+    rescue
+    end
     snap
   end
 
@@ -1638,6 +1665,10 @@ module MultiplayerClient
                 ##MultiplayerDebug.warn("C-SQUAD", "Toast diff err: #{e.message}")
               end
             end
+            # MP co-op: align our time-of-day + weather to the squad leader on join,
+            # and clear the offset when the squad goes away. (SYNC poll is the live
+            # path; this handles join-request + leave-reset.)
+            (MPEnvSync.on_squad_state(prev, @squad) rescue nil) if defined?(MPEnvSync)
             # MP co-op: if everyone else left/quit and I'm the lone survivor of what
             # was a 2+ person squad, auto-leave instead of lingering as the leader of
             # a phantom one-person squad (the player previously had to leave by hand).
@@ -3249,11 +3280,14 @@ module MultiplayerClient
             # Encode delta for network transmission
             delta_encoded = DeltaCompression.encode_delta(delta)
             packet = "SYNC:#{delta_encoded}"
-            send_data(packet, rate_limit_type: :SYNC)
-
-            # Update last state and heartbeat time
-            @last_sync_state = snap.dup
-            @last_heartbeat = Time.now
+            if send_data(packet, rate_limit_type: :SYNC)
+              # Only commit the new state when the packet actually went out.
+              # Committing after a rate-limited/failed send silently dropped the
+              # delta forever (the next loop diffed against the new state), which
+              # could eat the live :bhov ally-hover token among other fields.
+              @last_sync_state = snap.dup
+              @last_heartbeat = Time.now
+            end
           end
 
           # Only send NAME after integrity verification completes (if required)
@@ -3285,6 +3319,11 @@ module MultiplayerClient
   # @param local_pos [Hash] Local player snapshot
   # @return [Float] Sleep interval in seconds
   def self.calculate_adaptive_sleep_interval(local_pos)
+    # During a co-op battle, poll fast so the live ALLY target hover (snap[:bhov],
+    # which rides SYNC) flushes within ~50ms regardless of overworld distance.
+    # Sends still only fire on an actual delta change, so this adds no idle
+    # traffic -- it only removes hover latency when squadmates fought far apart.
+    return 0.05 if defined?(CoopBattleState) && (CoopBattleState.in_coop_battle? rescue false)
     # Get all remote player positions from MultiplayerClient.players
     remote_positions = {}
     @players.each do |sid, data|

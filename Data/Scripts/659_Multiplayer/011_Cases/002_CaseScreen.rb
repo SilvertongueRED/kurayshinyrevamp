@@ -60,14 +60,14 @@ module KIFCases
         unless @animating
           _tick_idle_scroll
           mouse_action = _check_action_bar_mouse
-          if Input.trigger?(Input::C) || mouse_action == :buy_open   # [Z] Buy & Open
+          if MPMenuConfirm.button_pressed?(Input::C, :cs_buyopen) || mouse_action == :buy_open   # [Z] Buy & Open
             begin
               _try_buy_and_open
             rescue => e
               @animating = false
               _show_msg("Error: #{e.message}")
             end
-          elsif Input.trigger?(Input::A) || mouse_action == :open    # [A] Open from inventory
+          elsif MPMenuConfirm.button_pressed?(Input::A, :cs_open) || mouse_action == :open    # [A] Open from inventory
             begin
               _try_open_from_inventory
             rescue => e

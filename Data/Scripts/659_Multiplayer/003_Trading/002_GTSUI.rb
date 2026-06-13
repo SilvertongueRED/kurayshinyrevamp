@@ -1017,6 +1017,7 @@ module GTSUI
 
       redraw_overlay.call
 
+      last_mx = nil; last_my = nil
       loop do
         Graphics.update; Input.update
 
@@ -1060,10 +1061,13 @@ module GTSUI
           changed = true
         end
 
-        # Mouse hover
+        # Mouse hover -- only when the pointer MOVES, so a parked cursor can't
+        # keep snapping the selection back and fight d-pad navigation.
         begin
           mx = Input.mouse_x; my = Input.mouse_y
-          if mx && my && mx >= box_x && mx < box_x + box_w && my >= box_y + 24 && my < box_y + box_h
+          mouse_moved = (!last_mx.nil? && (mx != last_mx || my != last_my))
+          last_mx = mx; last_my = my
+          if mouse_moved && mx && my && mx >= box_x && mx < box_x + box_w && my >= box_y + 24 && my < box_y + box_h
             row = ((my - box_y - 24) / row_h).floor
             hover_i = scroll + row
             if hover_i >= 0 && hover_i < items.length && hover_i != sel
@@ -1356,6 +1360,10 @@ module GTSUI
     def handle_mouse
       mx = Input.mouse_x rescue nil; my = Input.mouse_y rescue nil
       return unless mx && my
+      # Only a MOVING mouse may re-aim the selection; a parked pointer over the
+      # list/footer used to snap @sel_index back every frame and fight the d-pad.
+      mouse_moved = (!@last_mx.nil? && (mx != @last_mx || my != @last_my))
+      @last_mx = mx; @last_my = my
       clicked = Input.trigger?(Input::MOUSELEFT) rescue false
       old_sel = @sel_index; old_focus = @focus; old_footer = @footer_index
       lx = @left_spr.x; ly = @left_spr.y
@@ -1416,7 +1424,9 @@ module GTSUI
         row = ((my - ly - LIST_Y) / ROW_H).floor
         ri = @scroll + row
         if ri >= 0 && ri < @filtered.length
-          @focus = :list; @sel_index = ri
+          if mouse_moved || clicked
+            @focus = :list; @sel_index = ri
+          end
           if clicked
             act_on_listing(selected_listing) if selected_listing; return
           end
@@ -1427,7 +1437,9 @@ module GTSUI
       if my >= @footer_spr.y && my < @footer_spr.y + FOOTER_H
         btn_w = SCREEN_W / FOOTER_BUTTONS.length
         bi = (mx / btn_w).floor.clamp(0, FOOTER_BUTTONS.length - 1)
-        @focus = :footer; @footer_index = bi
+        if mouse_moved || clicked
+          @focus = :footer; @footer_index = bi
+        end
         if clicked
           execute_footer_action(@footer_index); return
         end

@@ -36,6 +36,8 @@ module MPSettingsFile
     mp_ui_all_screens
     mp_platinum_gain_messages
     mp_catch_chat_enabled
+    mp_ally_arrow
+    mp_env_sync
   ].freeze
 
   # Write current $PokemonSystem mp_ values to the txt file.

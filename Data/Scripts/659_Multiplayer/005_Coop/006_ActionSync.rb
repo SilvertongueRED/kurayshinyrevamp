@@ -421,6 +421,24 @@ module CoopActionSync
 
       ##MultiplayerDebug.info("COOP-ACTION", "   Queued action for turn #{received_turn}. Future queue: #{@future_actions.keys.length} SIDs")
 
+      # Backstop the live target preview for EARLY actions too: this is the
+      # common case for whichever squadmate confirms their move first (the
+      # receiver is usually still picking, so its expected_turn lags by one),
+      # and skipping it made the ally marker show on only ONE player's screen.
+      begin
+        if defined?(CoopTargetIntent) && data[:choices].is_a?(Hash)
+          bid = (CoopBattleState.battle_id rescue nil)
+          data[:choices].each do |atk_idx, ch|
+            next unless ch.is_a?(Array) && ch[0] == :UseMove
+            tgt = ch[3]
+            next if tgt.nil? || tgt.to_i < 0
+            CoopTargetIntent.receive(from_sid.to_s, bid, received_turn, atk_idx.to_i, tgt.to_i)
+          end
+        end
+      rescue => e
+        MultiplayerDebug.warn("COOP-TGT", "early intent feed err: #{e.class}: #{e.message}") if defined?(MultiplayerDebug)
+      end
+
       return true  # Success, but don't mark as complete yet
 
     elsif received_turn < expected_turn
@@ -435,7 +453,22 @@ module CoopActionSync
     @pending_actions[sid_key] = data
     @remote_player_actions[sid_key] = data[:choices]
 
-    # (Ally target-intent backstop removed with the Squad Target HUD.)
+    # Backstop the live target preview: feed the ally's chosen foe targets into
+    # CoopTargetIntent so the Squad Target HUD / ally marker still works even if
+    # the live COOP_TGT_INTENT packet was missed. Guarded; never affects battle.
+    begin
+      if defined?(CoopTargetIntent) && data[:choices].is_a?(Hash)
+        bid = (CoopBattleState.battle_id rescue nil)
+        data[:choices].each do |atk_idx, ch|
+          next unless ch.is_a?(Array) && ch[0] == :UseMove
+          tgt = ch[3]
+          next if tgt.nil? || tgt.to_i < 0
+          CoopTargetIntent.receive(sid_key, bid, received_turn, atk_idx.to_i, tgt.to_i)
+        end
+      end
+    rescue => e
+      MultiplayerDebug.warn("COOP-TGT", "action-sync intent feed err: #{e.class}: #{e.message}") if defined?(MultiplayerDebug)
+    end
     @remote_mega_flags[sid_key] = data[:mega] || {}
     MultiplayerDebug.info("COOP-MEGA", "receive: stored mega flags for #{sid_key}: #{@remote_mega_flags[sid_key].inspect}")
 
@@ -503,7 +536,25 @@ module CoopActionSync
       return false
     end
 
-    # (Per-turn ally target-intent broadcast removed with the Squad Target HUD.)
+    # --- Co-op ally target intent: reliable per-turn broadcast ---
+    # pbChooseTarget only fires for interactive target picks. Broadcasting here
+    # too guarantees allies learn which foe each of our Pokemon is aiming at, even
+    # when the engine auto-selected the target. Safe no-op outside co-op.
+    if defined?(CoopTargetIntent)
+      begin
+        my_actions.each do |bidx, choice|
+          next unless choice.is_a?(Array) && choice[0] == :UseMove
+          tgt = choice[3]
+          next if tgt.nil? || tgt < 0
+          foe = false
+          begin; foe = battle.opposes?(bidx, tgt); rescue; foe = false; end
+          next unless foe
+          CoopTargetIntent.broadcast(battle, bidx, tgt)
+        end
+      rescue => e
+        MultiplayerDebug.warn("COOP-TGT", "fallback broadcast failed: #{e.class}: #{e.message}") if defined?(MultiplayerDebug)
+      end
+    end
 
     # Initialize sync state
     @expected_sids = ally_sids.dup
@@ -560,7 +611,21 @@ module CoopActionSync
     frame_count = 0
 
     while !@sync_complete && Time.now < timeout_time
-      # (Ally target-marker live refresh removed with the Squad Target HUD.)
+      # --- Co-op ally target marker (live preview) ---
+      # The battle scene's per-frame update (pbFrameUpdate) does NOT run during
+      # this blocking action-sync wait. Co-op players choose simultaneously, so an
+      # ally's target intent usually arrives right now -- after the local player has
+      # finished navigating their menus. Refresh the markers here so the teammate's
+      # chosen foe stays visible while we wait. Scene-class agnostic (vanilla /
+      # EBDX / GhostBattle Classic+ all share PokeBattle_Scene).
+      begin
+        _coop_sc = battle.scene
+        if _coop_sc && _coop_sc.respond_to?(:coop_update_ally_target_markers)
+          _coop_sc.coop_update_ally_target_markers(true)  # force: between command & attack phases
+        end
+      rescue
+        nil
+      end
       # Update graphics to prevent freezing
       Graphics.update if defined?(Graphics)
       Input.update if defined?(Input)

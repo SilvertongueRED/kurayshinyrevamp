@@ -123,7 +123,7 @@ module MultiplayerUI
           opts << _INTL("Leave Squad");          acts << :leave
           opts << _INTL("Cancel");               acts << :cancel
 
-          choice = pbMessage(_INTL("{1}:", chosen_name), opts, opts.length - 1)
+          choice = pbMessage(_INTL("{1}:", chosen_name), opts, opts.length)  # cmdIfCancel is 1-based -> last opt ("Cancel")
           act = acts[choice] || :cancel
 
           # The player actions reuse the shared executor (identical to F3). They
@@ -136,7 +136,11 @@ module MultiplayerUI
             win.dispose  if win && !win.disposed?
             bg.dispose   if bg && !bg.disposed?
             viewport.dispose if viewport && !viewport.disposed?
-            (Input._execute_ctx_action(ctx_map[act], chosen_sid, chosen_name) rescue nil)
+            # Defer the action until we're back on the map. The Squad window
+            # runs inside the pause-menu scene, where map-context UIs (e.g.
+            # ProfilePanel.open) bail out because overlay_scene_type != :map.
+            # Scene_Map.update fires this once the pause menu has fully closed.
+            MultiplayerUI.instance_variable_set(:@pending_ctx_action, [ctx_map[act], chosen_sid, chosen_name])
             return
           end
 
@@ -183,6 +187,27 @@ module MultiplayerUI
       MultiplayerUI.instance_variable_set(:@squadwindow_open, false)
     end
   end
+
+  # Fire a ctx action deferred from the Squad window (which runs inside the
+  # pause-menu scene). Runs only on the map so map-context UIs like the Profile
+  # panel don't bail on the overlay_scene_type guard.
+  def self.fire_pending_ctx_action
+    pa = MultiplayerUI.instance_variable_get(:@pending_ctx_action)
+    return unless pa
+    return if ($game_temp && $game_temp.in_menu rescue false)
+    begin
+      return unless MultiplayerUI.respond_to?(:overlay_scene_type) &&
+                    MultiplayerUI.overlay_scene_type == :map
+    rescue
+      return
+    end
+    MultiplayerUI.instance_variable_set(:@pending_ctx_action, nil)
+    begin
+      Input._execute_ctx_action(pa[0], pa[1], pa[2])
+    rescue => e
+      ##MultiplayerDebug.error("UI-SQ", "Deferred ctx action error: #{e.message}")
+    end
+  end
 end
 
 # === Hook into Pause Menu (Scene level) like Player List does ===
@@ -190,21 +215,27 @@ if defined?(PokemonPauseMenu_Scene)
   class ::PokemonPauseMenu_Scene
     alias kif_sq_pbShowCommands pbShowCommands unless method_defined?(:kif_sq_pbShowCommands)
     def pbShowCommands(commands)
-      display = commands.dup
-      MultiplayerUI.inject_squad_entry(display)
-      ret_disp = kif_sq_pbShowCommands(display)
-      return ret_disp if ret_disp.nil? || ret_disp < 0
-      if display[ret_disp] == _INTL("Squad")
-        begin; MultiplayerUI.openSquadWindow; rescue => e
-          ##MultiplayerDebug.error("UI-SQ", "Open squad error: #{e.message}")
+      loop do
+        display = commands.dup
+        MultiplayerUI.inject_squad_entry(display)
+        ret_disp = kif_sq_pbShowCommands(display)
+        return ret_disp if ret_disp.nil? || ret_disp < 0
+        if display[ret_disp] == _INTL("Squad")
+          begin; MultiplayerUI.openSquadWindow; rescue => e
+            ##MultiplayerDebug.error("UI-SQ", "Open squad error: #{e.message}")
+          end
+          # If a per-player action was queued (View Profile, Inspect, etc.),
+          # close the pause menu so it can fire on the map. Otherwise the user
+          # just backed out of the Squad window -> re-show the pause menu.
+          return -1 if MultiplayerUI.instance_variable_get(:@pending_ctx_action)
+          next
         end
-        return -1
+        if display.length != commands.length
+          insert_at = (display.index(_INTL("Squad")) || display.length) - 1
+          return ret_disp - 1 if ret_disp > insert_at
+        end
+        return ret_disp
       end
-      if display.length != commands.length
-        insert_at = (display.index(_INTL("Squad")) || display.length) - 1
-        return ret_disp - 1 if ret_disp > insert_at
-      end
-      return ret_disp
     end
   end
   ##MultiplayerDebug.info("UI-SQ", "Hooked PokemonPauseMenu_Scene.pbShowCommands for Squad option.")
@@ -503,6 +534,7 @@ if defined?(Scene_Map)
         rescue => e
           ##MultiplayerDebug.error("UI-COOP-HUD", "Scene_Map.update HUD error: #{e.message}")
         end
+        (MultiplayerUI.fire_pending_ctx_action rescue nil)
         kif_coop_hud_update
       end
     else

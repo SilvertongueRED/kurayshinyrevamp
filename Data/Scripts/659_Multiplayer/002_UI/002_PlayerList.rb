@@ -526,8 +526,8 @@ module MultiplayerUI
   # Show a blocking context menu at (screen_x, screen_y) for player `name`.
   # viewport: parent viewport (or nil to create a temporary one)
   # Returns action index 0..6 or nil.
-  def self.player_context_menu(name, screen_x, screen_y, viewport = nil)
-    items = CTX_ACTIONS
+  def self.player_context_menu(name, screen_x, screen_y, viewport = nil, items = nil)
+    items = CTX_ACTIONS if !items.is_a?(Array) || items.empty?
     ctx_h = CTX_PAD * 2 + 16 + items.length * CTX_ITEM_H + 16  # +16 = bound-control footer
     sw = Graphics.width
     sh = Graphics.height
@@ -554,6 +554,7 @@ module MultiplayerUI
     result = nil
     last_mx = nil
     last_my = nil
+    confirm_armed = false   # the USE press that OPENED this popup must release first
     loop do
       Graphics.update
       Input.update
@@ -592,9 +593,21 @@ module MultiplayerUI
         break
       end
 
-      break if Input.trigger?(Input::BACK)
+      # Cancel/Back has ABSOLUTE priority and is read on BOTH the rising edge
+      # and the held level. A physical Cancel button (controller B / Circle)
+      # can therefore never be misread as a Confirm on this popup regardless of
+      # edge timing -- the "Pad B confirms the player/squad popup" report.
+      cancel_now  = (Input.trigger?(Input::BACK) rescue false)
+      cancel_held = (Input.press?(Input::B) rescue false)
+      break if cancel_now
       break if (Input.trigger?(Input::MOUSERIGHT) rescue false)
 
+      # Confirm arms only AFTER it has been seen released for a frame, so the
+      # USE press that opened this popup cannot leak in and auto-pick the first
+      # item (View Profile). The only way to confirm is then a fresh, deliberate
+      # Confirm press with no Cancel button held.
+      confirm_now = (MPMenuConfirm.pressed?(:playerlist_ctx) rescue false)
+      confirm_armed = true if !confirm_now && !cancel_held
       if Input.trigger?(Input::UP)
         hover = hover ? (hover - 1) % items.size : items.size - 1
         pbSEPlay("GUI sel cursor", 60) rescue nil
@@ -603,7 +616,7 @@ module MultiplayerUI
         hover = hover ? (hover + 1) % items.size : 0
         pbSEPlay("GUI sel cursor", 60) rescue nil
         _draw_ctx_menu(ctx_spr.bitmap, name, items, hover)
-      elsif (Input.trigger?(Input::C) || Input.trigger?(Input::USE)) && hover
+      elsif confirm_armed && confirm_now && hover && !cancel_held
         result = hover
         pbSEPlay("GUI sel decision", 80) rescue nil
         break
@@ -742,7 +755,7 @@ module MultiplayerUI
           _handle_keyboard
           _handle_mouse
 
-          if Input.trigger?(Input::C) || _mouse_clicked_cell?
+          if MPMenuConfirm.pressed?(:playerlist) || _mouse_clicked_cell?
             _select_current
           end
         end
@@ -1200,6 +1213,15 @@ module MultiplayerUI
       my = (Input.mouse_y rescue nil)
       return unless mx && my
 
+      # Only a MOVING mouse may move the cursor. A parked pointer hovering a cell
+      # used to re-snap @cursor to that cell every frame, which cancelled the
+      # controller's d-pad input and left the selection bouncing between two cells
+      # until the mouse was wiggled. @hover_idx is still computed every frame so a
+      # click works, but @cursor only follows the pointer when it actually moves.
+      mouse_moved = (!@last_mx.nil? && (mx != @last_mx || my != @last_my))
+      @last_mx = mx
+      @last_my = my
+
       entries = _page_entries
       gx, gy = _grid_origin
       old_hover = @hover_idx
@@ -1213,8 +1235,8 @@ module MultiplayerUI
 
         if mx >= cx && mx < cx + CELL_W && my >= cy && my < cy + CELL_H
           @hover_idx = i
-          # Move cursor to hovered cell
-          if @cursor != i
+          # Move cursor to hovered cell ONLY when the mouse moved this frame.
+          if mouse_moved && @cursor != i
             @cursor = i
             pbSEPlay("GUI sel cursor", 60) rescue nil
           end
@@ -1228,7 +1250,9 @@ module MultiplayerUI
     @_mouse_clicked = false
     def _mouse_clicked_cell?
       return false unless (Input.trigger?(Input::MOUSELEFT) rescue false)
-      @hover_idx >= 0 && @hover_idx == @cursor
+      return false unless @hover_idx >= 0
+      @cursor = @hover_idx   # a click selects whatever the pointer is over (the
+      true                   # cursor no longer auto-snaps to a parked mouse)
     end
 
     # ── Page navigation ───────────────────────────────────────────────

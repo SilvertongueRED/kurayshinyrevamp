@@ -725,6 +725,10 @@ if defined?(Scene_Map)
     end
 
     def self.overlay_scene_type
+      # A battle never reassigns $scene (it stays the Scene_Map instance), so we
+      # must detect battle state explicitly -- otherwise the HUD/chat always
+      # think they are on the overworld map and ignore "HUD On All Screens".
+      return :battle if in_battle_now?
       scene = $scene
       return nil unless scene
       return :map if scene.is_a?(Scene_Map)
@@ -732,6 +736,17 @@ if defined?(Scene_Map)
       nil
     rescue
       nil
+    end
+
+    # True whenever a battle is running. $game_temp.in_battle is the canonical
+    # engine flag; the scene-class check is a belt-and-suspenders fallback.
+    def self.in_battle_now?
+      return true if ($game_temp && $game_temp.in_battle rescue false)
+      scene = $scene
+      return true if scene && defined?(PokeBattle_Scene) && scene.is_a?(PokeBattle_Scene)
+      false
+    rescue
+      false
     end
 
     def self.overlay_scene_active?
@@ -755,10 +770,32 @@ if defined?(Scene_Map)
     def self.hud_visible_on_current_scene?
       scene_type = overlay_scene_type
       return true if scene_type == :map
-      return ui_show_on_all_screens? if scene_type == :battle
+      # In battle the overlay is hidden unless the player opted into
+      # "HUD On All Screens", OR they summoned it for this battle with the
+      # bound Min/Max button (a temporary, per-battle override).
+      if scene_type == :battle
+        return (ui_show_on_all_screens? || battle_hud_override?)
+      end
       ui_show_on_all_screens?
     rescue
       false
+    end
+
+    # -- Per-battle "summon" override -----------------------------------------
+    # When "HUD On All Screens" is Off the overlay auto-hides in battle. The
+    # bound Min/Max button can still toggle it on (and back off) for the current
+    # battle; the flag is cleared automatically once the battle ends.
+    def self.battle_hud_override?
+      !!@battle_hud_override
+    end
+
+    def self.set_battle_hud_override(v)
+      @battle_hud_override = !!v
+    end
+
+    def self.toggle_battle_hud_override
+      set_battle_hud_override(!battle_hud_override?)
+      battle_hud_override?
     end
 
     def self.multiplayer_connected?
@@ -790,6 +827,9 @@ if defined?(Scene_Map)
 
     def self.update_hotkey_hud
       return unless multiplayer_connected? || $hotkey_hud
+      # Drop any per-battle summon override as soon as we are back out of battle
+      # so the next battle starts hidden again (when "HUD On All Screens" is Off).
+      set_battle_hud_override(false) unless in_battle_now?
       hud = ensure_hotkey_hud
       hud.update if hud && hud.alive?
     rescue
@@ -807,6 +847,27 @@ if defined?(Scene_Map)
       newstate = !overlays_minimized?
       set_overlays_minimized(newstate)
       newstate
+    rescue
+      nil
+    end
+
+    # Entry point for the bound "Min/Max HUD+Chat" button. In the overworld (or
+    # when "HUD On All Screens" is On) it minimises/maximises the overlay as
+    # before. During a battle with the setting Off -- where the overlay is
+    # auto-hidden -- it instead summons or dismisses the overlay for THIS battle.
+    def self.toggle_hud_hotkey
+      if in_battle_now? && !ui_show_on_all_screens?
+        now_on = toggle_battle_hud_override
+        if now_on
+          # Reveal it un-minimised (icons + chat handle) without force-opening
+          # the full chat panel.
+          hud = ($hotkey_hud rescue nil)
+          hud.set_minimized(false) if hud && hud.respond_to?(:set_minimized)
+          ChatState.handle_minimized = false if defined?(ChatState)
+        end
+        return now_on
+      end
+      toggle_overlays_minimized
     rescue
       nil
     end
@@ -858,6 +919,8 @@ if defined?(Scene_Map)
     def update
       kif_hkhud_update
       MultiplayerUI.update_hotkey_hud if defined?(MultiplayerUI)
+      # Apply any squad-leader weather that arrived over the network (main thread).
+      MPEnvSync.pump if defined?(MPEnvSync)
     end
   end
 

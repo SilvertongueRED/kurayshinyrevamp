@@ -1,0 +1,15 @@
+C=C
+B=B
+A=A
+X=X
+Y=Y
+Z=Z
+L=L
+R=R
+MP:squad=K:F4
+MP:players=K:F3
+MP:chat=K:T
+MP:gts=K:F6
+MP:cases=K:F7
+MP:profile=K:F8
+MP:hud=K:Tab

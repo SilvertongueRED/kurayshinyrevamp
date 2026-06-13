@@ -394,6 +394,9 @@ class PokeBattle_Scene
     cw.setDetails(texts,mode)
     cw.index = pbFirstTarget(idxBattler,target_data)
     pbSelectBattler((mode==0) ? cw.index : texts,2)   # Select initial battler/data box
+    # MP co-op: broadcast the initial hovered foe immediately so a teammate sees
+    # the live ALLY arrow right away, before any cursor movement.
+    (CoopTargetIntent.broadcast_hover(@battle, idxBattler, cw.index, target_data) rescue nil) if mode==0 && defined?(CoopTargetIntent)
     pbFadeInAndShow(@sprites,visibleSprites) if visibleSprites
     ret = -1
     loop do
@@ -426,6 +429,9 @@ class PokeBattle_Scene
         if cw.index!=oldIndex
           pbPlayCursorSE
           pbSelectBattler(cw.index,2)   # Select the new battler/data box
+          # MP co-op: live-broadcast the foe this squad member is now hovering so
+          # the ally's ALLY arrow follows the cursor in real time (pre-confirm).
+          (CoopTargetIntent.broadcast_hover(@battle, idxBattler, cw.index, target_data) rescue nil) if defined?(CoopTargetIntent)
         end
       end
       if Input.trigger?(Input::USE)   # Confirm

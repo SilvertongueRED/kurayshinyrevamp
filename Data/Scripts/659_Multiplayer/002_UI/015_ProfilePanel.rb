@@ -1049,7 +1049,7 @@ if defined?(Scene_Map)
               (pbPlayCursorSE rescue nil)
             end
             _sync_hover_from_sel
-            if !mouse_clicked && (Input.trigger?(Input::C) || Input.trigger?(Input::A))
+            if !mouse_clicked && MPMenuConfirm.pressed?(:profile)
               case (@sel_btn || 0)
               when 0 then _handle_change_title
               when 1 then _handle_return_to_pallet
@@ -1058,7 +1058,7 @@ if defined?(Scene_Map)
             end
           else
             _handle_btn_mouse(my_uuid)
-            if !mouse_clicked && (Input.trigger?(Input::C) || Input.trigger?(Input::A))
+            if !mouse_clicked && MPMenuConfirm.pressed?(:profile)
               _handle_remote_teleport
             end
           end

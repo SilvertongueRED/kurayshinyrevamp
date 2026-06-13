@@ -120,9 +120,9 @@ module ControlRebind
   # Action rows for the UI: [logical_button, friendly_label]
   def self.actions
     [
-      [Input::C, _INTL("Confirm")],
-      [Input::B, _INTL("Cancel")],
-      [Input::A, _INTL("Action")],
+      [Input::C, _INTL("Confirm (USE)")],
+      [Input::B, _INTL("Cancel / Menu")],
+      [Input::A, _INTL("Run (Action)")],
       [Input::X, _INTL("Button X")],
       [Input::Y, _INTL("Button Y")],
       [Input::Z, _INTL("Menu (Z)")],
@@ -135,9 +135,9 @@ module ControlRebind
   # the bottom of the rebind screen for the highlighted row.
   def self.action_descriptions
     {
-      Input::C => _INTL("Confirm / interact / advance text. The main \"yes\" button."),
-      Input::B => _INTL("Cancel / back out of menus. Hold while walking to run."),
-      Input::A => _INTL("Action button: opens the Ready Menu (registered items) and acts as a secondary confirm in some screens."),
+      Input::C => _INTL("CONFIRM / USE: the main \"yes\" button -- talk to people, advance text, pick menu items, and confirm in EVERY Multiplayer menu. Bind your controller's confirm button here only."),
+      Input::B => _INTL("CANCEL / BACK: backs out of menus; in the overworld it opens the pause menu. Bind your controller's back / Circle button here."),
+      Input::A => _INTL("RUN (ACTION): hold to run (or walk, if auto-run is on); also a secondary key in the Pokedex, Party, Summary and Bag. NOT a confirm -- keep it on a DIFFERENT button than Confirm so menus don't double-select."),
       Input::X => _INTL("Spare button. No core default; used by some menus/mods."),
       Input::Y => _INTL("Spare button. No core default; used by some menus/mods."),
       Input::Z => _INTL("Auxiliary menu button used by some screens."),
@@ -439,7 +439,9 @@ module ControlRebind
     when :profile
       MultiplayerUI::ProfilePanel.toggle(uuid: "self") if defined?(MultiplayerUI::ProfilePanel)
     when :hud
-      if defined?(MultiplayerUI) && MultiplayerUI.respond_to?(:toggle_overlays_minimized)
+      if defined?(MultiplayerUI) && MultiplayerUI.respond_to?(:toggle_hud_hotkey)
+        MultiplayerUI.toggle_hud_hotkey
+      elsif defined?(MultiplayerUI) && MultiplayerUI.respond_to?(:toggle_overlays_minimized)
         MultiplayerUI.toggle_overlays_minimized
       end
     end
@@ -942,35 +944,57 @@ ControlRebind.load rescue nil
 #-------------------------------------------------------------------------------
 unless defined?($input_dedupe_installed) && $input_dedupe_installed
   module InputDedupe
-    DEBOUNCE_FRAMES = 3  # ~50ms @60fps: the engine's trigger? already requires a
-                         # release before a new edge, so a genuine dup-device /
-                         # contact bounce lands within 1-2 frames. 6 frames (100ms)
-                         # was long enough to also swallow a DELIBERATE second
-                         # confirm chained across a screen transition (e.g. pick a
-                         # case -> open the case, or pick a player -> pick an
-                         # action), which is exactly the "have to press confirm
-                         # twice to open anything" report. 3 frames still kills the
-                         # double-FIRE while never touching a real re-press (>120ms).
     GUARDED = begin
       [Input::A, Input::B, Input::C, Input::X, Input::Y, Input::Z, Input::L, Input::R]
     rescue
       [11, 12, 13, 14, 15, 16, 17, 18]
     end
+    # Frames a guarded button must read UP *continuously* before its single-press
+    # latch may re-arm. A duplicate-input device / contact-bouncing controller
+    # releases for only 1-2 frames between its two echo edges; a deliberate
+    # re-press is far longer, so it is never eaten.
+    RELEASE_SUSTAIN = 3
 
-    @seq           = 0
-    @last_accept   = {}
-    @cache         = {}
-    @released      = {}   # has button been released since its last accepted trigger?
-    @c_fired_seq   = -1   # last frame logical C produced an accepted trigger
+    @seq         = 0
+    @armed       = {}   # per-button latch: a fresh press may fire
+    @up          = {}   # per-button consecutive UP-frame counter
+    @edge        = {}   # per-button press?-derived rising edge for the current @seq
+    @c_fired_seq = -1   # last @seq logical C produced an edge (C+A coalesce)
+    # Prime DISARMED with a satisfied up-counter: the first real press arms then
+    # fires, but a button HELD at install / scene-entry is consumed (no leak).
+    (GUARDED rescue []).each { |b| @armed[b] = false; @up[b] = 99 }
 
+    # Called once per Input.update. We do NOT trust the engine's trigger? EDGE for
+    # guarded buttons: a duplicate-input device / bouncing controller delivers ONE
+    # physical press as TWO trigger? edges a frame or two apart, and that echo
+    # leaks into whatever screen reads confirm next -- e.g. a mini command popup
+    # that opens instantly then auto-selects its first item (the "mini menus fire
+    # twice" report). press? is a LEVEL with no such bounce, so we derive our OWN
+    # rising edge from it here, latched per button: it fires EXACTLY once per
+    # physical press and only re-arms after a SUSTAINED release. Immune to the
+    # double-edge AND to the popup-open leak (the opening press is consumed; the
+    # next in-popup confirm requires a real release first).
     def self.bump!
       @seq += 1
-      # A genuine re-press always has a RELEASE between edges; a hardware double-
-      # fire / duplicate-device echo does not. Track releases so we only ever
-      # swallow the latter -- a deliberate second confirm is never eaten (kills
-      # the "had to press confirm twice to open something" residual).
-      @released ||= {}
-      GUARDED.each { |b| @released[b] = true unless (Input.press?(b) rescue false) }
+      @armed ||= {}; @up ||= {}; @edge ||= {}
+      GUARDED.each do |b|
+        down = (Input.press?(b) rescue false) ? true : false
+        if down
+          @up[b] = 0
+        else
+          @up[b] = (@up[b] || 0) + 1
+          @armed[b] = true if @up[b] >= RELEASE_SUSTAIN   # re-arm only after a sustained release
+        end
+        fired = (@armed[b] && down) ? true : false
+        @armed[b] = false if fired                        # consume
+        @edge[b] = fired
+      end
+      # C+A coalesce: a face button bound to BOTH logical C and A fires both edges
+      # the same frame; keep C, drop the redundant A so a menu reading both does
+      # not double-act. No-op on stock KIF (one source -> one logical button).
+      if (@edge[Input::C] && @edge[Input::A] rescue false)
+        @edge[Input::A] = false
+      end
     rescue
       nil
     end
@@ -979,40 +1003,43 @@ unless defined?($input_dedupe_installed) && $input_dedupe_installed
       GUARDED.include?(b)
     end
 
-    # Given the engine's raw trigger? result for button b, return the de-duped
-    # result. Same-frame repeated reads stay consistent via a per-seq cache.
+    # For guarded buttons return our press?-derived single-press edge (computed
+    # once per @seq in bump!), IGNORING the engine's raw trigger? (which double-
+    # fires on a bouncy device). Unguarded buttons pass through unchanged.
     def self.filter(b, raw_val)
       return raw_val unless guarded?(b)
-      @last_accept ||= {}
-      @cache       ||= {}
-      @released    ||= {}
-      @seq         ||= 0
-      s = @seq
-      c = @cache[b]
-      return c[1] if c && c[0] == s
-      result =
-        if !raw_val
-          false
-        else
-          last = @last_accept[b]
-          if last && (s - last) <= DEBOUNCE_FRAMES && (s - last) >= 0 && !@released[b]
-            false           # duplicate edge with NO release between -> bounce, swallow
-          else
-            @last_accept[b] = s
-            @released[b]    = false   # fresh accepted press; not released since
-            true
-          end
-        end
-      # ---- confirm coalescing ----
-      if result && (b == Input::C rescue false)
-        @c_fired_seq = s
-      elsif result && (b == Input::A rescue false) && @c_fired_seq == s
-        result = false      # C already fired this frame -> A is the redundant twin
-      end
-      @cache[b] = [s, result]
-      result
+      @edge ||= {}
+      @edge[b] ? true : false
     rescue
       raw_val
+    end
+
+    # ---- Unified confirm edge (shared by the MP bridge + MPMenuConfirm) -----
+    # @edge is the game's single source of truth for "this button was freshly
+    # pressed THIS frame": computed ONCE per Input.update (bump!) from the
+    # press? LEVEL, true for exactly ONE frame per physical press, re-armed
+    # only after a sustained release, immune to hardware double edges, with a
+    # same-frame C+A double-binding coalesced to C. Exposing it lets every MP
+    # confirm consumer read this SAME latch. (Previously the bridge and
+    # MPMenuConfirm each kept a PRIVATE latch beside this one; one physical
+    # press could then be consumed once per latch -- firing again in the
+    # screen a menu had just opened (popup double-fire) -- while the private
+    # latches' activation/poll-gap disarms could eat the first press in menus
+    # that poll intermittently (the press-twice symptom).)
+    def self.edge?(b)
+      @edge ? (@edge[b] ? true : false) : false
+    rescue
+      false
+    end
+
+    # One logical Confirm: logical C (USE) or logical A (ACTION). Thanks to
+    # the C+A coalesce in bump! this is exactly one TRUE frame per physical
+    # press no matter how Confirm is bound (Pad A on C, on A, or on both).
+    def self.confirm_edge?
+      return false unless @edge
+      (@edge[Input::C] || @edge[Input::A]) ? true : false
+    rescue
+      false
     end
   end
 
@@ -1070,42 +1097,21 @@ unless defined?($mp_confirm_bridge_installed) && $mp_confirm_bridge_installed
       # double-binding into ONE logical press, and re-arms only after the button is
       # physically released. Net effect: exactly one confirm per real press, no
       # double-fire, no missed first press. Computed once per frame for stability.
-      @mpc_frame      = -1
-      @mpc_val        = false
-      @mpc_was_down   = false   # confirm button physically held on the previous poll
-      @mpc_active_was = false   # was the confirm bridge active on the previous poll
-
-      # Return TRUE on exactly the frame a fresh Confirm/Action press BEGINS.
-      #
-      # We derive the rising edge OURSELVES from the raw engine press? (level) state
-      # of the physical buttons bound to logical C and A -- we do NOT trust the
-      # engine trigger? edge here. Some controllers deliver one physical press as
-      # TWO trigger? edges (the hardware double-fire this whole subsystem exists
-      # for). Reading that raw trigger? inside the bridge re-exposed the double in
-      # MP menus: the first edge advanced a menu and the second edge (next frame)
-      # immediately acted again on the new screen, so the user saw "nothing useful
-      # happened, press again" -- the reported double-press. A press?-derived edge
-      # fires EXACTLY ONCE per physical press (immune to that bounce) and bypasses
-      # the de-duplicator, so the first press is never eaten either.
-      #
-      # No separate "armed" flag (which previously got stuck FALSE across a menu
-      # transition and ate the first press). We only compare against last poll's
-      # physical state, and when the bridge first becomes active we treat whatever
-      # is currently held as already-consumed (require a release first) so the very
-      # press that OPENED the menu can't leak through as an in-menu confirm.
+      # UNIFIED 2026-06-12: the bridge no longer keeps a PRIVATE latch. It
+      # reads the global single-press confirm edge computed once per
+      # Input.update by InputDedupe.bump! (press?-derived; one TRUE frame per
+      # physical press; re-arms only after a sustained release; C+A
+      # double-binding coalesced). Every confirm consumer now shares that ONE
+      # latch, so a press consumed in one screen can never fire again in the
+      # screen it opened (the mini-popup double-fire), and there are no
+      # per-menu activation/poll-gap disarms left to eat a first press (the
+      # double-press-to-interact symptom). The opening press cannot leak into
+      # a new menu either: its edge lives for exactly the one frame in which
+      # the OPENING screen consumed it, and every menu loop here runs
+      # Graphics.update + Input.update before polling, which recomputes the
+      # edge to false while the button is still held.
       def _mpc_confirm_single?
-        f = (Graphics.frame_count rescue 0)
-        return @mpc_val if f == @mpc_frame
-        @mpc_frame = f
-        cC = (ControlRebind.src(Input::C) rescue Input::C)
-        cA = (ControlRebind.src(Input::A) rescue Input::A)
-        down = ((_rebind_orig_press?(cC) rescue false) ||
-                (_rebind_orig_press?(cA) rescue false)) ? true : false
-        @mpc_was_down = down unless @mpc_active_was   # prime on bridge activation
-        @mpc_active_was = true
-        @mpc_val      = (down && !@mpc_was_down)
-        @mpc_was_down = down
-        @mpc_val
+        InputDedupe.confirm_edge?
       rescue
         false
       end
@@ -1115,7 +1121,6 @@ unless defined?($mp_confirm_bridge_installed) && $mp_confirm_bridge_installed
         if (b == Input::C || b == Input::A) && active   # USE==C, ACTION==A
           return _mpc_confirm_single?
         end
-        @mpc_active_was = false unless active   # re-prime next time the bridge opens
         _mpconfirm_prev_trigger?(b)
       rescue
         _mpconfirm_prev_trigger?(b)
@@ -1144,4 +1149,63 @@ unless defined?($control_rebind_frame_hook) && $control_rebind_frame_hook
     end
   end
   $control_rebind_frame_hook = true
+end
+
+#-------------------------------------------------------------------------------
+# MPMenuConfirm -- bullet-proof single-press confirm for the custom Multiplayer
+# menus (Player List, Cases, Profile).                    [single-press confirm]
+#
+# Those menus kept needing TWO controller presses to confirm. The global confirm
+# bridge above tries to fix that transparently, but it depends on a chain of
+# conditions (mp_confirm_bridge_active?, the engine trigger? edge, per-frame
+# caching) and a weak link anywhere re-exposes the double-press. This helper
+# sidesteps all of it: each menu calls MPMenuConfirm.pressed?(:its_key) DIRECTLY
+# and we derive the rising edge ourselves from the raw HELD state (press?) of the
+# confirm buttons, latched so it fires EXACTLY ONCE per physical press and only
+# re-arms after a full release. It cannot double-fire and never eats the first
+# press (the latch starts disarmed, so the press that OPENED the menu is consumed
+# automatically -- you must release before the first in-menu confirm registers).
+#
+# press? is read straight off the rebind layer (NOT trigger?), so it bypasses the
+# de-duplicator and the confirm bridge entirely; the keyboard confirm (Z/Enter ==
+# C) and a controller face button mapped to logical C or A both drive it.
+#-------------------------------------------------------------------------------
+unless defined?($mp_menu_confirm_installed) && $mp_menu_confirm_installed
+  module MPMenuConfirm
+    @state = {}
+    module_function
+
+    # UNIFIED 2026-06-12: MPMenuConfirm used to keep a PRIVATE per-menu latch
+    # (press?-derived, with poll-gap + activation disarms). Running its own
+    # latch beside the global de-duplicator's meant ONE physical press could
+    # be consumed once by EACH latch: a menu fired via this latch, then the
+    # screen it opened fired again via the bridge/dedupe latch -- the
+    # mini-popup double-fire. Meanwhile its disarm rules could eat the first
+    # press in menus that poll intermittently (e.g. from an elsif chain) --
+    # the press-twice symptom. It now simply reads the global single-press
+    # confirm edge computed once per Input.update in InputDedupe.bump!: one
+    # TRUE frame per physical press, shared by EVERY confirm consumer, so a
+    # press fires exactly once game-wide. The per-menu `key` is kept only for
+    # API compatibility.
+    def pressed?(key = :default)
+      InputDedupe.confirm_edge?
+    rescue
+      false
+    end
+
+    # Single-button variant: keeps menus that map C and A to DIFFERENT actions
+    # (e.g. the Case buy/open screen) working without collapsing the two buttons.
+    def button_pressed?(button, key)
+      InputDedupe.edge?(button)
+    rescue
+      false
+    end
+
+    def reset(key = :default)
+      (@state ||= {})[key] = { armed: false, frame: -2, val: false }
+    rescue
+      nil
+    end
+  end
+  $mp_menu_confirm_installed = true
 end

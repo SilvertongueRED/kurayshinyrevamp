@@ -31,6 +31,8 @@ class PokemonSystem
   attr_accessor :mp_ui_all_screens           # Keep multiplayer HUD/chat visible across non-overworld scenes (0=off, 1=on)
   attr_accessor :mp_platinum_gain_messages   # Show platinum gain toasts after wild battles (0=off, 1=on)
   attr_accessor :mp_catch_chat_enabled       # Broadcast wild catches to global chat (0=off, 1=on)
+  attr_accessor :mp_ally_arrow               # Live ally target arrow in co-op battles (0=off, 1=on)
+  attr_accessor :mp_env_sync                 # Sync time-of-day + weather to squad leader (0=off, 1=on)
 
   # Initialize multiplayer settings if not already set
   alias mp_options_original_initialize initialize unless method_defined?(:mp_options_original_initialize)
@@ -52,6 +54,8 @@ class PokemonSystem
     @mp_ui_all_screens = 0           # Off by default
     @mp_platinum_gain_messages = 1   # On by default
     @mp_catch_chat_enabled = 0       # Off by default
+    @mp_ally_arrow = 1               # On by default (live ally target arrow)
+    @mp_env_sync = 1                 # On by default (squad day/weather sync)
   end
 end
 
@@ -196,6 +200,24 @@ class MultiplayerOptScene < PokemonOption_Scene
        "Boss Pokemon will not appear in wild encounters"]
     )
 
+    # Ally Target Arrow toggle (live over-foe arrow on the squadmate's hovered foe)
+    options << EnumOption.new(_INTL("Ally Arrow"),
+      [_INTL("Off"), _INTL("On")],
+      proc { $PokemonSystem.mp_ally_arrow || 0 },
+      proc { |value| $PokemonSystem.mp_ally_arrow = value },
+      ["Hide the live ally target arrow in co-op battles",
+       "Show a live arrow over the foe your squadmate is aiming at"]
+    )
+
+    # Day/Weather sync toggle (align time-of-day + overworld weather to squad leader)
+    options << EnumOption.new(_INTL("Sync Day/Wx"),
+      [_INTL("Off"), _INTL("On")],
+      proc { $PokemonSystem.mp_env_sync || 0 },
+      proc { |value| $PokemonSystem.mp_env_sync = value },
+      ["Use your own clock + weather (no squad sync)",
+       "Match the squad leader's time-of-day and weather"]
+    )
+
     # EBDX Battle settings separator
     options << EnumOption.new(_INTL("--- EBDX ---"),
       [_INTL("-")],
@@ -295,6 +317,15 @@ class MultiplayerOptScene < PokemonOption_Scene
           open_sync_mp_settings()
         },
         "Copy another player's Multiplayer settings"
+      )
+
+      # Sync Mod Settings button (external mod settings)
+      options << ButtonOption.new(_INTL("Sync Mod Settings"),
+        proc {
+          @kuray_menu = true
+          open_sync_mod_settings()
+        },
+        "Copy another player's external mod settings (Overworld Menu, Mod Settings, mod manager)"
       )
 
       # Sync ALL Settings button
@@ -592,6 +623,52 @@ class MultiplayerOptScene < PokemonOption_Scene
   end
 
   #-----------------------------------------------------------------------------
+  # Open player selection for syncing external MOD settings
+  #-----------------------------------------------------------------------------
+  def open_sync_mod_settings
+    return unless @kuray_menu
+    @kuray_menu = false
+
+    unless defined?(MultiplayerClient) && MultiplayerClient.instance_variable_get(:@connected)
+      pbMessage(_INTL("You must be connected to multiplayer to sync settings."))
+      return
+    end
+
+    players = get_online_players()
+    if players.empty?
+      pbMessage(_INTL("No other players online."))
+      return
+    end
+
+    player_names = players.map { |p| p[:name] }
+    player_names << _INTL("Cancel")
+
+    choice = pbMessage(_INTL("Sync Mod settings from:"), player_names)
+    return if choice >= players.length  # Cancel
+
+    selected_player = players[choice]
+    request_mod_settings_sync(selected_player[:sid])
+  end
+
+  #-----------------------------------------------------------------------------
+  # Request external MOD settings from another player
+  #-----------------------------------------------------------------------------
+  def request_mod_settings_sync(target_sid)
+    if defined?(MultiplayerClient)
+      MultiplayerSettingsSync.clear_pending_message if defined?(MultiplayerSettingsSync)
+
+      # Rides the existing MP_SETTINGS_REQUEST message type (server-agnostic),
+      # so it works on the official server with no server.rb changes.
+      message = "MP_SETTINGS_REQUEST:#{target_sid}|MODS"
+      MultiplayerClient.send_data(message) rescue nil
+
+      if wait_for_sync_response(3.0)
+        refresh_options
+      end
+    end
+  end
+
+  #-----------------------------------------------------------------------------
   # Wait for sync response and display result message
   #-----------------------------------------------------------------------------
   def wait_for_sync_response(timeout_seconds)
@@ -615,6 +692,13 @@ class MultiplayerOptScene < PokemonOption_Scene
           rescue => e
             MultiplayerDebug.error("MP-SYNC", "options_load_json failed: #{e.message}") if defined?(MultiplayerDebug)
           end
+          # Apply external mod settings that rode along with the ALL sync
+          begin
+            _modp = pending["__mod_payload__"] || pending[:__mod_payload__]
+            MultiplayerSettingsSync.apply_mod_settings_payload(_modp) if _modp.is_a?(Hash)
+          rescue => e
+            MultiplayerDebug.error("MP-SYNC", "ALL mod payload apply failed: #{e.message}") if defined?(MultiplayerDebug)
+          end
         end
         # Apply deferred MP settings on the MAIN thread (see handle_settings_response)
         pending_mp = MultiplayerSettingsSync.pending_mp_settings
@@ -624,6 +708,16 @@ class MultiplayerOptScene < PokemonOption_Scene
             MultiplayerSettingsSync.apply_mp_settings(pending_mp)
           rescue => e
             MultiplayerDebug.error("MP-SYNC", "apply_mp_settings failed: #{e.message}") if defined?(MultiplayerDebug)
+          end
+        end
+        # Apply deferred external MOD settings on the main thread (mirrors MP path)
+        pending_mods = MultiplayerSettingsSync.pending_mod_settings
+        if pending_mods
+          MultiplayerSettingsSync.pending_mod_settings = nil
+          begin
+            MultiplayerSettingsSync.apply_mod_settings_payload(pending_mods)
+          rescue => e
+            MultiplayerDebug.error("MP-SYNC", "apply_mod_settings_payload failed: #{e.message}") if defined?(MultiplayerDebug)
           end
         end
         pbMessage(msg)
@@ -676,9 +770,24 @@ module MultiplayerSettingsSync
       json = SafeJSON.dump(settings) rescue MiniJSON.dump(settings)
       message = "MP_SETTINGS_RESPONSE:#{requester_sid}|MP|#{json}"
       MultiplayerClient.send_data(message) rescue nil
+    elsif sync_type == "MODS"
+      # Send external mod settings (Overworld Menu, Mod Settings, mod manager).
+      # SafeJSON preserves the symbol keys used by ModSettingsMenu storage.
+      payload = get_mod_settings_payload()
+      json = SafeJSON.dump(payload) rescue MiniJSON.dump(payload)
+      message = "MP_SETTINGS_RESPONSE:#{requester_sid}|MODS|#{json}"
+      MultiplayerClient.send_data(message) rescue nil
     elsif sync_type == "ALL"
       # Send all settings - use MiniJSON.dump directly since options_to_json returns string keys
       settings = options_to_json() rescue {}
+      # Ride external mod settings along so "Sync ALL" also copies mod settings.
+      # options_load_json ignores unknown keys, so __mod_payload__ is harmless
+      # to non-fork / older clients and is applied explicitly on the receiver.
+      begin
+        settings["__mod_payload__"] = get_mod_settings_payload()
+      rescue => e
+        MultiplayerDebug.error("MP-SYNC", "attach mod payload failed: #{e.message}") if defined?(MultiplayerDebug)
+      end
       json = MiniJSON.dump(settings) rescue "{}"
       message = "MP_SETTINGS_RESPONSE:#{requester_sid}|ALL|#{json}"
       MultiplayerClient.send_data(message) rescue nil
@@ -717,6 +826,16 @@ module MultiplayerSettingsSync
     @pending_mp_settings = settings
   end
 
+  # Pending external-mod-settings payload to apply on the main thread.
+  @pending_mod_settings = nil
+  def self.pending_mod_settings
+    @pending_mod_settings
+  end
+
+  def self.pending_mod_settings=(settings)
+    @pending_mod_settings = settings
+  end
+
   # Identity/session/persistence keys that must NEVER be copied between players
   # during a settings sync. $PokemonSystem is saved to disk, so cloning these
   # from another player would corrupt your save / squad identity.
@@ -727,10 +846,23 @@ module MultiplayerSettingsSync
     save save_slot device_id persistent_id account_id
   ]
 
-  # Strips never-sync keys from an ALL-settings hash before it is applied.
+  # Purely-LOCAL display/preference keys. Unlike NEVER_SYNC_KEYS (which protect
+  # save/identity data), these describe how THIS machine renders battles -- most
+  # importantly whether Elite Battle DX visuals are used, which depends on the
+  # EBDX art being installed locally. Copying mp_ebdx_enabled from a squadmate
+  # who had EBDX off (or a base client that lacks the field) was silently turning
+  # EBDX OFF in PvP/co-op for players who had it on. EBDX is local-only by design,
+  # so each player keeps their own choice across a settings sync.
+  LOCAL_ONLY_KEYS = %w[
+    mp_ebdx_enabled mp_ebdx_zoom_disabled mp_stat_stage_overlay
+    mp_ally_arrow mp_env_sync
+  ]
+
+  # Strips never-sync and local-only keys from an ALL-settings hash before apply.
   def filter_safe_settings(h)
     return h unless h.is_a?(Hash)
-    h.reject { |k, _| NEVER_SYNC_KEYS.include?(k.to_s.sub(/^@/, "").downcase) }
+    blocked = NEVER_SYNC_KEYS + LOCAL_ONLY_KEYS
+    h.reject { |k, _| blocked.include?(k.to_s.sub(/^@/, "").downcase) }
   end
 
   def self.clear_pending_message
@@ -760,6 +892,16 @@ module MultiplayerSettingsSync
         MultiplayerSettingsSync.pending_sync_message = _INTL("Multiplayer settings synchronized!")
         if defined?(MultiplayerDebug)
           MultiplayerDebug.info("MP-SYNC", "MP settings applied successfully")
+        end
+      elsif sync_type == "MODS"
+        # SafeJSON.load restores ModSettingsMenu symbol keys; fall back to MiniJSON.
+        payload = SafeJSON.load(json_data) rescue (MiniJSON.parse(json_data) rescue nil)
+        if payload.is_a?(Hash)
+          # Defer apply to the MAIN thread (touches graphics/save ops)
+          MultiplayerSettingsSync.pending_mod_settings = payload
+          MultiplayerSettingsSync.pending_sync_message = _INTL("Mod settings synchronized!")
+        else
+          MultiplayerSettingsSync.pending_sync_message = _INTL("Failed to parse mod settings data.")
         end
       elsif sync_type == "ALL"
         # Parse JSON properly instead of using dangerous eval
@@ -852,6 +994,122 @@ module MultiplayerSettingsSync
       PokemonFamilyConfig.set_system_enabled($PokemonSystem.mp_family_enabled == 1) rescue nil
       PokemonFamilyConfig.set_talent_infusion_enabled($PokemonSystem.mp_family_abilities_enabled == 1) rescue nil
       PokemonFamilyConfig.set_assignment_chance(($PokemonSystem.mp_family_rate || 1) / 100.0) rescue nil
+    end
+  end
+
+  #-----------------------------------------------------------------------------
+  # Build a combined payload of every external mod's settings.
+  #   "msm" => ModSettingsMenu storage ($PokemonSystem.mod_settings) — covers
+  #            the Overworld Menu mod, the Mod Settings mod, and any mod that
+  #            registers through ModSettingsMenu.
+  #   "mm"  => { mod_id => settings_hash } — the Mod Manager's own per-mod
+  #            settings.json values.
+  #-----------------------------------------------------------------------------
+  def get_mod_settings_payload
+    payload = {}
+
+    # System A: ModSettingsMenu unified storage (symbol-keyed hash)
+    begin
+      if defined?(ModSettingsMenu) && ModSettingsMenu.respond_to?(:storage)
+        st = ModSettingsMenu.storage
+        payload["msm"] = st.dup if st.is_a?(Hash) && !st.empty?
+      elsif defined?($PokemonSystem) && $PokemonSystem.respond_to?(:mod_settings)
+        ms = $PokemonSystem.mod_settings
+        payload["msm"] = ms.dup if ms.is_a?(Hash) && !ms.empty?
+      end
+    rescue => e
+      MultiplayerDebug.error("MP-SYNC", "get msm payload failed: #{e.message}") if defined?(MultiplayerDebug)
+    end
+
+    # System B: Mod Manager per-mod settings.json values (only enabled mods)
+    begin
+      if defined?(ModManager) && ModManager.respond_to?(:load_mod_settings)
+        ids = ModManager.respond_to?(:enabled_mods) ? (ModManager.enabled_mods rescue []) : []
+        mm = {}
+        (ids || []).each do |mid|
+          s = ModManager.load_mod_settings(mid) rescue nil
+          mm[mid.to_s] = s if s.is_a?(Hash) && !s.empty?
+        end
+        payload["mm"] = mm unless mm.empty?
+      end
+    rescue => e
+      MultiplayerDebug.error("MP-SYNC", "get mm payload failed: #{e.message}") if defined?(MultiplayerDebug)
+    end
+
+    payload
+  end
+
+  #-----------------------------------------------------------------------------
+  # Apply a combined mod-settings payload from get_mod_settings_payload.
+  # MERGES incoming values over local ones so settings for mods the sender
+  # lacks are preserved. Tolerates string OR symbol keys (SafeJSON vs MiniJSON).
+  #-----------------------------------------------------------------------------
+  def apply_mod_settings_payload(payload)
+    return unless payload.is_a?(Hash)
+    msm = payload["msm"] || payload[:msm]
+    mm  = payload["mm"]  || payload[:mm]
+
+    # System A: ModSettingsMenu (Overworld Menu mod, Mod Settings mod, etc.)
+    if msm.is_a?(Hash) && defined?(ModSettingsMenu)
+      begin
+        incoming = {}
+        msm.each { |k, v| incoming[k.to_s.to_sym] = v }
+        current = {}
+        begin
+          cs = ModSettingsMenu.respond_to?(:storage) ? ModSettingsMenu.storage : nil
+          cs.each { |k, v| current[k.to_s.to_sym] = v } if cs.is_a?(Hash)
+        rescue
+        end
+        merged = current.merge(incoming)
+        if ModSettingsMenu.respond_to?(:set_storage)
+          ModSettingsMenu.set_storage(merged)  # normalizes keys + fires on_change
+        elsif defined?($PokemonSystem) && $PokemonSystem.respond_to?(:mod_settings=)
+          $PokemonSystem.mod_settings = merged
+        end
+        ModSettingsMenu.save_to_file if ModSettingsMenu.respond_to?(:save_to_file)
+      rescue => e
+        MultiplayerDebug.error("MP-SYNC", "apply msm failed: #{e.message}") if defined?(MultiplayerDebug)
+      end
+    end
+
+    # System B: Mod Manager per-mod settings.json (covers the mod manager itself)
+    if mm.is_a?(Hash) && defined?(ModManager) && ModManager.respond_to?(:save_mod_settings)
+      begin
+        mm.each do |mid, incoming_settings|
+          next unless incoming_settings.is_a?(Hash)
+          mod_id = mid.to_s
+          info = ModManager.respond_to?(:get_mod) ? (ModManager.get_mod(mod_id) rescue nil) : nil
+          next unless info  # mod not installed locally — skip it
+          current = ModManager.load_mod_settings(mod_id) rescue {}
+          current = {} unless current.is_a?(Hash)
+          valid_keys = nil
+          begin
+            if info.respond_to?(:settings_defs) && info.settings_defs.is_a?(Array)
+              valid_keys = info.settings_defs.map { |sd| sd["key"] }.compact
+            end
+          rescue
+          end
+          incoming_settings.each do |k, v|
+            ks = k.to_s
+            next if valid_keys && !valid_keys.include?(ks)
+            current[ks] = v
+          end
+          ModManager.save_mod_settings(mod_id, current)
+        end
+      rescue => e
+        MultiplayerDebug.error("MP-SYNC", "apply mm failed: #{e.message}") if defined?(MultiplayerDebug)
+      end
+    end
+
+    # Refresh any open option windows so synced values show immediately
+    begin
+      if defined?(Window_PokemonOption)
+        ObjectSpace.each_object(Window_PokemonOption) do |w|
+          w.apply_modsettings_theme if w.respond_to?(:apply_modsettings_theme)
+          w.refresh if w.respond_to?(:refresh)
+        end
+      end
+    rescue
     end
   end
 end

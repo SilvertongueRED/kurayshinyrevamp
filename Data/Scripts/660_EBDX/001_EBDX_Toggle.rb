@@ -38,7 +38,9 @@ module EBDXToggle
   def self.assets_available?
     return @assets_available unless @assets_available.nil?
     required = [
+      "Graphics/EBDX/Pictures/UI/skin1",          # battle command-window skin (scene init, very first thing drawn)
       "Graphics/EBDX/Pictures/UI/btnCmd",
+      "Graphics/EBDX/Pictures/UI/partyBar",       # HP / party bars
       "Graphics/EBDX/Pictures/UI/moveSelButtons",
       "Graphics/EBDX/Pictures/Bag/itemContainer",
       "Graphics/EBDX/Pictures/Bag/pocketIcons"
@@ -56,7 +58,7 @@ module EBDXToggle
     end
     if !@assets_available && !$ebdx_assets_warned
       $ebdx_assets_warned = true
-      msg = "[EBDX] Battle UI art (Graphics/EBDX/Pictures/) is missing - using the standard battle UI. Restore those assets to re-enable EBDX visuals."
+      msg = "[EBDX] Battle UI art is missing (Graphics/EBDX/Pictures/ has no UI/ or Bag/ files - only Battlers/ is present here), so EVERY battle (single-player AND multiplayer) falls back to the standard UI. This is NOT a multiplayer setting: EBDX renders locally the instant the art exists, regardless of an opponent's/squadmate's UI choice. Drop the EBDX 'Pictures' art pack into Graphics/EBDX/Pictures/ to enable EBDX visuals."
       (MultiplayerDebug.info("EBDX", msg) rescue nil) if defined?(MultiplayerDebug)
       p msg if $DEBUG
     end

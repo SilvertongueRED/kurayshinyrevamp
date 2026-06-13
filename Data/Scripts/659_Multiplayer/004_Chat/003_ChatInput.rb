@@ -722,10 +722,41 @@ module Input
 
     case idx
     when 0  # View Profile
+      # Self target: open own profile directly -- no player-list lookup needed.
+      # (Fixes Squad menu "View Profile" on yourself doing nothing.)
+      my_sid = (MultiplayerClient.session_id.to_s rescue "")
+      if !my_sid.empty? && sid.to_s.upcase.sub(/\ASID/, "") == my_sid.upcase.sub(/\ASID/, "")
+        MultiplayerUI::ProfilePanel.open(uuid: "self") if defined?(MultiplayerUI::ProfilePanel)
+        return
+      end
       uuid = _uuid_for_sid(sid)
+      if !uuid
+        # The cached player list may be empty or stale (e.g. the action came
+        # from the Squad menu, where the F3 Player List was never fetched).
+        # Request a fresh list and wait briefly -- same as the F3 list's
+        # _fetch_players -- then retry the UUID lookup.
+        # (Fixes Squad menu "View Profile" on a squadmate doing nothing.)
+        begin
+          MultiplayerClient.instance_variable_set(:@player_list, [])
+          MultiplayerClient.send_data("REQ_PLAYERS")
+          start = Time.now
+          while Time.now - start < 3.0
+            Graphics.update
+            Input.update
+            list = MultiplayerClient.instance_variable_get(:@player_list)
+            if list.is_a?(Array) && !list.empty?
+              uuid = _uuid_for_sid(sid)
+              break
+            end
+          end
+        rescue
+        end
+      end
       if uuid && defined?(MultiplayerUI::ProfilePanel)
         MultiplayerUI::ProfilePanel.open(uuid: uuid)
       else
+        # Visible feedback instead of a chat-only message nobody sees.
+        (pbMessage(_INTL("Profile not available for {1}.", name.to_s)) rescue nil)
         ChatMessages.add_message("Global", "SYSTEM", "System", "Profile not available for #{name}.")
       end
     when 1  # Send PM
@@ -792,10 +823,14 @@ module Input
       return nil
     end
 
+    qs = sid.to_s.upcase.sub(/\ASID/, "")
     list.each do |entry|
       entry_sid, _name, uuid = MultiplayerUI.parse_player_entry(entry)
       next unless entry_sid
-      if entry_sid.upcase == sid.to_s.upcase
+      # Fuzzy SID compare ("SID40" == "40") -- squad/roster sids and player-list
+      # sids don't always share the prefix format.
+      es = entry_sid.to_s.upcase.sub(/\ASID/, "")
+      if !es.empty? && es == qs
         return uuid if uuid && !uuid.empty?
       end
     end
