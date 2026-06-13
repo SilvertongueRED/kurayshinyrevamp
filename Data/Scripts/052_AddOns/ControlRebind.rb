@@ -885,6 +885,7 @@ class PokemonOption_Scene
   end
   def pbAddOnOptions(options)
     options = _rebind_orig_pbAddOnOptions(options)
+    return options unless self.class == PokemonOption_Scene
     begin
       options.push(ButtonOption.new(
         _INTL("Rebind Controls"),

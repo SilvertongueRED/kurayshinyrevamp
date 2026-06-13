@@ -564,13 +564,17 @@ class MultiplayerOptScene < PokemonOption_Scene
         next if my_name && player_entry.to_s.downcase.include?(my_name.to_s.downcase)
         next if my_sid && player_entry.to_s.include?(my_sid.to_s)
 
-        # Extract SID if format is "Name (SID)" or just use the entry as both
-        if player_entry =~ /^(.+)\s*\((\d+)\)$/
+        # Parse entry using the shared parser (format: "SID - Name - UUID")
+        if defined?(MultiplayerUI) && MultiplayerUI.respond_to?(:parse_player_entry)
+          parsed_sid, parsed_name, _uuid = MultiplayerUI.parse_player_entry(player_entry)
+          name = (parsed_name.to_s.strip.empty? ? player_entry.to_s : parsed_name.strip)
+          sid  = (parsed_sid.to_s.strip.empty?  ? player_entry.to_s : parsed_sid.strip)
+        elsif player_entry =~ /^(.+)\s*\(([^)]+)\)$/
           name = $1.strip
-          sid = $2
+          sid  = $2
         else
           name = player_entry.to_s
-          sid = player_entry.to_s
+          sid  = player_entry.to_s
         end
 
         players << { sid: sid, name: name }

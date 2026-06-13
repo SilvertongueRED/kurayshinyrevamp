@@ -1172,6 +1172,19 @@ end
 def obtainStarter(starterIndex=0)
   if($game_switches[SWITCH_RANDOM_STARTERS])
     starter=obtainRandomizedStarter(starterIndex)
+  elsif defined?(CustomSpeciesFramework) &&
+        defined?(CustomSpeciesFramework::MIXED_GENERATIONS_SWITCH_ID) &&
+        $game_switches[CustomSpeciesFramework::MIXED_GENERATIONS_SWITCH_ID]
+    # Mixed Generations: draw 3 starters from all regions' pools, cached per session
+    mixed = $PokemonGlobal.instance_variable_get(:@mixed_gen_starters)
+    if mixed.nil?
+      all_starters = Settings::KANTO_STARTERS + Settings::JOHTO_STARTERS +
+                     Settings::HOENN_STARTERS + Settings::SINNOH_STARTERS +
+                     Settings::KALOS_STARTERS
+      mixed = all_starters.sample(3)
+      $PokemonGlobal.instance_variable_set(:@mixed_gen_starters, mixed)
+    end
+    starter = mixed[starterIndex] || Settings::KANTO_STARTERS[starterIndex]
   else
     startersList = Settings::KANTO_STARTERS
     if $game_switches[SWITCH_JOHTO_STARTERS]
