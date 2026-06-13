@@ -1,0 +1,12 @@
+{
+  "name": "Summary Sprite Tools",
+  "id": "legacy_summary_sprite_tools",
+  "version": "1.0.0",
+  "author": "Unknown",
+  "description": "Adds extra sprite browsing helpers to Pokedex and summary-related screens.",
+  "tags": ["UI", "QoL"],
+  "dependencies": [],
+  "incompatible": [],
+  "settings": [],
+  "scripts": ["005_summary_sprite_tools.rb"]
+}

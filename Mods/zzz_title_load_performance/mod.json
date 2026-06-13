@@ -1,0 +1,7 @@
+{
+  "name": "Title Load Performance",
+  "version": "1.0",
+  "author": "Unknown",
+  "description": "Keeps the title/save-select screen responsive by deferring network checks and full save validation until after a save is selected, rather than doing them upfront before any menu appears.",
+  "key": "title_load_performance"
+}

@@ -1,0 +1,12 @@
+{
+  "name": "Blackscreen Transition Probe",
+  "id": "legacy_blackscreen_transition_probe",
+  "version": "1.0.0",
+  "author": "Local",
+  "description": "Keeps the retired blackscreen transition probe stubbed and harmless.",
+  "tags": ["Bug Fix"],
+  "dependencies": [],
+  "incompatible": [],
+  "settings": [],
+  "scripts": ["zzz_blackscreen_transition_probe.rb"]
+}
