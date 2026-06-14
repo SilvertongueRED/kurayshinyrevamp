@@ -1,0 +1,514 @@
+{
+  "_about": "PIF dex id -> KIF/NPT fork id. Identity for 1-552 and all base; divergent 553-572. April-2026 build.",
+  "identity_max": 552,
+  "pif_to_fork": {
+    "502": 502,
+    "503": 503,
+    "504": 504,
+    "505": 505,
+    "506": 506,
+    "507": 507,
+    "508": 508,
+    "509": 509,
+    "510": 510,
+    "511": 511,
+    "512": 512,
+    "513": 513,
+    "514": 514,
+    "515": 515,
+    "516": 516,
+    "517": 517,
+    "518": 518,
+    "519": 519,
+    "520": 520,
+    "521": 521,
+    "522": 522,
+    "523": 523,
+    "524": 524,
+    "525": 525,
+    "526": 526,
+    "527": 527,
+    "528": 528,
+    "529": 529,
+    "530": 530,
+    "531": 531,
+    "532": 532,
+    "533": 533,
+    "534": 534,
+    "535": 535,
+    "536": 536,
+    "537": 537,
+    "538": 538,
+    "539": 539,
+    "540": 540,
+    "541": 541,
+    "542": 542,
+    "543": 543,
+    "544": 544,
+    "545": 545,
+    "546": 546,
+    "547": 547,
+    "548": 548,
+    "549": 549,
+    "550": 550,
+    "551": 551,
+    "552": 552,
+    "553": 1038,
+    "554": 1039,
+    "555": 1040,
+    "556": 553,
+    "557": 581,
+    "558": 554,
+    "559": 555,
+    "560": 556,
+    "561": 557,
+    "562": 558,
+    "563": 559,
+    "564": 560,
+    "565": 561,
+    "566": 1109,
+    "567": 1110,
+    "568": 687,
+    "569": 688,
+    "570": 689,
+    "571": 737,
+    "572": 738
+  },
+  "new_register": {
+    "Noibat": 1109,
+    "Noivern": 1110
+  },
+  "castform_forms": {
+    "553": 1038,
+    "554": 1039,
+    "555": 1040
+  },
+  "rows": [
+    {
+      "pif_id": 502,
+      "species": "Poochyena",
+      "fork_id": 502,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 503,
+      "species": "Mightyena",
+      "fork_id": 503,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 504,
+      "species": "Zigzagoon",
+      "fork_id": 504,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 505,
+      "species": "Linoone",
+      "fork_id": 505,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 506,
+      "species": "Wurmple",
+      "fork_id": 506,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 507,
+      "species": "Silcoon",
+      "fork_id": 507,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 508,
+      "species": "Beautifly",
+      "fork_id": 508,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 509,
+      "species": "Cascoon",
+      "fork_id": 509,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 510,
+      "species": "Dustox",
+      "fork_id": 510,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 511,
+      "species": "Seedot",
+      "fork_id": 511,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 512,
+      "species": "Nuzleaf",
+      "fork_id": 512,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 513,
+      "species": "Shiftry",
+      "fork_id": 513,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 514,
+      "species": "Taillow",
+      "fork_id": 514,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 515,
+      "species": "Swellow",
+      "fork_id": 515,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 516,
+      "species": "Wingull",
+      "fork_id": 516,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 517,
+      "species": "Pelipper",
+      "fork_id": 517,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 518,
+      "species": "Surskit",
+      "fork_id": 518,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 519,
+      "species": "Masquerain",
+      "fork_id": 519,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 520,
+      "species": "Whismur",
+      "fork_id": 520,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 521,
+      "species": "Loudred",
+      "fork_id": 521,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 522,
+      "species": "Exploud",
+      "fork_id": 522,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 523,
+      "species": "Makuhita",
+      "fork_id": 523,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 524,
+      "species": "Hariyama",
+      "fork_id": 524,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 525,
+      "species": "Skitty",
+      "fork_id": 525,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 526,
+      "species": "Delcatty",
+      "fork_id": 526,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 527,
+      "species": "Meditite",
+      "fork_id": 527,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 528,
+      "species": "Medicham",
+      "fork_id": 528,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 529,
+      "species": "Electrike",
+      "fork_id": 529,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 530,
+      "species": "Manectric",
+      "fork_id": 530,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 531,
+      "species": "Plusle",
+      "fork_id": 531,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 532,
+      "species": "Minun",
+      "fork_id": 532,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 533,
+      "species": "Volbeat",
+      "fork_id": 533,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 534,
+      "species": "Illumise",
+      "fork_id": 534,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 535,
+      "species": "Gulpin",
+      "fork_id": 535,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 536,
+      "species": "Swalot",
+      "fork_id": 536,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 537,
+      "species": "Numel",
+      "fork_id": 537,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 538,
+      "species": "Camerupt",
+      "fork_id": 538,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 539,
+      "species": "Spoink",
+      "fork_id": 539,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 540,
+      "species": "Grumpig",
+      "fork_id": 540,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 541,
+      "species": "Spinda",
+      "fork_id": 541,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 542,
+      "species": "Zangoose",
+      "fork_id": 542,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 543,
+      "species": "Seviper",
+      "fork_id": 543,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 544,
+      "species": "Lunatone",
+      "fork_id": 544,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 545,
+      "species": "Solrock",
+      "fork_id": 545,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 546,
+      "species": "Barboach",
+      "fork_id": 546,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 547,
+      "species": "Whiscash",
+      "fork_id": 547,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 548,
+      "species": "Corphish",
+      "fork_id": 548,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 549,
+      "species": "Crawdaunt",
+      "fork_id": 549,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 550,
+      "species": "Baltoy",
+      "fork_id": 550,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 551,
+      "species": "Claydol",
+      "fork_id": 551,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 552,
+      "species": "Castform",
+      "fork_id": 552,
+      "status": "IDENTICAL"
+    },
+    {
+      "pif_id": 553,
+      "species": "Castform (Sunny)",
+      "fork_id": 1038,
+      "status": "FORM"
+    },
+    {
+      "pif_id": 554,
+      "species": "Castform (Rainy)",
+      "fork_id": 1039,
+      "status": "FORM"
+    },
+    {
+      "pif_id": 555,
+      "species": "Castform (Snowy)",
+      "fork_id": 1040,
+      "status": "FORM"
+    },
+    {
+      "pif_id": 556,
+      "species": "Tropius",
+      "fork_id": 553,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 557,
+      "species": "Chingling",
+      "fork_id": 581,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 558,
+      "species": "Chimecho",
+      "fork_id": 554,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 559,
+      "species": "Spheal",
+      "fork_id": 555,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 560,
+      "species": "Sealeo",
+      "fork_id": 556,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 561,
+      "species": "Walrein",
+      "fork_id": 557,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 562,
+      "species": "Clamperl",
+      "fork_id": 558,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 563,
+      "species": "Huntail",
+      "fork_id": 559,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 564,
+      "species": "Gorebyss",
+      "fork_id": 560,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 565,
+      "species": "Relicanth",
+      "fork_id": 561,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 566,
+      "species": "Noibat",
+      "fork_id": 1109,
+      "status": "NEW_REGISTER"
+    },
+    {
+      "pif_id": 567,
+      "species": "Noivern",
+      "fork_id": 1110,
+      "status": "NEW_REGISTER"
+    },
+    {
+      "pif_id": 568,
+      "species": "Tynamo",
+      "fork_id": 687,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 569,
+      "species": "Eelektrik",
+      "fork_id": 688,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 570,
+      "species": "Eelektross",
+      "fork_id": 689,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 571,
+      "species": "Skrelp",
+      "fork_id": 737,
+      "status": "REMAP"
+    },
+    {
+      "pif_id": 572,
+      "species": "Dragalge",
+      "fork_id": 738,
+      "status": "REMAP"
+    }
+  ]
+}

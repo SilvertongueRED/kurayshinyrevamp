@@ -225,14 +225,38 @@ module CustomSpeciesFramework
 
   def self.fusion_species_reference_valid?(species)
     components = fusion_species_reference_components(species)
-    return false if components.nil?
-    return false if !defined?(GameData::Species::DATA)
+    if !components.nil? && defined?(GameData::Species::DATA)
+      body_id, head_id = components
+      if body_id > 0 && head_id > 0 &&
+         GameData::Species::DATA.has_key?(body_id) &&
+         GameData::Species::DATA.has_key?(head_id)
+        return true
+      end
+    end
+    # A fused Pokemon may be stored as an integer fused id, or as a "B#H#"
+    # symbol whose components are not individually registered as integer DATA
+    # keys, or in the slash / "_x_" notations. These are always legitimate core
+    # species and must NEVER be treated as a missing custom species. try_get
+    # resolves every fusion form and (unlike get) never falls back to PIKACHU.
+    return true if species_reference_is_core_fusion?(species)
+    return false
+  end
 
-    body_id, head_id = components
-    return false if body_id <= 0 || head_id <= 0
-    return false if !GameData::Species::DATA.has_key?(body_id)
-    return false if !GameData::Species::DATA.has_key?(head_id)
-    return true
+  def self.species_reference_is_core_fusion?(species)
+    return false if species.nil?
+    if species.is_a?(Integer) && defined?(Settings) && defined?(Settings::NB_POKEMON)
+      return true if species > Settings::NB_POKEMON
+    end
+    return false if !defined?(GameData::Species)
+    resolved = GameData::Species.try_get(species) rescue nil
+    return false if resolved.nil?
+    return true if defined?(GameData::FusedSpecies) && resolved.is_a?(GameData::FusedSpecies)
+    if resolved.respond_to?(:id_number) && defined?(Settings) && defined?(Settings::NB_POKEMON)
+      return resolved.id_number.to_i > Settings::NB_POKEMON
+    end
+    return false
+  rescue
+    return false
   end
 
   def self.species_reference_valid?(species, allow_fusion_symbol = false)

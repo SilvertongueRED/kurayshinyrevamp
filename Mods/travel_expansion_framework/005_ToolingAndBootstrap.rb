@@ -310,6 +310,7 @@ module TravelExpansionFramework
 
   def save_species_available?(species)
     return false if species.nil?
+    return true if save_species_is_core_fusion?(species)
     if defined?(CustomSpeciesFramework) &&
        CustomSpeciesFramework.respond_to?(:active?) &&
        CustomSpeciesFramework.active? &&
@@ -320,6 +321,26 @@ module TravelExpansionFramework
     query = species.is_a?(String) ? species.to_sym : species
     return true if GameData::Species::DATA.has_key?(query)
     return true if species.is_a?(Integer) && GameData::Species::DATA.has_key?(species)
+    return false
+  rescue
+    return false
+  end
+
+  # A fused Pokemon (integer fused id, "B#H#" / slash / "_x_" symbol) is always
+  # legitimate core content and must never be replaced with a missing-species
+  # fallback, even when the Custom Species Framework is inactive.
+  def save_species_is_core_fusion?(species)
+    return false if species.nil?
+    if species.is_a?(Integer) && defined?(Settings) && defined?(Settings::NB_POKEMON)
+      return true if species > Settings::NB_POKEMON
+    end
+    return false if !defined?(GameData::Species)
+    resolved = GameData::Species.try_get(species) rescue nil
+    return false if resolved.nil?
+    return true if defined?(GameData::FusedSpecies) && resolved.is_a?(GameData::FusedSpecies)
+    if resolved.respond_to?(:id_number) && defined?(Settings) && defined?(Settings::NB_POKEMON)
+      return resolved.id_number.to_i > Settings::NB_POKEMON
+    end
     return false
   rescue
     return false
