@@ -43,6 +43,27 @@ if defined?(GameData) && defined?(GameData::Item)
           MessageTypes.set(MessageTypes::ItemDescriptions, 8001, "A sweet apple that makes Applin evolve into Appletun.")
         end
 
+        # Sachet (#8008)
+        unless GameData::Item.exists?(:SACHET)
+          register({
+            :id          => :SACHET,
+            :id_number   => 8008,
+            :name        => "Sachet",
+            :name_plural => "Sachets",
+            :pocket      => 1,
+            :price       => 0,
+            :description => "A fragrant sachet that makes Spritzee evolve into Aromatisse.",
+            :field_use   => 0,
+            :battle_use  => 0,
+            :type        => 0,
+            :move        => nil
+          })
+          MessageTypes.set(MessageTypes::Items,            8008, "Sachet")
+          MessageTypes.set(MessageTypes::ItemPlurals,      8008, "Sachets")
+          MessageTypes.set(MessageTypes::ItemDescriptions, 8008, "A fragrant sachet that makes Spritzee evolve into Aromatisse.")
+        end
+
+
         # ──────────────────────────────────────────────────────────
         # Tart Apple (#8002)
         # ──────────────────────────────────────────────────────────

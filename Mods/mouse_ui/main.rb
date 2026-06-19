@@ -1,6 +1,12 @@
 module MouseUI
   module_function
 
+  # Minimum pointer travel (pixels, Manhattan distance) needed to re-engage hover
+  # selection after a wheel/edge scroll. Tiny incidental jitter no longer snaps the
+  # selection back to the row under the cursor; only a deliberate move past this
+  # threshold hands control back to point-and-click hover.
+  MOUSE_HOVER_REACTIVATE_PX = 12
+
   @queued_buttons = {}
   @mouse_reactivate_origin = nil
 
@@ -51,7 +57,9 @@ module MouseUI
       @mouse_reactivate_origin = nil
       return true
     end
-    moved = (pos[0] != @mouse_reactivate_origin[0] || pos[1] != @mouse_reactivate_origin[1])
+    dx = (pos[0] - @mouse_reactivate_origin[0]).abs
+    dy = (pos[1] - @mouse_reactivate_origin[1]).abs
+    moved = (dx + dy) >= MOUSE_HOVER_REACTIVATE_PX
     @mouse_reactivate_origin = nil if moved
     return moved
   rescue
@@ -115,7 +123,7 @@ module MouseUI
   end
 
   def wheel_direction
-    wheel = (Input.mouse_wheel rescue 0).to_i
+    wheel = (Input.scroll_v rescue 0).to_i
     return -1 if wheel > 0
     return 1 if wheel < 0
     return 0
@@ -520,6 +528,9 @@ class PokemonSystem
   attr_accessor :mouse_ui_center_run_expand_px
   attr_accessor :mouse_ui_hover_throttle_level
   attr_accessor :mouse_ui_load_scroll_cooldown
+  attr_accessor :mouse_ui_hover_select_mode
+  attr_accessor :mouse_ui_scroll_speed
+  attr_accessor :mouse_ui_cursor_se_volume
 
   alias mouse_ui_map_control_original_initialize initialize unless method_defined?(:mouse_ui_map_control_original_initialize)
   def initialize
@@ -531,7 +542,77 @@ class PokemonSystem
     @mouse_ui_center_run_expand_px = 28 if @mouse_ui_center_run_expand_px.nil?
     @mouse_ui_hover_throttle_level = 2 if @mouse_ui_hover_throttle_level.nil?
     @mouse_ui_load_scroll_cooldown = 4 if @mouse_ui_load_scroll_cooldown.nil?
+    @mouse_ui_hover_select_mode = 0 if @mouse_ui_hover_select_mode.nil?
+    if @mouse_ui_scroll_speed.nil?
+      if !@mouse_ui_hover_throttle_level.nil?
+        @mouse_ui_scroll_speed = 9 - (@mouse_ui_hover_throttle_level.to_i * 2)
+        @mouse_ui_scroll_speed = 1 if @mouse_ui_scroll_speed < 1
+        @mouse_ui_scroll_speed = 10 if @mouse_ui_scroll_speed > 10
+      else
+        @mouse_ui_scroll_speed = 2
+      end
+    end
+    @mouse_ui_cursor_se_volume = 100 if @mouse_ui_cursor_se_volume.nil?
   end
+end
+
+# A NumberOption whose value renders as "6/10" instead of "Type 6/10". Used only
+# by the Mouse Options menu; every other NumberOption keeps the stock "Type" label.
+if defined?(Window_PokemonOption) && defined?(NumberOption)
+  class MouseNumberOption < NumberOption; end
+
+  class Window_PokemonOption
+    unless method_defined?(:mouse_ui_no_type_drawItem)
+      alias mouse_ui_no_type_drawItem drawItem
+    end
+
+    def drawItem(index, count, rect)
+      opt = (index < @options.length) ? @options[index] : nil
+      if opt.is_a?(MouseNumberOption)
+        rect = drawCursor(index, rect)
+        optionwidth = rect.width * 9 / 20
+        namebase = @nameBaseColor || self.baseColor
+        nameshadow = @nameShadowColor || self.shadowColor
+        pbDrawShadowText(self.contents, rect.x, rect.y, optionwidth, rect.height,
+                         opt.name, namebase, nameshadow)
+        value = _INTL("{1}/{2}", opt.optstart + self[index],
+                      opt.optend - opt.optstart + 1)
+        xpos = optionwidth + rect.x
+        pbDrawShadowText(self.contents, xpos, rect.y, optionwidth, rect.height,
+                         value, @selBaseColor, @selShadowColor)
+      else
+        mouse_ui_no_type_drawItem(index, count, rect)
+      end
+    end
+  end
+end
+
+# Scale the cursor-move SE by the Mouse Options "Cursor Sound Volume" slider.
+# Default 100 leaves stock behavior untouched; lower values quiet the move blip.
+unless defined?(mouse_ui_original_pbPlayCursorSE)
+  alias mouse_ui_original_pbPlayCursorSE pbPlayCursorSE
+end
+def pbPlayCursorSE
+  vol = 100
+  if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_cursor_se_volume)
+    vol = ($PokemonSystem.mouse_ui_cursor_se_volume || 100).to_i
+  end
+  return mouse_ui_original_pbPlayCursorSE if vol >= 100
+  return if vol <= 0
+  scale = vol / 100.0
+  if $data_system && $data_system.respond_to?("cursor_se") &&
+     $data_system.cursor_se && $data_system.cursor_se.name != ""
+    se = $data_system.cursor_se
+    pbSEPlay(se.name, (se.volume * scale).round, se.pitch)
+  elsif $data_system && $data_system.respond_to?("sounds") &&
+     $data_system.sounds && $data_system.sounds[0] && $data_system.sounds[0].name != ""
+    se = $data_system.sounds[0]
+    pbSEPlay(se.name, (se.volume * scale).round, se.pitch)
+  elsif FileTest.audio_exist?("Audio/SE/GUI sel cursor")
+    pbSEPlay("GUI sel cursor", (80 * scale).round)
+  end
+rescue
+  (mouse_ui_original_pbPlayCursorSE rescue nil)
 end
 
 if defined?(PokemonOption_Scene)
@@ -632,19 +713,26 @@ if defined?(PokemonOption_Scene)
         },
         "In center mode, no movement inside this radius"
       )
-      options << EnumOption.new(_INTL("List Scroll Throttle"), [_INTL("VFast"), _INTL("Fast"), _INTL("Norm"), _INTL("Slow"), _INTL("VSlow")],
-        proc { ($PokemonSystem.mouse_ui_hover_throttle_level || 2) },
-        proc { |value| $PokemonSystem.mouse_ui_hover_throttle_level = value },
-        ["Fastest stepped hover scrolling for long lists",
-         "Faster stepped hover scrolling for long lists",
-         "Balanced stepped hover scrolling for long lists",
-         "Slower stepped hover scrolling speed",
-         "Slowest stepped hover scrolling speed"]
+      options << EnumOption.new(_INTL("Hover Mode"), [_INTL("Direct"), _INTL("Stepped")],
+        proc { ($PokemonSystem.mouse_ui_hover_select_mode || 0) },
+        proc { |value| $PokemonSystem.mouse_ui_hover_select_mode = value },
+        ["Point and click: the cursor jumps straight to the item under the mouse.",
+         "Legacy: in long lists the cursor steps toward the hovered item (uses throttle below)."]
       )
-      options << NumberOption.new(_INTL("Load Edge Scroll Delay"), 0, 15,
+      options << MouseNumberOption.new(_INTL("Scroll Speed"), 1, 10,
+        proc { ($PokemonSystem.mouse_ui_scroll_speed || 2) },
+        proc { |value| $PokemonSystem.mouse_ui_scroll_speed = value },
+        "How quickly to scroll a menu/list (1 = slowest, 10 = fastest)"
+      )
+      options << MouseNumberOption.new(_INTL("Load Edge Scroll Delay"), 0, 15,
         proc { ($PokemonSystem.mouse_ui_load_scroll_cooldown || 4) },
         proc { |value| $PokemonSystem.mouse_ui_load_scroll_cooldown = value },
         "Frames to wait before edge-hover scrolling advances the load list again"
+      )
+      options << SliderOption.new(_INTL("Cursor Sound Volume"), 0, 100, 5,
+        proc { ($PokemonSystem.mouse_ui_cursor_se_volume || 100) },
+        proc { |value| $PokemonSystem.mouse_ui_cursor_se_volume = value },
+        "Volume of the cursor-move sound effect (0 = silent, 100 = default)"
       )
       return options
     end
@@ -1780,6 +1868,60 @@ class Window_PokemonOption
     return [lx, ly]
   end
 
+  # Wheel over a CHANGEABLE VALUE control (slider bar / number / enum words on
+  # the right of a row) adjusts that value; wheel over the label on the left (or
+  # any non-value row) scrolls the menu rows. This overrides the generic
+  # SpriteWindow_Selectable wheel handler the option window calls on every wheel
+  # notch, so the decision lives in one place and never double-fires.
+  def pbMouseUIApplyWheelScroll(direction)
+    return if direction == 0
+    pos = MouseUI.pointer_position
+    if pos
+      idx = pbMouseUIIndexAtMouse(pos[0], pos[1])
+      if !idx.nil? && idx >= 0 && idx < @options.length &&
+         pbMouseUIWheelOverValue?(idx, pos[0], pos[1])
+        option = @options[idx]
+        old_value = self[idx]
+        self.index = idx if idx != self.index
+        new_value = (direction < 0) ? option.prev(self[idx]) : option.next(self[idx])
+        if new_value != old_value
+          self[idx] = new_value
+          @selected_position = self[idx]
+          @mustUpdateOptions = true
+          @mustUpdateDescription = true
+          refresh
+          pbPlayCursorSE
+        end
+        MouseUI.require_mouse_reactivation
+        return
+      end
+    end
+    # Not pointing at a changeable value: navigate the rows like a normal list.
+    super
+  rescue
+    (super rescue nil)
+  end
+
+  # True when the pointer is over the VALUE region (right side) of a row that
+  # holds a scroll-adjustable value (slider / number / enum). The label text on
+  # the left half is NOT a value region, so hovering a label scrolls the rows.
+  def pbMouseUIWheelOverValue?(idx, mx, my)
+    return false if idx.nil? || idx < 0 || idx >= @options.length
+    option = @options[idx]
+    return false unless option.is_a?(SliderOption) ||
+                        option.is_a?(NumberOption) ||
+                        option.is_a?(EnumOption)
+    rect = itemRect(idx)
+    return false if !rect
+    lx, ly = pbMouseUIOptionLocalXY(mx, my)
+    return false if lx.nil? || ly.nil?
+    return false if ly < rect.y || ly >= rect.y + rect.height
+    optionwidth = rect.width * 9 / 20
+    return lx >= rect.x + optionwidth
+  rescue
+    false
+  end
+
   def pbMouseUISliderValueFor(index, lx)
     return nil if index < 0 || index >= @options.length
     return nil if !@options[index].is_a?(SliderOption)
@@ -1837,35 +1979,21 @@ class Window_PokemonOption
     mx = pos[0]
     my = pos[1]
 
-    if MouseUI.mouse_hover_active?
+    # Only move the selection to the row under the cursor when the pointer has
+    # physically moved since last frame. A still pointer (e.g. while wheel-
+    # scrolling) must never snap the selector back to the cursor's row.
+    opt_pointer_moved = (@mouse_ui_opt_last_pos.nil? ||
+                         @mouse_ui_opt_last_pos[0] != mx ||
+                         @mouse_ui_opt_last_pos[1] != my)
+    @mouse_ui_opt_last_pos = [mx, my]
+    if opt_pointer_moved && MouseUI.mouse_hover_active?
       hover = pbMouseUIIndexAtMouse(mx, my)
       self.index = hover if !hover.nil? && hover != self.index
     end
 
     lx, ly = pbMouseUIOptionLocalXY(mx, my)
-    wheel_direction = MouseUI.wheel_direction
-    if wheel_direction != 0
-      idx = pbMouseUIIndexAtMouse(mx, my)
-      idx = self.index if idx.nil?
-      if idx >= 0 && idx < @options.length
-        option = @options[idx]
-        if option.is_a?(EnumOption) || option.is_a?(SliderOption) || option.is_a?(NumberOption)
-          old_index = self.index
-          old_value = self[idx]
-          self.index = idx if idx != self.index
-          new_value = (wheel_direction < 0) ? option.prev(self[idx]) : option.next(self[idx])
-          if new_value != old_value || self.index != old_index
-            self[idx] = new_value if new_value != old_value
-            @selected_position = self[idx]
-            @mustUpdateOptions = true
-            @mustUpdateDescription = true
-            pbPlayCursorSE
-            MouseUI.require_mouse_reactivation
-            return
-          end
-        end
-      end
-    end
+    # Wheel scrolling is handled in pbMouseUIApplyWheelScroll (below): over a
+    # value control it adjusts the value, over a label it navigates the rows.
 
     if defined?(Input::MOUSELEFT) && Input.trigger?(Input::MOUSELEFT)
       idx = self.index
@@ -2147,16 +2275,25 @@ class SpriteWindow_Selectable
       @mouse_ui_hover_wait = 0
     end
 
+    # Only re-evaluate the hovered item when the pointer actually moves. A still
+    # pointer never changes the selection, so point-and-click stays put until the
+    # user clicks, and the list can never "run away" while the mouse is idle.
+    pointer_moved = (@mouse_ui_last_hover_pos.nil? ||
+                     @mouse_ui_last_hover_pos[0] != mx ||
+                     @mouse_ui_last_hover_pos[1] != my)
+    @mouse_ui_last_hover_pos = [mx, my]
+
+    stepped = pbMouseUIUseSteppedHover?
     hovered_index = nil
-    if hover_active
+    if hover_active && (pointer_moved || stepped)
       hovered_index = pbMouseUIIndexAtMouse(mx, my)
       if !hovered_index.nil?
-        if pbMouseUIUseSteppedHover?
+        if stepped
           pbMouseUIApplySteppedHover(hovered_index)
         else
-          old_index = self.index
-          self.index = hovered_index
-          pbPlayCursorSE() if old_index != self.index
+          # Direct point-and-click: jump straight to the item under the cursor
+          # without letting the engine recenter/scroll the list out from under it.
+          pbMouseUISetIndexNoScroll(hovered_index)
         end
       else
         @mouse_ui_hover_target = nil
@@ -2167,9 +2304,7 @@ class SpriteWindow_Selectable
     if defined?(Input::MOUSELEFT) && Input.trigger?(Input::MOUSELEFT)
       clicked_index = pbMouseUIIndexAtMouse(mx, my)
       return if clicked_index.nil?
-      old_index = self.index
-      self.index = clicked_index
-      pbPlayCursorSE() if old_index != self.index
+      pbMouseUISetIndexNoScroll(clicked_index)
       MouseUI.queue_confirm
     elsif defined?(Input::MOUSERIGHT) && Input.trigger?(Input::MOUSERIGHT)
       return unless pbMouseUIPointInsideWindow?(mx, my)
@@ -2177,9 +2312,109 @@ class SpriteWindow_Selectable
     end
   end
 
+  # Select the item under the cursor WITHOUT scrolling the list. The engine
+  # normally recenters the selected row (see priv_update_cursor_rect), which makes
+  # a hovered item slide to the middle and the rows shift under the pointer. For
+  # point-and-click we keep the list still: set the index, then if that triggered
+  # a scroll, restore the previous scroll position and reposition the cursor over
+  # the row the user is actually pointing at.
+  def pbMouseUISetIndexNoScroll(new_index)
+    return if new_index.nil?
+    old_index = self.index
+    return if new_index == old_index
+    old_top_row = self.respond_to?(:top_row) ? self.top_row : nil
+    self.index = new_index
+    if !old_top_row.nil? && self.respond_to?(:top_row=) && self.top_row != old_top_row
+      self.top_row = old_top_row
+      pbMouseUIRepositionCursor
+      self.refresh if self.respond_to?(:refresh)
+    end
+    pbPlayCursorSE() if self.index != old_index
+  rescue
+    (self.index = new_index) rescue nil
+  end
+
+  def pbMouseUIRepositionCursor
+    return unless self.respond_to?(:cursor_rect) && self.cursor_rect
+    cols = self.respond_to?(:columns) ? self.columns.to_i : 1
+    cols = 1 if cols <= 0
+    rh = self.respond_to?(:rowHeight) ? self.rowHeight.to_i : 32
+    rh = 32 if rh <= 0
+    spacing = self.respond_to?(:columnSpacing) ? self.columnSpacing.to_i : 0
+    top_row = self.respond_to?(:top_row) ? self.top_row.to_i : 0
+    cursor_width = (self.width - self.borderX) / cols
+    cx = (self.index % cols) * (cursor_width + spacing)
+    cy = (self.index / cols) * rh - (top_row * rh)
+    self.cursor_rect.set(cx, cy, cursor_width, rh)
+  rescue
+  end
+
   def pbMouseUIApplyWheelScroll(direction)
     return if direction == 0
+    # Direct point-and-click mode: the wheel scrolls the list a few rows in the
+    # wheel's direction. We do this by moving the SELECTION, because this engine's
+    # priv_update_cursor_rect always recenters the view on the selected index --
+    # detaching the view (top_row only) gets snapped back next frame, so a pure
+    # view-scroll made the wheel look dead. Moving the index makes the engine
+    # scroll the view to follow, which works on every list window. Legacy/Stepped
+    # mode keeps the old single-row selection move.
+    if pbMouseUIDirectModeActive?
+      pbMouseUIWheelScrollView(direction)
+    else
+      pbMouseUIWheelMoveSelection(direction)
+    end
+  rescue
+    @mouse_ui_hover_target = nil
+    @mouse_ui_hover_wait = 0
+  end
 
+  def pbMouseUIDirectModeActive?
+    mode = 0
+    if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_hover_select_mode)
+      mode = ($PokemonSystem.mouse_ui_hover_select_mode || 0).to_i
+    end
+    return mode != 1
+  rescue
+    return true
+  end
+
+  def pbMouseUIWheelRowStep
+    speed = 5
+    if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_scroll_speed)
+      speed = ($PokemonSystem.mouse_ui_scroll_speed || 2).to_i
+    end
+    speed = 1 if speed < 1
+    speed = 10 if speed > 10
+    return [(speed * 0.4).round, 1].max
+  end
+
+  def pbMouseUIWheelScrollView(direction)
+    # Scroll by moving the selection a few rows. self.index= triggers the engine's
+    # priv_update_cursor_rect, which scrolls the view to keep the index visible, so
+    # the list reliably moves up/down. Single-column lists step pbMouseUIWheelRowStep
+    # rows per notch; multi-column grids move the same number of rows.
+    return if @item_max.nil? || @item_max <= 0
+    cols = pbMouseUIWheelStep
+    cols = 1 if cols.nil? || cols <= 0
+    rows = pbMouseUIWheelRowStep
+    rows = 1 if rows.nil? || rows <= 0
+    old_index = self.index || 0
+    old_index = 0 if old_index < 0
+    new_index = old_index + (direction * rows * cols)
+    new_index = 0 if new_index < 0
+    new_index = @item_max - 1 if new_index >= @item_max
+    return if new_index == old_index
+    self.index = new_index
+    @mouse_ui_hover_target = nil
+    @mouse_ui_hover_wait = 0
+    MouseUI.require_mouse_reactivation
+    pbPlayCursorSE()
+  rescue
+    @mouse_ui_hover_target = nil
+    @mouse_ui_hover_wait = 0
+  end
+
+  def pbMouseUIWheelMoveSelection(direction)
     old_index = self.index || 0
     old_index = 0 if old_index < 0
     step = pbMouseUIWheelStep
@@ -2187,7 +2422,6 @@ class SpriteWindow_Selectable
     new_index = 0 if new_index < 0
     new_index = @item_max - 1 if new_index >= @item_max
     return if new_index == old_index
-
     self.index = new_index
     @mouse_ui_hover_target = nil
     @mouse_ui_hover_wait = 0
@@ -2209,6 +2443,13 @@ class SpriteWindow_Selectable
   end
 
   def pbMouseUIUseSteppedHover?
+    # Default behavior is Direct point-and-click (mode 0). Stepped crawl (mode 1)
+    # is kept only as an opt-in legacy fallback.
+    mode = 0
+    if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_hover_select_mode)
+      mode = ($PokemonSystem.mouse_ui_hover_select_mode || 0).to_i
+    end
+    return false if mode != 1
     return false if defined?(PokemonPauseMenu_Scene) && $scene && $scene.is_a?(PokemonPauseMenu_Scene)
     return false if !self.respond_to?(:page_item_max)
     return false if self.page_item_max.nil?
@@ -2252,13 +2493,13 @@ class SpriteWindow_Selectable
     else
       MOUSE_UI_HOVER_MIN_DELAY
     end
-    throttle_offsets = [-2, -1, 0, 2, 4]
-    level = 2
-    if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_hover_throttle_level)
-      level = ($PokemonSystem.mouse_ui_hover_throttle_level || level).to_i
+    speed = 5
+    if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_scroll_speed)
+      speed = ($PokemonSystem.mouse_ui_scroll_speed || 2).to_i
     end
-    level = [[level, 0].max, throttle_offsets.length - 1].min
-    adjusted = base + throttle_offsets[level]
+    speed = 1 if speed < 1
+    speed = 10 if speed > 10
+    adjusted = base + ((5 - speed) * 0.7).round
     adjusted = 0 if adjusted < 0
     return adjusted
   rescue

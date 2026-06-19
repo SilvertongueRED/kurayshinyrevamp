@@ -205,6 +205,18 @@ class PokeBattle_Battler
     return self.gender
   end
 
+  # GhostBattle Classic+ databox helper: battler-level mixed/split-gender
+  # ("pizza") indicator, illusion-aware like displayGender above. KIF's base
+  # defines pizza? only on the Pokemon, so the mod's @battler.displayGenderPizza
+  # call raised NoMethodError on every non-EBDX databox refresh -> the infinite
+  # battle-start animation loop in Ghost Classic+ / Vanilla UI. respond_to? guard
+  # keeps it safe if pizza? is ever unavailable (falls back to normal gender).
+  def displayGenderPizza
+    pkmn = @effects[PBEffects::Illusion] || self.pokemon
+    return false unless pkmn && pkmn.respond_to?(:pizza?)
+    return pkmn.pizza?
+  end
+
   def displayForm
     return @effects[PBEffects::Illusion].form if @effects[PBEffects::Illusion]
     return self.form

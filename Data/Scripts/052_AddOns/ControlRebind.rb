@@ -279,6 +279,163 @@ module ControlRebind
     (MP_DEFAULT_KEYS[key] rescue "") || ""
   end
 
+  # ===========================================================================
+  # F1-PARITY CONTROLLER BINDINGS  (keybindings.mkxp1)        [added 2026-06-16]
+  #
+  # The engine's native F1 "Key Bindings" menu reads/writes Data/keybindings.mkxp1
+  # -- a binary BindingMap that is the REAL source of truth for which physical
+  # pad button maps to which logical RGSS button. The 8 action rows of THIS menu
+  # now read & rewrite the CONTROLLER entries of that SAME file, so the in-game
+  # (controller-friendly) menu and the F1 menu always agree: rebinding "Confirm"
+  # to Pad Y here changes the very entry the F1 menu lists. mkxp-z loads the map
+  # only at boot and exposes no Ruby hot-reload, so changes apply on NEXT launch.
+  #
+  # Binary format (formVer 2):
+  #   header : <III  = formVer(2), rgssVer, count
+  #   entry  : count x 16 bytes = type(i32) u0(i32) u1(i32) target(i32)
+  #            type 1=keyboard scancode(u0)  2=controller button(SDL index u0)
+  #                 3=hat  4=axis
+  #            target = RGSS Input id; in this engine the Input constant value IS
+  #            that id (A=11 B=12 C=13 X=14 Y=15 Z=16 L=17 R=18), so identity.
+  # ===========================================================================
+  def self.kb_target_for(action); action; end
+
+  # Ordered catalog of assignable physical controller buttons a :btn row cycles
+  # through (SDL game-controller button index -> short label). Pad A is the
+  # bottom/South face button, Pad B the right/East face button, etc.
+  KB_CBTN_CATALOG = [
+    [0, "Pad A"], [1, "Pad B"], [2, "Pad X"], [3, "Pad Y"], [4, "Back"],
+    [6, "Start"], [9, "L-Btn"], [10, "R-Btn"], [7, "L-Stick"], [8, "R-Stick"],
+    [11, "D-Up"], [12, "D-Down"], [13, "D-Left"], [14, "D-Right"], [5, "Guide"]
+  ] unless const_defined?(:KB_CBTN_CATALOG)
+
+  def self.kb_cbtn_label(sdl)
+    return _INTL("(none)") if sdl.nil?
+    ent = KB_CBTN_CATALOG.find { |i, _l| i == sdl }
+    ent ? ent[1] : "Btn #{sdl}"
+  rescue
+    "?"
+  end
+
+  def self.kb_path
+    d = (System.data_directory rescue nil)
+    if d && !d.empty?
+      d += "/" unless d.end_with?("/") || d.end_with?("\\")
+      return d + "keybindings.mkxp1"
+    end
+    File.join(Dir.pwd, "Data", "keybindings.mkxp1")
+  rescue
+    File.join(Dir.pwd, "Data", "keybindings.mkxp1")
+  end
+
+  # Parse the binary file -> {:form,:rgss,:entries=>[{:t,:u0,:u1,:tgt},...]} or
+  # nil if missing / unreadable / not formVer 2. Round-trips byte-exact.
+  def self.kb_parse
+    path = kb_path
+    return nil unless File.exist?(path)
+    data = File.binread(path)
+    return nil if data.bytesize < 12
+    form, rgss, count = data[0, 12].unpack("l<l<l<")
+    return nil unless form == 2
+    entries = []; off = 12
+    count.times do
+      break if off + 16 > data.bytesize
+      t, u0, u1, tgt = data[off, 16].unpack("l<l<l<l<")
+      entries << { :t => t, :u0 => u0, :u1 => u1, :tgt => tgt }
+      off += 16
+    end
+    { :form => form, :rgss => rgss, :entries => entries }
+  rescue
+    nil
+  end
+
+  def self.kb_serialize(parsed)
+    e = parsed[:entries]
+    out = [parsed[:form], parsed[:rgss], e.length].pack("l<l<l<")
+    e.each { |h| out << [h[:t], h[:u0], h[:u1], h[:tgt]].pack("l<l<l<l<") }
+    out
+  end
+
+  # Write back, making a one-time .kbbak backup first. Returns true on success.
+  def self.kb_write(parsed)
+    path = kb_path
+    bak  = path + ".kbbak"
+    File.binwrite(bak, File.binread(path)) if File.exist?(path) && !File.exist?(bak)
+    File.binwrite(path, kb_serialize(parsed))
+    true
+  rescue
+    false
+  end
+
+  # Load entries for the menu session + ROOT-CAUSE SANITIZE: no single physical
+  # pad button may map to TWO logical actions (that makes one press fire two
+  # buttons -- the duplicate-input / "Pad B also confirms" class). Keep the first
+  # mapping per physical button, drop later ones; also drop byte-identical dups.
+  def self.kb_menu_load
+    @kb_parsed = kb_parse
+    @kb_dirty  = false
+    return unless @kb_parsed
+    seen_btn = {}; seen_all = {}; kept = []
+    @kb_parsed[:entries].each do |h|
+      sig = [h[:t], h[:u0], h[:u1], h[:tgt]]
+      next if seen_all[sig]
+      seen_all[sig] = true
+      if h[:t] == 2
+        next if seen_btn.key?(h[:u0])
+        seen_btn[h[:u0]] = true
+      end
+      kept << h
+    end
+    if kept.length != @kb_parsed[:entries].length
+      @kb_parsed[:entries] = kept
+      @kb_dirty = true
+    end
+  rescue
+    @kb_parsed = nil
+  end
+
+  # SDL index currently bound to a logical action (nil if no controller entry).
+  def self.kb_cbtn_for(action)
+    return nil unless @kb_parsed
+    tgt = kb_target_for(action)
+    ent = @kb_parsed[:entries].find { |h| h[:t] == 2 && h[:tgt] == tgt }
+    ent ? ent[:u0] : nil
+  rescue
+    nil
+  end
+
+  # Bind (or, with nil, clear) the controller button for an action. Enforces
+  # exclusivity: the chosen pad button is removed from any OTHER action first, so
+  # one physical button never maps to two logical actions.
+  def self.kb_set_cbtn(action, sdl)
+    return unless @kb_parsed
+    tgt = kb_target_for(action)
+    es  = @kb_parsed[:entries]
+    es.reject! { |h| h[:t] == 2 && (h[:tgt] == tgt || (sdl && h[:u0] == sdl)) }
+    es << { :t => 2, :u0 => sdl, :u1 => 0, :tgt => tgt } unless sdl.nil?
+    @kb_dirty = true
+  rescue
+    nil
+  end
+
+  def self.kb_cycle(action, dir)
+    list = [nil] + KB_CBTN_CATALOG.map { |i, _l| i }
+    cur  = kb_cbtn_for(action)
+    i    = list.index(cur) || 0
+    kb_set_cbtn(action, list[(i + dir) % list.length])
+  rescue
+    nil
+  end
+
+  def self.kb_commit_if_dirty
+    return false unless @kb_dirty && @kb_parsed
+    ok = kb_write(@kb_parsed)
+    @kb_dirty = false if ok
+    ok
+  rescue
+    false
+  end
+
   def self.defaults
     h = {}
     buttons.each { |b| h[b] = b }
@@ -598,6 +755,7 @@ module ControlRebind
 
   def self.open_menu
     ensure_init
+    kb_menu_load
     @bypass = true
     vp = Viewport.new(0, 0, Graphics.width, Graphics.height)
     vp.z = 99999
@@ -664,17 +822,22 @@ module ControlRebind
         r = rows[sel]
         if r[:type] == :reset
           reset!; redraw = true; (pbPlayDecisionSE rescue nil)
+        elsif r[:type] == :btn
+          # Action rows bind a PHYSICAL controller button straight into the F1
+          # keybindings file. Confirm advances to the next pad button.
+          kb_cycle(r[:key], 1); redraw = true; (pbPlayDecisionSE rescue nil)
         else
-          # Enter classic hold-to-bind: now hold the button/key/mouse to assign.
+          # MP rows keep classic hold-to-bind capture.
           listening = true; armed = false; hold_src = nil; hold_cnt = 0
           (pbPlayDecisionSE rescue nil)
           draw_menu(spr.bitmap, rows, sel, true, 0)
         end
       elsif Input.trigger?(Input::LEFT) || Input.trigger?(Input::RIGHT)
-        # Left/Right now CLEARS a binding (btn -> default, MP -> unbound).
         r = rows[sel]
+        dir = (Input.trigger?(Input::LEFT) ? -1 : 1)
         if r[:type] == :btn
-          @remap[r[:key]] = r[:key]; redraw = true; (pbPlayCancelSE rescue nil)
+          # Cycle the physical controller button bound to this action.
+          kb_cycle(r[:key], dir); redraw = true; (pbPlayCursorSE rescue nil)
         elsif r[:type] == :mp
           mp_bind[r[:key]] = nil; redraw = true; (pbPlayCancelSE rescue nil)
         end
@@ -684,9 +847,13 @@ module ControlRebind
       end
     end
     save
+    kb_changed = kb_commit_if_dirty
     spr.bitmap.dispose if spr.bitmap && !spr.bitmap.disposed?
     spr.dispose unless spr.disposed?
     vp.dispose unless vp.disposed?
+    if kb_changed
+      (pbMessage(_INTL("Controller buttons were saved into the game's key bindings (the same ones the F1 menu uses).\nThey take effect the next time you start the game.")) rescue nil)
+    end
   rescue
     nil
   ensure
@@ -696,9 +863,9 @@ module ControlRebind
   def self.row_description(r)
     return "" unless r
     case r[:type]
-    when :btn   then action_descriptions[r[:key]] || ""
+    when :btn   then (action_descriptions[r[:key]] || "") + _INTL("  [L/R picks the controller button -- saved to the F1 key bindings; applies next launch.]")
     when :mp    then (mp_action_descriptions[r[:key]] || "") + _INTL("  (bind a controller button, keyboard key, or mouse button)")
-    when :reset then _INTL("Restore every action and MP binding to its default.")
+    when :reset then _INTL("Restore the MP hotkeys to their defaults. (Controller buttons are managed per action row and are not changed here.)")
     else ""
     end
   rescue
@@ -742,9 +909,9 @@ module ControlRebind
     # Two-line instructions (bigger than the old single line, with breathing room).
     bmp.font.size = 18 rescue nil
     pbDrawShadowText(bmp, 0, title_h + 2, w, 18,
-      _INTL("Up/Down: move    Confirm/click: rebind    L/R: clear"), dim, shadow, 1)
+      _INTL("Up/Down: move    Action rows: L/R picks a controller button"), dim, shadow, 1)
     pbDrawShadowText(bmp, 0, title_h + 20, w, 18,
-      _INTL("Hold a button / key to assign    Start / Esc: exit"), dim, shadow, 1)
+      _INTL("MP rows: Confirm, then hold a button/key/mouse.    Start / Esc: exit"), dim, shadow, 1)
 
     btn_rows = (0...rows.length).select { |i| rows[i][:type] == :btn }
     other    = (0...rows.length).select { |i| rows[i][:type] != :btn }
@@ -764,9 +931,9 @@ module ControlRebind
       else
         pbDrawShadowText(bmp, x_label, y, x_val - x_label - 4, rowh - 2, r[:label], col, shadow, 0)
         if r[:type] == :btn
-          src = @remap[r[:key]] || r[:key]
-          changed = (src != r[:key])
-          pbDrawShadowText(bmp, x_val, y, 116, rowh - 2, "< #{source_name(src)} >", (changed ? chg : col), shadow, 0)
+          sdl = kb_cbtn_for(r[:key])
+          changed = !sdl.nil?
+          pbDrawShadowText(bmp, x_val, y, 124, rowh - 2, "< #{kb_cbtn_label(sdl)} >", (changed ? chg : dim), shadow, 0)
         else
           b = mp_bind[r[:key]]
           pbDrawShadowText(bmp, x_val, y, 116, rowh - 2, "< #{mp_source_name(b)} >", (b ? chg : dim), shadow, 0)

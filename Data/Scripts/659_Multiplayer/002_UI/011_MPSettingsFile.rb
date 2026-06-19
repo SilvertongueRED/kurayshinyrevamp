@@ -29,6 +29,7 @@ module MPSettingsFile
     mp_skip_trainer_anim
     mp_ebdx_zoom_disabled
     mp_ebdx_enabled
+    mp_ghost_visuals_enabled
     mp_stat_stage_overlay
     mp_overworld_zoom
     mp_family_outline_animated

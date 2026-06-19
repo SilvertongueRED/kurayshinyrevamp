@@ -3544,6 +3544,59 @@ if defined?(BattleHandlers) && defined?(BattleHandlers::UserAbilityEndOfMove)
 end
 
 #===============================================================================
+# AS ONE variants (NPT data-integrity fix)
+#   :ASONEGLASTRIER  (Calyrex-Ice)    = Unnerve + Chilling Neigh (Atk +1 on KO)
+#   :ASONESPECTRIER  (Calyrex-Shadow) = Unnerve + Grim Neigh     (SpAtk +1 on KO)
+# 001_Registration assigns these symbols to CALYREX_1/_2 and 005_Abilities now
+# registers them as distinct abilities. Mirrors the :ASONE handlers above.
+#===============================================================================
+
+# Unnerve component - block berry consumption when an opponent has either variant
+class PokeBattle_Battler
+  alias npt_asone_variants_canConsumeBerry? canConsumeBerry?
+  def canConsumeBerry?
+    return false if @battle.pbCheckOpposingAbility(:ASONEGLASTRIER, @index)
+    return false if @battle.pbCheckOpposingAbility(:ASONESPECTRIER, @index)
+    npt_asone_variants_canConsumeBerry?
+  end
+end
+
+if defined?(BattleHandlers) && defined?(BattleHandlers::AbilityOnSwitchIn)
+  [:ASONEGLASTRIER, :ASONESPECTRIER].each do |npt_asone_sym|
+    BattleHandlers::AbilityOnSwitchIn.add(npt_asone_sym,
+      proc { |ability, battler, battle|
+        battle.pbShowAbilitySplash(battler)
+        battle.pbDisplay(_INTL("{1} has two Abilities!", battler.pbThis))
+        battle.pbDisplay(_INTL("{1} is too nervous to eat Berries!", battler.pbOpposingTeam))
+        battle.pbHideAbilitySplash(battler)
+      }
+    )
+  end
+end
+
+if defined?(BattleHandlers) && defined?(BattleHandlers::UserAbilityEndOfMove)
+  # Chilling Neigh (Glastrier) - Atk +1 on KO
+  BattleHandlers::UserAbilityEndOfMove.add(:ASONEGLASTRIER,
+    proc { |ability, user, targets, move, battle|
+      next if battle.pbAllFainted?(user.idxOpposingSide)
+      next unless targets.any? { |b| b.damageState.fainted }
+      next unless user.pbCanRaiseStatStage?(:ATTACK, user)
+      user.pbRaiseStatStageByAbility(:ATTACK, 1, user)
+    }
+  )
+  # Grim Neigh (Spectrier) - SpAtk +1 on KO
+  BattleHandlers::UserAbilityEndOfMove.add(:ASONESPECTRIER,
+    proc { |ability, user, targets, move, battle|
+      next if battle.pbAllFainted?(user.idxOpposingSide)
+      next unless targets.any? { |b| b.damageState.fainted }
+      next unless user.pbCanRaiseStatStage?(:SPECIAL_ATTACK, user)
+      user.pbRaiseStatStageByAbility(:SPECIAL_ATTACK, 1, user)
+    }
+  )
+end
+
+
+#===============================================================================
 # BATTLE BOND (Greninja)
 # After KOing a Pokémon, Greninja form 1 → form 2 (Ash-Greninja).
 #

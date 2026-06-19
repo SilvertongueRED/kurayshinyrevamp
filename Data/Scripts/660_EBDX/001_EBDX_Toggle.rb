@@ -7,11 +7,16 @@
 
 class PokemonSystem
   attr_accessor :mp_ebdx_enabled  # 0 = off (vanilla), 1 = on (EBDX visuals)
+  # 0 = off, 1 = on. Only takes effect when the GhostBattle Classic+ mod is
+  # installed; mutually exclusive with EBDX (see GhostVisualsBridge / the
+  # Mods/zzz_ghost_ebdx_bridge.rb compat shim that gates the mod at runtime).
+  attr_accessor :mp_ghost_visuals_enabled
 
   alias ebdx_toggle_original_initialize initialize unless method_defined?(:ebdx_toggle_original_initialize)
   def initialize
     ebdx_toggle_original_initialize
     @mp_ebdx_enabled = 1  # On by default for EBDX visuals
+    @mp_ghost_visuals_enabled = 0 if @mp_ghost_visuals_enabled.nil?  # default: EBDX visuals ON, Ghost Classic OFF
   end
 end
 
@@ -20,6 +25,8 @@ end
 #===============================================================================
 module EBDXToggle
   def self.enabled?
+    # Ghost Battle Classic+ visuals take precedence over EBDX when active.
+    return false if defined?(GhostVisualsBridge) && GhostVisualsBridge.ghost_active?
     return $PokemonSystem && $PokemonSystem.mp_ebdx_enabled == 1
   end
 
@@ -67,5 +74,29 @@ module EBDXToggle
 
   def self.reset_asset_cache
     @assets_available = nil
+  end
+end
+
+#===============================================================================
+#  GhostVisualsBridge - shared helper for the EBDX <-> GhostBattle Classic+ toggle
+#===============================================================================
+#  Lets a player freely switch between EBDX visuals, GhostBattle Classic+
+#  visuals, or plain vanilla at runtime (no restart, no uninstall). The actual
+#  runtime override of the GhostBattle mod's hard "force EBDX off / force
+#  Classic+" behaviour lives in Mods/zzz_ghost_ebdx_bridge.rb, which loads
+#  AFTER the mod. This module only holds the shared predicates so core EBDX
+#  code (above) and the late bridge agree on the rules.
+#===============================================================================
+module GhostVisualsBridge
+  # Is the GhostBattle Classic+ mod actually installed/loaded this session?
+  def self.mod_present?
+    defined?(GhostForceClassicPlus) ? true : false
+  end
+
+  # Should GhostBattle Classic+ visuals be the active battle UI right now?
+  def self.ghost_active?
+    return false unless mod_present?
+    return false unless $PokemonSystem
+    ($PokemonSystem.mp_ghost_visuals_enabled == 1) rescue false
   end
 end

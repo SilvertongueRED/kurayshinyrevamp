@@ -50,7 +50,7 @@ module NPT
       return false unless sp
       data = GameData::Species.try_get(sp) rescue nil
       return false unless data
-      data.id_number >= NPT::FIRST_ID
+      data.id_number >= NPT::FIRST_ID && data.id_number <= NPT::NEW_NB_POKEMON
     end
   end
 end

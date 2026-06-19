@@ -21,7 +21,7 @@ alias _npt_orig_get_pokemon_list get_pokemon_list
 def get_pokemon_list(include_fusions = false)
   list = _npt_orig_get_pokemon_list(include_fusions)
   return list unless NPT::Toggle.new_pokemon_disabled?
-  list.reject { |id| id.is_a?(Integer) && id >= NPT::FIRST_ID }
+  list.reject { |id| id.is_a?(Integer) && id >= NPT::FIRST_ID && id <= NPT::NEW_NB_POKEMON }
 end
 
 alias _npt_orig_get_randomized_to getRandomizedTo
@@ -32,11 +32,11 @@ def getRandomizedTo(species)
   return mapped unless mapped
   # If the randomizer mapped this species to an NPT one, fall back to the
   # original vanilla species rather than letting the NPT form through.
-  if mapped.is_a?(Integer) && mapped >= NPT::FIRST_ID
+  if mapped.is_a?(Integer) && mapped >= NPT::FIRST_ID && mapped <= NPT::NEW_NB_POKEMON
     return species
   end
   data = GameData::Species.try_get(mapped) rescue nil
-  if data && data.id_number >= NPT::FIRST_ID
+  if data && data.id_number >= NPT::FIRST_ID && data.id_number <= NPT::NEW_NB_POKEMON
     return species
   end
   mapped

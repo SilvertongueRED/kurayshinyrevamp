@@ -676,7 +676,7 @@ module ModManager
         pressing = (Input.press?(Input::MOUSELEFT) rescue false)
 
         # Scroll wheel
-        mw = (Input.mouse_wheel rescue 0)
+        mw = (Input.scroll_v rescue 0)
         if mw != 0
           scroll = [[scroll - (mw > 0 ? 1 : -1), 0].max, max_scroll].min
         end

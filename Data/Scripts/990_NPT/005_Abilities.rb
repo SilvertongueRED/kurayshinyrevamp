@@ -60,9 +60,9 @@ if defined?(GameData) && defined?(GameData::Ability)
         end
 
         # ── As One ── MUST IMPLEMENT
-        unless GameData::Ability.exists?(:ASONE)
+        unless GameData::Ability.exists?(:ASONEGLASTRIER)
           register({
-            id:          :ASONE,
+            id:          :ASONEGLASTRIER,
             id_number:   7006,
             name:        "As One",
             description: "This Ability combines the effects of both Calyrex's Unnerve Ability and Glastrier's Chilling Neigh Ability."
@@ -72,9 +72,9 @@ if defined?(GameData) && defined?(GameData::Ability)
         end
 
         # ── As One ── MUST IMPLEMENT
-        unless GameData::Ability.exists?(:ASONE)
+        unless GameData::Ability.exists?(:ASONESPECTRIER)
           register({
-            id:          :ASONE,
+            id:          :ASONESPECTRIER,
             id_number:   7007,
             name:        "As One",
             description: "This Ability combines the effects of both Calyrex's Unnerve Ability and Spectrier's Grim Neigh Ability."

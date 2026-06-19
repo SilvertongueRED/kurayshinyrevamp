@@ -27,7 +27,7 @@ EliteBattle.copyMoveAnimation(:NATURESMADNESS, :RUINATION)
 # ── Fighting ──────────────────────────────────────────────────────────────────
 EliteBattle.copyMoveAnimation(:CLOSECOMBAT,  :COLLISIONCOURSE)
 EliteBattle.copyMoveAnimation(:MACHPUNCH,    :COMBATTORQUE, :JETPUNCH)
-EliteBattle.copyMoveAnimation(:HIGHJUMPKICK, :AXEKICK, :THUNDEROUSKICK)
+EliteBattle.copyMoveAnimation(:HIJUMPKICK, :AXEKICK, :THUNDEROUSKICK)
 EliteBattle.copyMoveAnimation(:HEADSMASH,    :HEADLONGRUSH, :METEORASSAULT)
 EliteBattle.copyMoveAnimation(:BULLETPUNCH,  :UPPERHAND)
 EliteBattle.copyMoveAnimation(:COUNTER,      :COMEUPPANCE)

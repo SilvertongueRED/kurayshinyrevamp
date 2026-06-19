@@ -4,11 +4,11 @@
 # On launch, checks every installed managed mod (from the KIF-Mods/mods repo)
 # against its remote version. Any mod whose repo copy is newer is downloaded in
 # place using the SAME tested path the Mod Browser uses (GitHub.download_mod),
-# then the player is told which mods updated and the game restarts hands-free to
-# load the new files.
+# then the player is shown which mods updated and asked whether to restart now
+# to use them (declining just continues into the current session as-is).
 #
 # Safety:
-#   * Toggle in the Mod Manager footer ("Auto-Upd: ON/OFF"). Default ON.
+#   * Toggle in the Mod Manager footer ("Auto-Upd: ON/OFF"). Default OFF.
 #     Persisted to mod_autoupdate.txt in the game folder.
 #   * Runs at most once per launch (at the load screen, before you pick a save).
 #   * Offline-safe: if the repo can't be reached it silently skips and you boot
@@ -30,13 +30,13 @@ module ModAutoUpdate
     CONFIG_BASENAME
   end
 
-  # Default ON: only OFF when the file explicitly says "0".
+  # Default OFF: only ON when the file explicitly says "1".
   def enabled?
     p = config_path
-    return true unless File.exist?(p)
-    File.read(p).strip != "0"
+    return false unless File.exist?(p)
+    File.read(p).strip == "1"
   rescue
-    true
+    false
   end
 
   def set_enabled(on)
@@ -128,9 +128,9 @@ module ModAutoUpdate
     return if updated.nil? || updated.empty?
 
     list = updated.map { |u| "- #{u[:name]}  (#{u[:from]} -> #{u[:to]})" }.join("\n")
-    (pbMessage(_INTL("Mod update{1} installed:\n{2}\n\nThe game will now restart to apply the changes.",
-                     (updated.length == 1 ? "" : "s"), list)) rescue nil)
-    restart_game
+    (pbMessage(_INTL("Mod update{1} installed:\n{2}", (updated.length == 1 ? "" : "s"), list)) rescue nil)
+    restart_now = (pbConfirmMessage(_INTL("Restart now to use the updated mod{1}?", (updated.length == 1 ? "" : "s"))) rescue false)
+    restart_game if restart_now
   rescue => e
     echoln("[ModAutoUpdate] run_once failed: #{e.class}: #{e.message}") rescue nil
     nil

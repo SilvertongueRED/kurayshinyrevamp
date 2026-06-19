@@ -972,7 +972,7 @@ module ModManager
         mx = (Input.mouse_x rescue -1) - @right_spr.x
         my = (Input.mouse_y rescue -1) - @right_spr.y
         if mx >= 0 && mx < RIGHT_W && my >= 0 && my < CONTENT_H
-          mw = (Input.mouse_wheel rescue 0)
+          mw = (Input.scroll_v rescue 0)
           if mw != 0
             old_scroll = @desc_scroll || 0
             @desc_scroll = [old_scroll - (mw > 0 ? 1 : -1), 0].max

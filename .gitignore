@@ -1,0 +1,3 @@
+# Local Discord webhook URL for the in-game "Share to Discord" feature.
+# Stored per-machine only; must NOT be committed to the public repo.
+CustomSpriteImport/discord_webhook.txt

@@ -533,7 +533,7 @@ module Input
 
     clicked = ChatInputHotkeys.mouse_left_trigger?
     rclick  = (Input.trigger?(Input::MOUSERIGHT) rescue false)
-    mw      = (Input.mouse_wheel rescue 0).to_i
+    mw      = (Input.scroll_v rescue 0).to_i
 
     cw = $chat_window
     px = cw.panel_x

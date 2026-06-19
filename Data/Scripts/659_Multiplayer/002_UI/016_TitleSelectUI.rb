@@ -98,7 +98,7 @@ if defined?(Scene_Map)
           clicked = (Input.trigger?(Input::MOUSELEFT)  rescue false)
           rclick  = (Input.trigger?(Input::MOUSERIGHT) rescue false)
           held    = (Input.press?(Input::MOUSELEFT)    rescue false)
-          mw      = (Input.mouse_wheel rescue 0).to_i
+          mw      = (Input.scroll_v rescue 0).to_i
 
           # ── Close ─────────────────────────────────────────────
           if rclick || Input.trigger?(Input::B)

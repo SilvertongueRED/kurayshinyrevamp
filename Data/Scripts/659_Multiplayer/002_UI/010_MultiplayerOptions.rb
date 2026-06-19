@@ -858,7 +858,7 @@ module MultiplayerSettingsSync
   # EBDX OFF in PvP/co-op for players who had it on. EBDX is local-only by design,
   # so each player keeps their own choice across a settings sync.
   LOCAL_ONLY_KEYS = %w[
-    mp_ebdx_enabled mp_ebdx_zoom_disabled mp_stat_stage_overlay
+    mp_ebdx_enabled mp_ghost_visuals_enabled mp_ebdx_zoom_disabled mp_stat_stage_overlay
     mp_ally_arrow mp_env_sync
   ]
 

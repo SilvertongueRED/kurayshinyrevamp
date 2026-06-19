@@ -149,7 +149,14 @@ SaveData.register(:kuray_pokemon_system_file) do
     $PokemonSystem = PokemonSystem.new if !$PokemonSystem
     $PokemonSystem.load_file_data(value)
   }
-  new_game_value { PokemonSystem.new }
+  new_game_value {
+    ps = PokemonSystem.new
+    # Ensure autobattler is off for new games even if a prior session had it on
+    if $PokemonSystem && $PokemonSystem.respond_to?(:autobattler=)
+      $PokemonSystem.autobattler = 0
+    end
+    ps
+  }
 end
 
 

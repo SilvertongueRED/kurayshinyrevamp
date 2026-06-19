@@ -90,6 +90,7 @@ class PokemonStorageScreen
     cmdDebug = -1
     cmdCancel = -1
     cmdNickname = -1
+    cmdSprites = -1
 
 
     echoln selected
@@ -101,6 +102,8 @@ class PokemonStorageScreen
       commands[cmdMove = commands.length] = _INTL("Move")
     end
     commands[cmdSummary = commands.length] = _INTL("Summary")
+    _csi_sprite_target = @heldpkmn ? @heldpkmn : pokemon
+    commands[cmdSprites = commands.length] = _INTL("Sprites") if _csi_sprite_target && !_csi_sprite_target.egg?
     if pokemon != nil && !isTransferBox
       if dexNum(pokemon.species) > NB_POKEMON
         commands[cmdUnfuse = commands.length] = _INTL("Unfuse")
@@ -130,6 +133,8 @@ class PokemonStorageScreen
       end
     elsif cmdSummary >= 0 && command == cmdSummary # Summary
       pbSummary(selected, @heldpkmn)
+    elsif cmdSprites >= 0 && command == cmdSprites # Sprites
+      pbOpenSpritesPageForPokemon(@heldpkmn ? @heldpkmn : pokemon, @scene)
     elsif cmdNickname >= 0 && command == cmdNickname # Summary
       renamePokemon(selected)
     elsif cmdWithdraw >= 0 && command == cmdWithdraw # Store/Withdraw
@@ -187,6 +192,7 @@ class PokemonStorageScreen
           command = pbShowCommands(_INTL("{1} is selected.", pokemon.name), [
             _INTL("Withdraw"),
             _INTL("Summary"),
+            _INTL("Sprites"),
             _INTL("Release"),
             _INTL("Cancel")
           ])
@@ -195,8 +201,9 @@ class PokemonStorageScreen
             pbWithdraw(selected, nil)
           when 1 then
             pbSummary(selected, nil)
-            # when 2 then pbMark(selected, nil)
           when 2 then
+            pbOpenSpritesPageForPokemon(pokemon, @scene)
+          when 3 then
             pbRelease(selected, nil)
           end
 
@@ -226,6 +233,7 @@ class PokemonStorageScreen
           _INTL("Store"),
           _INTL("Summary"),
           _INTL("Mark"),
+          _INTL("Sprites"),
           _INTL("Release"),
           _INTL("Cancel")
         ])
@@ -237,6 +245,8 @@ class PokemonStorageScreen
         when 2 then
           pbMark([-1, selected], nil)
         when 3 then
+          pbOpenSpritesPageForPokemon(pokemon, @scene)
+        when 4 then
           pbRelease([-1, selected], nil)
         end
       end

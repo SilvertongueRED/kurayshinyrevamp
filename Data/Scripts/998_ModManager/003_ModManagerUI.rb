@@ -690,16 +690,16 @@ module ModManager
 
     # Footer labels including the live Auto-Update toggle state.
     def footer_labels
-      au = ((ModAutoUpdate.enabled? rescue true) ? "ON" : "OFF")
+      au = ((ModAutoUpdate.enabled? rescue false) ? "ON" : "OFF")
       ["Mod Browser", "Share Code", "Modder Tools", "Auto-Upd: #{au}", "Back"]
     end
 
     def toggle_autoupdate
-      cur = (ModAutoUpdate.enabled? rescue true)
+      cur = (ModAutoUpdate.enabled? rescue false)
       (ModAutoUpdate.set_enabled(!cur) rescue nil)
       draw_footer
       if !cur
-        show_message("Auto-update on launch: ON\n\nMods that are newer on the KIF Mods repo will install automatically at launch, then the game restarts to apply them.")
+        show_message("Auto-update on launch: ON\n\nMods that are newer on the KIF Mods repo will install automatically at launch, then you'll be shown what updated and asked whether to restart now.")
       else
         show_message("Auto-update on launch: OFF\n\nMods will no longer update automatically when you launch the game.")
       end

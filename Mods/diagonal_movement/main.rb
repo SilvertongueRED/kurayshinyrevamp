@@ -17,10 +17,20 @@ module Settings
   
     def update_command_new_8_diag
       dir = Input.dir8
+      # Match the engine's cardinal-movement guard so the player stops during
+      # the wild-battle intro flash (which pumps the map via $PokemonTemp.miniupdate),
+      # message boxes, menus, chat typing and modal MP overlays. The original mod
+      # only checked $game_temp.in_mini_update, a flag this engine never sets, so the
+      # character kept walking for ~0.8s after an encounter triggered.
+      chat_typing = defined?($chat_window) && $chat_window && $chat_window.input_mode
+      mp_ui_blocked = (defined?(MultiplayerUI) &&
+                       MultiplayerUI.respond_to?(:block_overworld_mouse_input?) &&
+                       MultiplayerUI.block_overworld_mouse_input?) rescue false
       if $PokemonGlobal.forced_movement?
         move_forward
       elsif !pbMapInterpreterRunning? && !$game_temp.message_window_showing &&
-            !$game_temp.in_mini_update && !$game_temp.in_menu
+            !$PokemonTemp.miniupdate && !$game_temp.in_mini_update &&
+            !$game_temp.in_menu && !chat_typing && !mp_ui_blocked
         if @moved_last_frame || (dir > 0 && dir == @lastdir && System.uptime - @lastdirframe >= 0.075)
           case dir
           when 1 then move_lower_left

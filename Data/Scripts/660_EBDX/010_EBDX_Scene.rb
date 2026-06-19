@@ -433,8 +433,9 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
   end
 
   # Returns a Y offset (in pixels) to lower battler sprites in 1v1 battles
-  def ebdxBattlerYOffset
-    return (@battle.pbSideSize(0) == 1 && @battle.pbSideSize(1) == 1) ? 25 : 0
+  def ebdxBattlerYOffset(idx = 0)
+    return 0 if idx.to_i.odd?  # foe side: restore original EBDX position
+    return (@battle.pbSideSize(0) == 1 && @battle.pbSideSize(1) == 1) ? 5 : 0
   end
 
   # Generates a soft elliptical gradient bitmap for the round drop shadow
@@ -498,7 +499,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
           battlerPos = @sprites["battlebg"].battler(idx) rescue nil
           if battlerPos
             @sprites["pokemon_#{idx}"].x = battlerPos.x
-            @sprites["pokemon_#{idx}"].y = battlerPos.y + ebdxBattlerYOffset
+            @sprites["pokemon_#{idx}"].y = battlerPos.y + ebdxBattlerYOffset(idx)
             @sprites["pokemon_#{idx}"].z = battlerPos.z rescue (100 + idx)
             # KIF sprite zoom - CONSTANT size, camera zoom doesn't affect sprite scale
             # (Only background zooms for perspective effect, sprites stay same size)
@@ -529,7 +530,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
         battlerPos = @sprites["battlebg"].battler(idx) rescue nil
         if battlerPos
           @sprites["pokemon_#{idx}"].x = battlerPos.x
-          @sprites["pokemon_#{idx}"].y = battlerPos.y + ebdxBattlerYOffset
+          @sprites["pokemon_#{idx}"].y = battlerPos.y + ebdxBattlerYOffset(idx)
           @sprites["pokemon_#{idx}"].z = battlerPos.z rescue (100 + idx)
           # Constant sprite zoom (player side = 1.0)
           @sprites["pokemon_#{idx}"].zoom_x = 1.0
@@ -838,7 +839,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
 
       sprite = @sprites["pokemon_#{i}"]
       sprite.x = battlerPos.x
-      sprite.y = battlerPos.y + ebdxBattlerYOffset
+      sprite.y = battlerPos.y + ebdxBattlerYOffset(i)
       sprite.z = battlerPos.z rescue (100 + i)
 
       # Set constant zoom based on side
@@ -1062,7 +1063,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
           end
           # Set position from EBDX backdrop
           @sprites["pokemon_#{i}"].x = battlerPos.x
-          @sprites["pokemon_#{i}"].y = battlerPos.y + ebdxBattlerYOffset
+          @sprites["pokemon_#{i}"].y = battlerPos.y + ebdxBattlerYOffset(i)
           @sprites["pokemon_#{i}"].z = battlerPos.z rescue (100 + i)
 
           # KIF sprite zoom - CONSTANT size regardless of camera zoom
@@ -1394,7 +1395,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
         if battlerPos
           sprite = @sprites["pokemon_#{i}"]
           sprite.x = battlerPos.x
-          sprite.y = battlerPos.y + ebdxBattlerYOffset
+          sprite.y = battlerPos.y + ebdxBattlerYOffset(i)
           sprite.z = battlerPos.z rescue (100 + i)
           # Constant sprite zoom based on side
           baseZoom = 1.0
@@ -1663,7 +1664,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
       if @sprites["battlebg"] && @sprites["battlebg"].respond_to?(:battler)
         battlerPos = @sprites["battlebg"].battler(idxBattler) rescue nil
         if battlerPos
-          targetPositions[idxBattler] = { x: battlerPos.x, y: battlerPos.y + ebdxBattlerYOffset }
+          targetPositions[idxBattler] = { x: battlerPos.x, y: battlerPos.y + ebdxBattlerYOffset(idxBattler) }
         else
           targetPositions[idxBattler] = { x: Graphics.width / 4, y: Graphics.height / 2 }
         end
@@ -1828,7 +1829,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
               # Update X position to follow camera
               sprite.x = battlerPos.x
               # Y position: interpolate down to final position
-              finalY = battlerPos.y + ebdxBattlerYOffset
+              finalY = battlerPos.y + ebdxBattlerYOffset(idxBattler)
               if sprite.y < finalY
                 sprite.y += 10
                 sprite.y = finalY if sprite.y > finalY
@@ -1864,7 +1865,7 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
         battlerPos = @sprites["battlebg"].battler(idxBattler) rescue nil
         if battlerPos
           sprite.x = battlerPos.x
-          sprite.y = battlerPos.y + ebdxBattlerYOffset
+          sprite.y = battlerPos.y + ebdxBattlerYOffset(idxBattler)
           sprite.z = battlerPos.z rescue (100 + idxBattler)
           # Constant sprite zoom (player side = 1.0)
           sprite.zoom_x = 1.0

@@ -161,17 +161,79 @@ def download_custom_sprite(head_id, body_id, spriteformBody_suffix = "", spritef
   _pifremap_orig_download_custom(head_id, body_id, spriteformBody_suffix, spriteformHead_suffix, alt_letter)
 end
 
+# --- Unobtrusive sprite-refresh toast (self-fading, no input required) -------
+# Shows a small semi-transparent banner in the bottom-left for ~3 seconds then
+# disposes itself.  Safe to call from Scene_Map#update (main thread only).
+module PIFRemapToast
+  DISPLAY_FRAMES = 180   # ~3 s at 60 fps
+  FADE_FRAMES    = 60    # last 1 s fades out
+
+  class << self
+    def show(text)
+      dispose
+      vp = Viewport.new(0, 0, Graphics.width, Graphics.height)
+      vp.z = 99999
+      bmp = Bitmap.new(Graphics.width, 28)
+      bmp.fill_rect(0, 0, bmp.width, bmp.height, Color.new(0, 0, 0, 160))
+      font = bmp.font.dup
+      font.size   = 18
+      font.bold   = false
+      bmp.font    = font
+      bmp.font.color = Color.new(255, 255, 255)
+      bmp.draw_text(8, 4, bmp.width - 16, 20, text)
+      spr = Sprite.new(vp)
+      spr.bitmap  = bmp
+      spr.x       = 0
+      spr.y       = Graphics.height - 32
+      spr.z       = 99999
+      spr.opacity = 200
+      @sprite    = spr
+      @viewport  = vp
+      @frames    = DISPLAY_FRAMES
+    rescue
+      dispose
+    end
+
+    def tick
+      return unless @sprite && !@sprite.disposed?
+      @frames -= 1
+      if @frames <= 0
+        dispose
+      elsif @frames < FADE_FRAMES
+        @sprite.opacity = (200 * @frames / FADE_FRAMES).to_i
+      end
+    end
+
+    def dispose
+      @sprite&.dispose   rescue nil
+      @viewport&.dispose rescue nil
+      @sprite   = nil
+      @viewport = nil
+      @frames   = 0
+    end
+
+    def active?
+      @sprite && !@sprite.disposed?
+    end
+  end
+end
+
 # --- Automatic ~2-month refresh (once per session, in the overworld) ---------
 class Scene_Map
   alias _pifremap_orig_update update
   def update(*args)
     _pifremap_orig_update(*args)
+    # Tick the toast overlay every frame while it's alive
+    PIFRemapToast.tick if PIFRemapToast.active?
     unless $pifremap_session_checked
       $pifremap_session_checked = true
       begin
         if pifremap_active? && pifremap_refresh_due?
-          pifremap_refresh_party
+          n = pifremap_refresh_party
           pifremap_mark_refreshed!
+          if n > 0
+            PIFRemapToast.show(_INTL("PIF sprites updated: {1} party sprite(s) refreshed.", n))
+          end
         end
       rescue
       end

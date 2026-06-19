@@ -413,7 +413,7 @@ module CoopWildHook
       # === SET BATTLE RULES ===
       # Asymmetric format (Nv1 for boss, NvM for normal) — same pattern as coop trainer battles
       player_side = playerTrainers.length
-      foe_side = [foeParty.compact.length, player_side].min
+      foe_side = [foeParty.compact.length, 3].min   # swarm-aware: cap at engine max (3), not player count (alpha_encounters)
       battle_rule = "#{player_side}v#{foe_side}"
       setBattleRule(battle_rule)
       MultiplayerDebug.info(TAG, "JOIN: Set battle rule: #{battle_rule}") if defined?(MultiplayerDebug)
@@ -1113,7 +1113,7 @@ if defined?(Kernel) && (method(:pbBattleOnStepTaken) rescue true)
       # === SET BATTLE RULES ===
       # Asymmetric format (Nv1 for boss, NvM for normal) — same pattern as coop trainer battles
       player_side = [[1 + ally_count, 1].max, 3].min
-      foe_side = boss_spawned ? 1 : [foeParty.compact.length, player_side].min
+      foe_side = boss_spawned ? 1 : [foeParty.compact.length, 3].min   # swarm-aware: cap at engine max (3), not player count (alpha_encounters)
       battle_rule = "#{player_side}v#{foe_side}"
       setBattleRule(battle_rule)
       MultiplayerDebug.info("COOP-V2", "Set battle rule: #{battle_rule}") if defined?(MultiplayerDebug)

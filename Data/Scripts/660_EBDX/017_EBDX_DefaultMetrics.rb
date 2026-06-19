@@ -6,6 +6,30 @@
 #===============================================================================
 
 module EliteBattle
+  #=============================================================================
+  #  FORK TUNABLE: lower battler placement so Pokemon sit nearer the ground
+  #  (matches OG-KIF/vanilla grounding instead of EBDX floating).
+  #  Values are added to every battler's EBDX :Y (backdrop ey; higher = lower
+  #  on screen). A flat add per side preserves the relative multi-battler
+  #  offsets already baked into the position tables below.
+  #    PLAYER drop is the primary knob; FOE drop is smaller because the foe
+  #    side is farther from the camera (perspective = fewer screen px per ey).
+  #  To fine-tune in-game: edit these two numbers, save, restart a battle.
+  #  Set both to 0 to restore the previous (floating) EBDX placement.
+  #=============================================================================
+  EBDX_GROUND_DROP_PLAYER = 8 unless defined?(EBDX_GROUND_DROP_PLAYER)  # player/back-sprite side
+  EBDX_GROUND_DROP_FOE    = 0  unless defined?(EBDX_GROUND_DROP_FOE)     # foe/front-sprite side (original EBDX position)
+
+  # Adds the per-side ground drop to every :Y entry in @battlerMetrics.
+  # Player battler indices are even (0,2,4); foe indices are odd (1,3,5).
+  def self.apply_ground_drop!
+    return unless @battlerMetrics.is_a?(Hash)
+    @battlerMetrics.each do |idx, params|
+      next unless params.is_a?(Hash) && params[:Y].is_a?(Array)
+      drop = (idx.to_i.even? ? EBDX_GROUND_DROP_PLAYER : EBDX_GROUND_DROP_FOE)
+      params[:Y].map! { |v| v.is_a?(Numeric) ? v + drop : v }
+    end
+  end
   #-----------------------------------------------------------------------------
   #  Setup default vectors (from metrics.txt [VECTORS] section)
   #  Format: x, y, angle, scale, zoom
@@ -102,6 +126,10 @@ module EliteBattle
       :Y, 152, 152, 152,   # Original values
       :Z, 11, 11, 11
     )
+
+
+    # FORK: push all battlers downward toward the ground (see constants above)
+    apply_ground_drop!
   end
 
   #-----------------------------------------------------------------------------
