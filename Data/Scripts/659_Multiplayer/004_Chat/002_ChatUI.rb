@@ -39,6 +39,8 @@ class ChatWindow
   OVERWORLD_BOTTOM_MARGIN = 60
   BATTLE_BOTTOM_MARGIN    = 16
   BATTLE_LEFT_MARGIN      = 8
+  # HotkeyHUD (top-left) max bottom edge: PAD_Y=8, BG_PAD=4, 6 buttons×(22+6)−6+BG_PAD = 178. +8 breathing room.
+  OVERWORLD_HUD_MIN_Y     = 186
 
   DEPLOY_SPEED  = 0.08   # per frame (~0.2s at 60fps)
 
@@ -313,7 +315,10 @@ class ChatWindow
 
   def _anchor_base_y
     margin = _battle_anchor? ? BATTLE_BOTTOM_MARGIN : OVERWORLD_BOTTOM_MARGIN
-    Graphics.height - PANEL_H - margin
+    computed = Graphics.height - PANEL_H - margin
+    # Clamp so the chat panel never overlaps the HotkeyHUD column on the left
+    min_y = _battle_anchor? ? 0 : OVERWORLD_HUD_MIN_Y
+    [computed, min_y].max
   rescue
     Graphics.height - PANEL_H - OVERWORLD_BOTTOM_MARGIN
   end

@@ -17,8 +17,8 @@ module EliteBattle
   #  To fine-tune in-game: edit these two numbers, save, restart a battle.
   #  Set both to 0 to restore the previous (floating) EBDX placement.
   #=============================================================================
-  EBDX_GROUND_DROP_PLAYER = 8 unless defined?(EBDX_GROUND_DROP_PLAYER)  # player/back-sprite side
-  EBDX_GROUND_DROP_FOE    = 0  unless defined?(EBDX_GROUND_DROP_FOE)     # foe/front-sprite side (original EBDX position)
+  EBDX_GROUND_DROP_PLAYER = 14 unless defined?(EBDX_GROUND_DROP_PLAYER)  # player/back-sprite side; 2026-06-20 lowered 22->14 so the player battler clears the bottom command row (was overlapping). TUNE in-game: raise for more grounding, lower if it still clips the bar.
+  EBDX_GROUND_DROP_FOE    = 16 unless defined?(EBDX_GROUND_DROP_FOE)     # foe/front-sprite side; now safe to drop since UI viewports (@msgview/@dexview) draw above battlers. TUNE in-game (foe side = fewer screen px per ey, so this is a starting value).
 
   # Adds the per-side ground drop to every :Y entry in @battlerMetrics.
   # Player battler indices are even (0,2,4); foe indices are odd (1,3,5).

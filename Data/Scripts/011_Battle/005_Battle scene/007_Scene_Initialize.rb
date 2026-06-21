@@ -27,15 +27,27 @@ class PokeBattle_Scene
     # The background image and each side's base graphic
     pbCreateBackdropSprites
     # Create message box graphic
+    messageGraphic = "Graphics/Pictures/Battle/overlay_message"
+    if $PokemonSystem.darkmode == 1   # FORK: Dark Mode message box (takes precedence)
+      messageGraphic += "_darkmode"
+    elsif $PokemonSystem.battlegui == 1 || $PokemonSystem.battlegui == 2
+      messageGraphic += "_M2"   # Trapstarr / Ghost Classic+ message box
+    end
     messageBox = pbAddSprite("messageBox", 0, Graphics.height - 96,
-                             "Graphics/Pictures/Battle/overlay_message", @viewport)
+                             messageGraphic, @viewport)
     messageBox.z = 195
     # Create message window (displays the message)
     msgWindow = Window_AdvancedTextPokemon.newWithSize("",
                                                        16, Graphics.height - 96 + 2, Graphics.width - 32, 96, @viewport)
     msgWindow.z = 200
     msgWindow.opacity = 0
-    msgWindow.baseColor = PokeBattle_SceneConstants::MESSAGE_BASE_COLOR
+    if $PokemonSystem.darkmode == 1   # FORK: bright text on the dark message box
+      msgWindow.baseColor = PokeBattle_SceneConstants::DARKMODE_MESSAGE_BASE_COLOR
+    elsif $PokemonSystem.battlegui == 2
+      msgWindow.baseColor = Color.new(40, 40, 44)
+    else
+      msgWindow.baseColor = PokeBattle_SceneConstants::MESSAGE_BASE_COLOR
+    end
     msgWindow.shadowColor = PokeBattle_SceneConstants::MESSAGE_SHADOW_COLOR
     msgWindow.letterbyletter = true
     @sprites["messageWindow"] = msgWindow

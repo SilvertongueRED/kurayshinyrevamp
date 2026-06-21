@@ -85,7 +85,7 @@ module TradeUI
         val = [[val + delta, 0].max, max].min
         draw.call
       end
-      if Input.trigger?(Input::USE) || Input.trigger?(Input::ACTION)
+      if (MPMenuConfirm.pressed?(:trade_amount) rescue false)   # auto-repeat-safe Confirm (bare exe)
         break
       elsif Input.trigger?(Input::BACK) || (defined?(Input::B) && Input.trigger?(Input::B))
         val = nil; break
@@ -904,7 +904,7 @@ module TradeUI
         end
         return
       end
-      return unless Input.trigger?(Input::USE)
+      return unless (MPMenuConfirm.pressed?(:trade_actions) rescue false)   # auto-repeat-safe Confirm (bare exe)
       cmds = [
         _INTL("Add/Remove Item"),
         _INTL("Choose/Clear Pokémon"),

@@ -19,6 +19,19 @@ module KIFProfileF8Toggle
     end
   rescue; end
 
+  # True when ControlRebind's overworld MP-hotkey poller is the live handler for
+  # the Profile action this frame: it has a :profile binding AND we are in the
+  # overworld, where Scene_Map#update calls ControlRebind.mp_poll. When true we
+  # must NOT also toggle on Input::F8, or the two handlers cancel each other out.
+  def self.control_rebind_owns_profile_key?
+    return false unless defined?(ControlRebind) && ControlRebind.respond_to?(:mp_bind)
+    return false if ($game_temp && $game_temp.in_battle rescue false)
+    return false unless ($scene.is_a?(Scene_Map) rescue false)
+    !(ControlRebind.mp_bind[:profile] rescue nil).nil?
+  rescue
+    false
+  end
+
   def self.tick_open_shortcut
     begin
       return unless defined?(MultiplayerClient) && MultiplayerClient.session_id
@@ -32,14 +45,23 @@ module KIFProfileF8Toggle
               end
       return unless ready
 
-      # F8: toggle own profile
-      if defined?(Input::F8) && Input.trigger?(Input::F8)
-        if defined?(MultiplayerUI::ProfilePanel) && MultiplayerUI::ProfilePanel.open?
-          MultiplayerUI::ProfilePanel.close
-        else
-          MultiplayerUI::ProfilePanel.open(uuid: "self")
+      # F8: toggle own profile.
+      # NOTE: ControlRebind.mp_poll also fires the :profile action on its bound
+      # key (default "F8") every overworld frame, reading the physical F8 via
+      # GetAsyncKeyState. If we ALSO toggle here on Input::F8, one F8 press
+      # toggles TWICE in a single frame (open then immediately close) and the
+      # panel never appears -- the reported bug. So in the overworld we cede F8
+      # entirely to ControlRebind (the single, rebind-aware handler). In battle
+      # ControlRebind does NOT poll the MP hotkeys, so we still handle F8 here.
+      unless control_rebind_owns_profile_key?
+        if defined?(Input::F8) && Input.trigger?(Input::F8)
+          if defined?(MultiplayerUI::ProfilePanel) && MultiplayerUI::ProfilePanel.open?
+            MultiplayerUI::ProfilePanel.close
+          else
+            MultiplayerUI::ProfilePanel.open(uuid: "self")
+          end
+          return
         end
-        return
       end
 
       # Escape or B: close profile if open

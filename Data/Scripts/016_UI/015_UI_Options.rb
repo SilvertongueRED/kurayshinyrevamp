@@ -141,8 +141,8 @@ class PokemonSystem
     @screensize = (Settings::SCREEN_SCALE * 2).floor - 1 # 0=half size, 1=full size, 2=full-and-a-half size, 3=double size
     @language = 0 # Language (see also Settings::LANGUAGES in script PokemonSystem)
     @runstyle = 0 # Default movement speed (0=walk, 1=run)
-    @bgmvolume = 40 # Volume of background music and ME
-    @sevolume = 40 # Volume of sound effects
+    @bgmvolume = 30 # Volume of background music and ME
+    @sevolume = 30 # Volume of sound effects
     @textinput = 1 # Text input mode (0=cursor, 1=keyboard)
     @quicksurf = 0
     @battle_type = 0
@@ -896,10 +896,33 @@ class PokemonOption_Scene
         Input.update
         pbUpdate
         if @sprites["option"].mustUpdateOptions
-          # Set the values of each option
-          for i in 0...@PokemonOptions.length
-            @PokemonOptions[i].set(@sprites["option"][i])
+          # FORK (#2): apply ONLY the option the user just changed (the selected
+          # row), not every cached value. Re-applying every option each frame
+          # re-asserted stale cached values and fought cross-option side effects
+          # (the mutually-exclusive EBDX <-> Ghost Battle Visuals toggles, so
+          # whichever sat lower in the list always won). pbEndScene still applies
+          # them all on exit, so nothing is lost.
+          _kif_ci = @sprites["option"].index
+          if _kif_ci && _kif_ci < @PokemonOptions.length
+            @PokemonOptions[_kif_ci].set(@sprites["option"][_kif_ci])
+          else
+            for i in 0...@PokemonOptions.length
+              @PokemonOptions[i].set(@sprites["option"][i])
+            end
           end
+          # Re-read each option's canonical value back into the window so a
+          # sibling changed by that setter shows its new state at once (and the
+          # next pass doesn't re-apply a stale cached value).
+          _kif_resynced = false
+          for i in 0...@PokemonOptions.length
+            _kif_nv = (@PokemonOptions[i].get rescue nil)
+            next if _kif_nv.nil?
+            if @sprites["option"][i] != _kif_nv
+              @sprites["option"].setValueNoRefresh(i, _kif_nv)
+              _kif_resynced = true
+            end
+          end
+          @sprites["option"].refresh if _kif_resynced
           if $PokemonSystem.textskin != oldTextSkin
             @sprites["textbox"].setSkin(MessageConfig.pbGetSpeechFrame())
             @sprites["textbox"].text = _INTL("Speech frame {1}.", 1 + $PokemonSystem.textskin)
@@ -1136,6 +1159,11 @@ class VanillaOptSc_1 < PokemonOption_Scene
                               proc { |value| $PokemonSystem.use_generated_dex_entries = value == 1 },
                               ["Fusions without a custom Pokédex entry display nothing.",
                                "Fusions without a custom Pokédex entry display an auto-generated placeholder."])
+    options << EnumOption.new(_INTL("AI Fusion Sprites"), [_INTL("Off"), _INTL("On")],
+                              proc { (defined?(AIGen) && AIGen.enabled?) ? 1 : 0 },
+                              proc { |value| $PokemonSystem.ai_sprites_enabled = (value == 1) ? 1 : 0 },
+                              ["Fusions use the bundled autogen/Japeal sprite.",
+                               "Prefer an on-device AI-made sprite when no hand-made custom exists."])
     device_option_selected = $PokemonSystem.on_mobile ? 1 : 0
     options << EnumOption.new(_INTL("Device"), [_INTL("PC"), _INTL("Mobile")],
                               proc { device_option_selected },

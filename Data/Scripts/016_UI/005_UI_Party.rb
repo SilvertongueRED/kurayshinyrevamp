@@ -1228,21 +1228,50 @@ class PokemonPartyScreen
   end
 
   def fuseFromParty(pokemon)
-    splicerItem = selectSplicer()
+    pbPartyFuseWithSplicer(pokemon)
+  end
+
+  def unfuseFromParty(pokemon, index = nil)
+    pbPartyFuseWithSplicer(pokemon)
+  end
+
+  # Starts the same fuse/unfuse flow the Bag uses when a splicer is selected.
+  # pbDNASplicing auto-routes: it fuses an unfused Pokemon (asking for a
+  # partner) and unfuses an already-fused one. If the Bag holds more than one
+  # type of splicer the player is asked which to use; a single type is used
+  # automatically; with none, it reports that they're out of stock. Infinite
+  # Splicers are never consumed.
+  def pbPartyFuseWithSplicer(pokemon)
+    splicerItem = pbPartySelectSplicer
     return unless splicerItem
-    if pbDNASplicing(pokemon,@scene,splicerItem)
-      echoln splicerItem
-      $PokemonBag.pbDeleteItem(splicerItem, 1) unless splicerItem == :INFINITESPLICERS || splicerItem == :INFINITESPLICERS2
+    if pbDNASplicing(pokemon, @scene, splicerItem)
+      unless splicerItem == :INFINITESPLICERS || splicerItem == :INFINITESPLICERS2
+        $PokemonBag.pbDeleteItem(splicerItem, 1)
+      end
+      pbRefresh
     end
   end
 
-  def unfuseFromParty(pokemon,index)
-    splicerItem = selectSplicer()
-    return unless splicerItem
-    isSuperSplicer = [:SUPERSPLICERS,:INFINITESPLICERS2].include?(splicerItem)
-    if pbUnfuse(pokemon,@scene,isSuperSplicer)
-      $PokemonBag.pbDeleteItem(splicerItem, 1) unless splicerItem == :INFINITESPLICERS || splicerItem == :INFINITESPLICER2
+  # Returns the splicer item symbol to use, prompting only when the player owns
+  # more than one type. Returns nil if the player cancels or owns none.
+  def pbPartySelectSplicer
+    dnaQt   = $PokemonBag.pbQuantity(:DNASPLICERS)
+    superQt = $PokemonBag.pbQuantity(:SUPERSPLICERS)
+    infQt   = $PokemonBag.pbQuantity(:INFINITESPLICERS)
+    inf2Qt  = $PokemonBag.pbQuantity(:INFINITESPLICERS2)
+    available = []
+    available.push([:DNASPLICERS,   _INTL("DNA Splicers ({1})", dnaQt)])     if dnaQt > 0
+    available.push([:SUPERSPLICERS, _INTL("Super Splicers ({1})", superQt)]) if superQt > 0
+    available.push([(inf2Qt > 0 ? :INFINITESPLICERS2 : :INFINITESPLICERS),
+                    _INTL("Infinite Splicers")])                             if inf2Qt > 0 || infQt > 0
+    if available.empty?
+      pbDisplay(_INTL("You're out of DNA Splicers."))
+      return nil
     end
+    return available[0][0] if available.length == 1
+    cmd = @scene.pbShowCommands(_INTL("Use which splicers?"), available.map { |entry| entry[1] })
+    return nil if cmd < 0
+    return available[cmd][0]
   end
 
   def pbPokemonRename(pkmn, pkmnid)
@@ -1324,8 +1353,8 @@ class PokemonPartyScreen
       commands[cmdNickname = commands.length] = _INTL("Nickname") if !pkmn.egg?
       commands[cmdLearnMove = commands.length] = _INTL("Remember moves")
 
-      if playerHasFusionItems
-        if pkmn.isFusion?
+      if !pkmn.egg?
+        if pkmn.species_data.id_number > NB_POKEMON || !pkmn.fused.nil?
           commands[cmdUnfuse = commands.length] = _INTL("Unfuse")
         else
           commands[cmdFuse = commands.length] = _INTL("Fuse")

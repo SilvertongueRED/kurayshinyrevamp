@@ -87,22 +87,38 @@ module Haptics
     unless method_defined?(:_native_orig_set_motors) || private_method_defined?(:_native_orig_set_motors)
       alias_method :_native_orig_set_motors, :set_motors
       def set_motors(low01, high01)
-        if native_available?
-          scale = intensity.to_f / 100.0
-          lo = clamp16(low01.to_f  * scale * 65535.0)
-          hi = clamp16(high01.to_f * scale * 65535.0)
-          @native_lo = lo
-          @native_hi = hi
-          # Feed a share of the high-frequency energy into the trigger motors so
-          # DualSense / Xbox-One pads carry the texture in the triggers too.
-          if dualsense? || controller_kind == :xbox
-            trig = clamp16(hi * 0.55)
-            (SteamHaptics.rumble_ex(lo, hi, trig, trig) rescue (SteamHaptics.rumble(lo, hi) rescue nil))
-          else
-            SteamHaptics.rumble(lo, hi) rescue nil
-          end
-        else
+        unless native_available?
           _native_orig_set_motors(low01, high01)
+          return
+        end
+        # Native Steam Input is up (real controller TYPE is known, lightbar works),
+        # but the actual motor RUMBLE must prefer the XInput virtual pad whenever one
+        # is present. Under Steam Input's default gamepad template the controller is
+        # exposed as a virtual XInput device and Steam forwards XInput rumble to the
+        # physical DualSense, whereas ISteamInput TriggerVibration is a no-op in
+        # gamepad-emulation mode (the shipped, non-recompiled exe). Routing rumble at
+        # SteamHaptics only is exactly why it stopped vibrating the moment native
+        # DETECTION started working - so drive the motors through XInput here.
+        init_backend unless @init_done
+        scan_pad(@pad_index.nil?) if @backend_ok
+        if @backend_ok && !@pad_index.nil?
+          @native_lo = nil          # XInput motor state is sticky -> no re-assert
+          @native_hi = nil
+          _native_orig_set_motors(low01, high01)
+          return
+        end
+        # No XInput pad to drive (e.g. truly native build, pad seen only via Steam
+        # Input): fall back to the Steamworks haptic API directly.
+        scale = intensity.to_f / 100.0
+        lo = clamp16(low01.to_f  * scale * 65535.0)
+        hi = clamp16(high01.to_f * scale * 65535.0)
+        @native_lo = lo
+        @native_hi = hi
+        if dualsense?
+          trig = clamp16(hi * 0.55)
+          (SteamHaptics.rumble_ex(lo, hi, trig, trig) rescue (SteamHaptics.rumble(lo, hi) rescue nil))
+        else
+          SteamHaptics.rumble(lo, hi) rescue nil
         end
       end
     end

@@ -20,15 +20,16 @@ class PokemonDataBox < SpriteWrapper
   # FEMALE_SHADOW_COLOR     = NAME_SHADOW_COLOR
   NAME_BASE_COLOR         = Color.new(255,255,255)
   NAME_SHADOW_COLOR       = Color.new(32,32,32)
-  MALE_BASE_COLOR         = Color.new(48,96,216)
+  MALE_BASE_COLOR         = Color.new(55, 148, 229)
   MALE_SHADOW_COLOR       = NAME_SHADOW_COLOR
-  FEMALE_BASE_COLOR       = Color.new(248,88,40)
+  FEMALE_BASE_COLOR       = Color.new(229, 55, 203)
   FEMALE_SHADOW_COLOR     = NAME_SHADOW_COLOR
 
 
   def initialize(battler,sideSize,viewport=nil)
     super(viewport)
     @battler      = battler
+    @sideSize     = sideSize   # FORK: store for GhostBattle mod (its databox reads @sideSize)
     @sprites      = {}
     @spriteX      = 0
     @spriteY      = 0
@@ -58,6 +59,16 @@ class PokemonDataBox < SpriteWrapper
     else   # Multiple Pokémon on side, use the thin dara box BG
       bgFilename = ["Graphics/Pictures/Battle/databox_thin",
                     "Graphics/Pictures/Battle/databox_thin_foe"][@battler.index%2]
+    end
+    # FORK/Trapstarr: swappable BattleGUI (Options "Swap BattleGUI"; GhostBattle Classic+ forces Type 2)
+    if $PokemonSystem.battlegui != 0 && $PokemonSystem.battlegui != nil
+      case $PokemonSystem.battlegui
+      when 1
+        bgFilename = bgFilename.gsub("Battle", "BattleGUI") + "_M"
+        bgFilename += "_darkmode" if $PokemonSystem.darkmode == 1
+      when 2
+        bgFilename = bgFilename.gsub("Battle", "BattleGUI") + "_M2"
+      end
     end
     @databoxBitmap  = AnimatedBitmap.new(bgFilename)
     # Determine the co-ordinates of the data box and the left edge padding width
@@ -94,8 +105,21 @@ class PokemonDataBox < SpriteWrapper
   def initializeOtherGraphics(viewport)
     # Create other bitmaps
     @numbersBitmap = AnimatedBitmap.new("Graphics/Pictures/Battle/icon_numbers")
-    @hpBarBitmap   = AnimatedBitmap.new("Graphics/Pictures/Battle/overlay_hp")
-    @expBarBitmap  = AnimatedBitmap.new("Graphics/Pictures/Battle/overlay_exp")
+    # FORK/Trapstarr: swappable BattleGUI HP/Exp bars (matches the databox swap above)
+    hpPath  = "Graphics/Pictures/Battle/overlay_hp"
+    expPath = "Graphics/Pictures/Battle/overlay_exp"
+    if $PokemonSystem.battlegui != 0 && $PokemonSystem.battlegui != nil
+      case $PokemonSystem.battlegui
+      when 1
+        hpPath  = hpPath.gsub("Battle", "BattleGUI") + "_M"
+        expPath = expPath.gsub("Battle", "BattleGUI") + "_M"
+      when 2
+        hpPath  = hpPath.gsub("Battle", "BattleGUI") + "_M2"
+        expPath = expPath.gsub("Battle", "BattleGUI") + "_M2"
+      end
+    end
+    @hpBarBitmap   = AnimatedBitmap.new(hpPath)
+    @expBarBitmap  = AnimatedBitmap.new(expPath)
     # Create sprite to draw HP numbers on
     @hpNumbers = BitmapSprite.new(124,16,viewport)
     pbSetSmallFont(@hpNumbers.bitmap)
@@ -621,6 +645,8 @@ class PokemonBattlerSprite < RPG::Sprite
     @spriteY = p[1]
     # Apply metrics
     @pkmn.species_data.apply_metrics_to_sprite(self, @index)
+    # FORK: raise player-side sprite so it isn't overlapped by the bottom UI
+    @spriteY -= PokeBattle_SceneConstants::PLAYER_SPRITE_LIFT if (@index & 1) == 0
   end
 
   def setPokemonBitmap(pkmn,back=false)

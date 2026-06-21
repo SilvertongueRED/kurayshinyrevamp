@@ -107,6 +107,11 @@ class PokemonPokedexInfo_Scene
   end
 
   def manage_selected_sprite(brief = false)
+    # The full sprite-options menu (Use / AI Generate-Regenerate-Delete / Share
+    # to Discord / Delete sprite / Open folder) lives in 694_AISprites so a single
+    # USE button owns every sprite action. Fall back to the basic menu only if
+    # that script somehow isn't loaded.
+    return pbSpriteOptionsMenu(brief) if respond_to?(:pbSpriteOptionsMenu)
     Input.update
     command = pbShowCommands(nil, [
       _INTL("Use this sprite"),

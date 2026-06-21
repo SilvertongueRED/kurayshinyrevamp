@@ -18,6 +18,8 @@ class PokemonSystem
   attr_accessor :rumble_cat_overworld  # 0 = On, 1 = Off
   attr_accessor :rumble_cat_encounters # 0 = On, 1 = Off
   attr_accessor :rumble_lightbar       # 0 = On, 1 = Off
+  attr_accessor :speaker_master        # 0 = On, 1 = Off  (controller speaker)
+  attr_accessor :speaker_volume        # 0..100
 
   unless method_defined?(:_rumble_orig_initialize)
     alias_method :_rumble_orig_initialize, :initialize
@@ -29,6 +31,8 @@ class PokemonSystem
       @rumble_cat_overworld  = 0
       @rumble_cat_encounters = 0
       @rumble_lightbar       = 0
+      @speaker_master        = 0
+      @speaker_volume        = 100
     end
   end
 end
@@ -38,13 +42,13 @@ end
 #-------------------------------------------------------------------------------
 class RumbleOptionsScene < PokemonOption_Scene
   def getDefaultDescription
-    return _INTL("Controller vibration / rumble feedback.")
+    return _INTL("Controller vibration & DualSense speaker output.")
   end
 
   def pbStartScene(inloadscreen = false)
     super
     @sprites["title"] = Window_UnformattedTextPokemon.newWithSize(
-      _INTL("Controller Vibration"), 0, 0, Graphics.width, 64, @viewport)
+      _INTL("Controller Vibration / Speaker"), 0, 0, Graphics.width, 64, @viewport)
     @sprites["textbox"].text = getDefaultDescription
     pbFadeInAndShow(@sprites) { pbUpdate }
   end
@@ -54,14 +58,26 @@ class RumbleOptionsScene < PokemonOption_Scene
     kind = (Haptics.controller_kind rescue :unknown)
     native = (Haptics.native_available? rescue false)
     names = {
-      :dualsense => _INTL("DualSense (native)"), :dualshock4 => _INTL("DualShock 4 (native)"),
+      :dualsense => _INTL("DualSense"), :dualshock4 => _INTL("DualShock 4"),
       :xbox => _INTL("Xbox / XInput"), :switch => _INTL("Switch (native)"),
       :steamdeck => _INTL("Steam Deck (native)"), :steam => _INTL("Steam Controller"),
       :generic => _INTL("Generic gamepad"), :ps3 => _INTL("PS3"), :other => _INTL("Controller"),
       :xinput => _INTL("Xbox / XInput"), :unknown => _INTL("No controller detected")
     }
+    if kind == :unknown
+      d = (Haptics::HID.diagnostics rescue {})
+      return d[:error] ? _INTL("No controller detected ({1})", d[:error].to_s) : _INTL("No controller detected")
+    end
     base = names[kind] || _INTL("Controller")
-    return native ? _INTL("Detected: {1} via Steam Input", base) : _INTL("Detected: {1}", base)
+    hid  = (Haptics.hid_direct? rescue false)
+    conn = (Haptics.hid_connection rescue nil)
+    if native
+      return _INTL("Detected: {1} via Steam Input", base)
+    elsif hid
+      return _INTL("Detected: {1} via direct {2}", base, (conn == :bt ? _INTL("Bluetooth") : _INTL("USB")))
+    else
+      return _INTL("Detected: {1}", base)
+    end
   end
 
   def pbGetOptions(inloadscreen = false)
@@ -99,8 +115,30 @@ class RumbleOptionsScene < PokemonOption_Scene
       proc { |value| $PokemonSystem.rumble_lightbar = value; Haptics.led_reset if value != 0 },
       _INTL("Tint the DualSense lightbar by move type / battle (native DualSense only).")
     )
+    options << EnumOption.new(_INTL("Controller Speaker"), [_INTL("On"), _INTL("Off")],
+      proc { v = $PokemonSystem.speaker_master; v.nil? ? 0 : v },
+      proc { |value| $PokemonSystem.speaker_master = value },
+      _INTL("Play Pokemon cries and Pokedex voice-over through the DualSense's built-in speaker when you are not on headphones (USB connection only).")
+    )
+    options << SliderOption.new(_INTL("Speaker Volume"), 0, 100, 5,
+      proc { v = $PokemonSystem.speaker_volume; v.nil? ? 100 : v },
+      proc { |value| $PokemonSystem.speaker_volume = value },
+      _INTL("Loudness of cries / voice-over sent to the controller speaker.")
+    )
+    options << ButtonOption.new(_INTL("Test Controller Speaker"),
+      proc {
+        begin
+          msg = (defined?(ControllerSpeaker) ? ControllerSpeaker.test : _INTL("Controller speaker support is unavailable."))
+          pbMessage(msg) if defined?(pbMessage)
+        rescue
+        end
+      },
+      _INTL("Check detection and play a test cry through the controller speaker."),
+      _INTL("Test")
+    )
     options << ButtonOption.new(_INTL("Test Vibration"),
       proc {
+        (Haptics::HID.test_probe! rescue nil)   # force a fresh raw-HID probe + log line each press
         Haptics.test
         begin
           pbMessage(_INTL("Testing vibration...\n{1}.", rumble_detected_label)) if defined?(pbMessage)
@@ -124,7 +162,7 @@ if defined?(KurayOptionsScene)
       def pbGetOptions(inloadscreen = false)
         options = _rumble_orig_pbGetOptions(inloadscreen)
         begin
-          options << ButtonOption.new(_INTL("Controller Vibration"),
+          btn = ButtonOption.new(_INTL("Controller Vibration / Speaker"),
             proc {
               pbFadeOutIn {
                 scene  = RumbleOptionsScene.new
@@ -132,8 +170,10 @@ if defined?(KurayOptionsScene)
                 screen.pbStartScreen
               }
             },
-            _INTL("Rumble feedback for battles, steps and encounters."),
+            _INTL("Rumble feedback plus DualSense speaker output for cries."),
             _INTL("Open"))
+          idx = options.index { |o| o.respond_to?(:name) && o.name == _INTL("Others") }
+          idx ? options.insert(idx + 1, btn) : options << btn
         rescue
         end
         return options

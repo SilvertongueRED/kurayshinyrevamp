@@ -1,3 +1,28 @@
 # Local Discord webhook URL for the in-game "Share to Discord" feature.
 # Stored per-machine only; must NOT be committed to the public repo.
 CustomSpriteImport/discord_webhook.txt
+
+# Steamworks redistributable for native DualSense detection (Steam Input bridge).
+# User-supplied per-machine; license does NOT cover redistributing it in a
+# non-Steam fan game, so it must NOT be committed to the public repo.
+steam_api64.dll
+# Spacewar (480) test App ID file; auto-created at runtime by the rumble bridge.
+steam_appid.txt
+# Per-launch rumble/Steam-Input diagnostic log.
+Logs/rumble_steaminput.log
+
+# KIF NeuralFusion (AI fusion sprites) runtime + training artifacts.
+# All generated per-machine and/or huge (multi-GB) -- never commit these.
+Tools/kif_neuralfusion/logs/
+Tools/kif_neuralfusion/.venv/
+Tools/kif_neuralfusion/.venv-train/
+Tools/kif_neuralfusion/dataset/
+Tools/kif_neuralfusion/models/
+Tools/kif_neuralfusion/**/__pycache__/
+
+# Compositor CLI test outputs (created by `python compositor.py ...`).
+Tools/kif_neuralfusion/fusion_*.png
+Tools/kif_neuralfusion/triple_*.png
+CustomSpriteImport/discord_identity.txt
+CustomSpriteImport/discord_webhook_shared.txt
+CustomSpriteImport/sprite_share_src.txt

@@ -1,6 +1,6 @@
 # ===========================================
 # Chat System - Input Module
-# F10 (toggle), F11 (cycle tabs), T (open input)
+# F10 (open/close window, via :chat MP hotkey), F11 (cycle tabs), T (start typing only)
 # ===========================================
 
 ##MultiplayerDebug.info("CHAT-INPUT", "Chat input module loading...")
@@ -428,16 +428,10 @@ module Input
   def self.handle_hotkeys
     overlay_visible = chat_overlay_visible?
 
-    # F10: Toggle deploy
-    if overlay_visible && ChatInputHotkeys.f10_trigger?
-      if defined?(ChatState)
-        # If typing, cancel first
-        if $chat_window && $chat_window.input_mode
-          close_chat_input
-        end
-        ChatState.toggle_deploy
-      end
-    end
+    # F10 (chat-window open/close) is handled by the rebindable :chat MP hotkey
+    # in ControlRebind.mp_poll (default F10 / Left Trigger). It is intentionally
+    # NOT handled here too -- doing both would toggle twice in one frame and
+    # cancel out. The T key below only OPENS the typing box; it never toggles.
 
     # F11: Cycle tabs (and reset scroll)
     if overlay_visible && ChatInputHotkeys.f11_trigger?
@@ -1039,3 +1033,104 @@ if defined?(MultiplayerUI) && MultiplayerUI.respond_to?(:mouse_modal_overlay_ope
 end
 
 ##MultiplayerDebug.info("CHAT-INPUT", "Chat input module loaded successfully")
+
+# ===========================================================================
+# Chat typing input lock
+# ---------------------------------------------------------------------------
+# While the chat input box is focused (input_mode), the engine still refreshes
+# its logical button states every frame, so a physical key that is ALSO bound
+# to a game action (e.g. "T" = open chat, "S"/"X" = menu/run, number keys =
+# registered items, etc.) would fire that bound action -- which steals focus
+# and closes the chat box -- instead of just typing the character.
+#
+# The chat editor reads its own keystrokes directly via GetAsyncKeyState +
+# SDL Input.gets (see ChatInputHotkeys / handle_typing_mode), NOT through the
+# engine's logical-button queries. So while typing we can safely swallow every
+# logical-button query: letters, numbers and symbols then ONLY type into the
+# chat box and never trigger their bound game action. Mouse buttons are passed
+# through so the chat panel / emoji UI stay clickable, and directional input
+# is frozen so the player does not walk off while typing.
+#
+# This wraps the ControlRebind input override (052_AddOns, loaded earlier), so
+# the lock check runs first and short-circuits before any remap logic.
+# ===========================================================================
+unless defined?($chat_typing_input_lock_installed) && $chat_typing_input_lock_installed
+  module Input
+    class << self
+      def _chat_typing_lock_active?
+        cw = ($chat_window rescue nil)
+        !!(cw && (cw.input_mode rescue false))
+      rescue
+        false
+      end
+
+      def _chat_typing_mouse_button?(b)
+        @_chat_typing_mouse_btns ||= [
+          (Input::MOUSELEFT   rescue nil),
+          (Input::MOUSERIGHT  rescue nil),
+          (Input::MOUSEMIDDLE rescue nil)
+        ].compact
+        @_chat_typing_mouse_btns.include?(b)
+      rescue
+        false
+      end
+
+      alias_method :_chat_typing_orig_trigger?, :trigger?
+      alias_method :_chat_typing_orig_press?,   :press?
+      alias_method :_chat_typing_orig_repeat?,  :repeat?
+
+      def trigger?(b)
+        return false if _chat_typing_lock_active? && !_chat_typing_mouse_button?(b)
+        _chat_typing_orig_trigger?(b)
+      end
+
+      def press?(b)
+        return false if _chat_typing_lock_active? && !_chat_typing_mouse_button?(b)
+        _chat_typing_orig_press?(b)
+      end
+
+      def repeat?(b)
+        return false if _chat_typing_lock_active? && !_chat_typing_mouse_button?(b)
+        _chat_typing_orig_repeat?(b)
+      end
+    end
+  end
+
+  if Input.respond_to?(:release?)
+    module Input
+      class << self
+        alias_method :_chat_typing_orig_release?, :release?
+        def release?(b)
+          return false if _chat_typing_lock_active? && !_chat_typing_mouse_button?(b)
+          _chat_typing_orig_release?(b)
+        end
+      end
+    end
+  end
+
+  if Input.respond_to?(:dir4)
+    module Input
+      class << self
+        alias_method :_chat_typing_orig_dir4, :dir4
+        def dir4
+          return 0 if _chat_typing_lock_active?
+          _chat_typing_orig_dir4
+        end
+      end
+    end
+  end
+
+  if Input.respond_to?(:dir8)
+    module Input
+      class << self
+        alias_method :_chat_typing_orig_dir8, :dir8
+        def dir8
+          return 0 if _chat_typing_lock_active?
+          _chat_typing_orig_dir8
+        end
+      end
+    end
+  end
+
+  $chat_typing_input_lock_installed = true
+end

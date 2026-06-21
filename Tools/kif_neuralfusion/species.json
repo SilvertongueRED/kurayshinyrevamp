@@ -1,0 +1,2688 @@
+{
+  "1": {
+    "name": "Bulbasaur",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "2": {
+    "name": "Ivysaur",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "3": {
+    "name": "Venusaur",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "4": {
+    "name": "Charmander",
+    "type1": "Fire"
+  },
+  "5": {
+    "name": "Charmeleon",
+    "type1": "Fire"
+  },
+  "6": {
+    "name": "Charizard",
+    "type1": "Fire",
+    "type2": "Flying"
+  },
+  "7": {
+    "name": "Squirtle",
+    "type1": "Water"
+  },
+  "8": {
+    "name": "Wartortle",
+    "type1": "Water"
+  },
+  "9": {
+    "name": "Blastoise",
+    "type1": "Water"
+  },
+  "10": {
+    "name": "Caterpie",
+    "type1": "Bug"
+  },
+  "11": {
+    "name": "Metapod",
+    "type1": "Bug"
+  },
+  "12": {
+    "name": "Butterfree",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "13": {
+    "name": "Weedle",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "14": {
+    "name": "Kakuna",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "15": {
+    "name": "Beedrill",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "16": {
+    "name": "Pidgey",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "17": {
+    "name": "Pidgeotto",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "18": {
+    "name": "Pidgeot",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "19": {
+    "name": "Rattata",
+    "type1": "Normal"
+  },
+  "20": {
+    "name": "Raticate",
+    "type1": "Normal"
+  },
+  "21": {
+    "name": "Spearow",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "22": {
+    "name": "Fearow",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "23": {
+    "name": "Ekans",
+    "type1": "Poison"
+  },
+  "24": {
+    "name": "Arbok",
+    "type1": "Poison"
+  },
+  "25": {
+    "name": "Pikachu",
+    "type1": "Electric"
+  },
+  "26": {
+    "name": "Raichu",
+    "type1": "Electric"
+  },
+  "27": {
+    "name": "Sandshrew",
+    "type1": "Ground"
+  },
+  "28": {
+    "name": "Sandslash",
+    "type1": "Ground"
+  },
+  "29": {
+    "name": "Nidoran",
+    "type1": "Poison"
+  },
+  "30": {
+    "name": "Nidorina",
+    "type1": "Poison"
+  },
+  "31": {
+    "name": "Nidoqueen",
+    "type1": "Poison",
+    "type2": "Ground"
+  },
+  "32": {
+    "name": "Nidoran",
+    "type1": "Poison"
+  },
+  "33": {
+    "name": "Nidorino",
+    "type1": "Poison"
+  },
+  "34": {
+    "name": "Nidoking",
+    "type1": "Poison",
+    "type2": "Ground"
+  },
+  "35": {
+    "name": "Clefairy",
+    "type1": "Fairy"
+  },
+  "36": {
+    "name": "Clefable",
+    "type1": "Fairy"
+  },
+  "37": {
+    "name": "Vulpix",
+    "type1": "Fire"
+  },
+  "38": {
+    "name": "Ninetales",
+    "type1": "Fire"
+  },
+  "39": {
+    "name": "Jigglypuff",
+    "type1": "Normal",
+    "type2": "Fairy"
+  },
+  "40": {
+    "name": "Wigglytuff",
+    "type1": "Normal",
+    "type2": "Fairy"
+  },
+  "41": {
+    "name": "Zubat",
+    "type1": "Poison",
+    "type2": "Flying"
+  },
+  "42": {
+    "name": "Golbat",
+    "type1": "Poison",
+    "type2": "Flying"
+  },
+  "43": {
+    "name": "Oddish",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "44": {
+    "name": "Gloom",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "45": {
+    "name": "Vileplume",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "46": {
+    "name": "Paras",
+    "type1": "Bug",
+    "type2": "Grass"
+  },
+  "47": {
+    "name": "Parasect",
+    "type1": "Bug",
+    "type2": "Grass"
+  },
+  "48": {
+    "name": "Venonat",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "49": {
+    "name": "Venomoth",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "50": {
+    "name": "Diglett",
+    "type1": "Ground"
+  },
+  "51": {
+    "name": "Dugtrio",
+    "type1": "Ground"
+  },
+  "52": {
+    "name": "Meowth",
+    "type1": "Normal"
+  },
+  "53": {
+    "name": "Persian",
+    "type1": "Normal"
+  },
+  "54": {
+    "name": "Psyduck",
+    "type1": "Water"
+  },
+  "55": {
+    "name": "Golduck",
+    "type1": "Water"
+  },
+  "56": {
+    "name": "Mankey",
+    "type1": "Fighting"
+  },
+  "57": {
+    "name": "Primeape",
+    "type1": "Fighting"
+  },
+  "58": {
+    "name": "Growlithe",
+    "type1": "Fire"
+  },
+  "59": {
+    "name": "Arcanine",
+    "type1": "Fire"
+  },
+  "60": {
+    "name": "Poliwag",
+    "type1": "Water"
+  },
+  "61": {
+    "name": "Poliwhirl",
+    "type1": "Water"
+  },
+  "62": {
+    "name": "Poliwrath",
+    "type1": "Water",
+    "type2": "Fighting"
+  },
+  "63": {
+    "name": "Abra",
+    "type1": "Psychic"
+  },
+  "64": {
+    "name": "Kadabra",
+    "type1": "Psychic"
+  },
+  "65": {
+    "name": "Alakazam",
+    "type1": "Psychic"
+  },
+  "66": {
+    "name": "Machop",
+    "type1": "Fighting"
+  },
+  "67": {
+    "name": "Machoke",
+    "type1": "Fighting"
+  },
+  "68": {
+    "name": "Machamp",
+    "type1": "Fighting"
+  },
+  "69": {
+    "name": "Bellsprout",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "70": {
+    "name": "Weepinbell",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "71": {
+    "name": "Victreebel",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "72": {
+    "name": "Tentacool",
+    "type1": "Water",
+    "type2": "Poison"
+  },
+  "73": {
+    "name": "Tentacruel",
+    "type1": "Water",
+    "type2": "Poison"
+  },
+  "74": {
+    "name": "Geodude",
+    "type1": "Rock",
+    "type2": "Ground"
+  },
+  "75": {
+    "name": "Graveler",
+    "type1": "Rock",
+    "type2": "Ground"
+  },
+  "76": {
+    "name": "Golem",
+    "type1": "Rock",
+    "type2": "Ground"
+  },
+  "77": {
+    "name": "Ponyta",
+    "type1": "Fire"
+  },
+  "78": {
+    "name": "Rapidash",
+    "type1": "Fire"
+  },
+  "79": {
+    "name": "Slowpoke",
+    "type1": "Water",
+    "type2": "Psychic"
+  },
+  "80": {
+    "name": "Slowbro",
+    "type1": "Water",
+    "type2": "Psychic"
+  },
+  "81": {
+    "name": "Magnemite",
+    "type1": "Steel",
+    "type2": "Electric"
+  },
+  "82": {
+    "name": "Magneton",
+    "type1": "Steel",
+    "type2": "Electric"
+  },
+  "83": {
+    "name": "Farfetch'd",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "84": {
+    "name": "Doduo",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "85": {
+    "name": "Dodrio",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "86": {
+    "name": "Seel",
+    "type1": "Water"
+  },
+  "87": {
+    "name": "Dewgong",
+    "type1": "Water",
+    "type2": "Ice"
+  },
+  "88": {
+    "name": "Grimer",
+    "type1": "Poison"
+  },
+  "89": {
+    "name": "Muk",
+    "type1": "Poison"
+  },
+  "90": {
+    "name": "Shellder",
+    "type1": "Water"
+  },
+  "91": {
+    "name": "Cloyster",
+    "type1": "Water",
+    "type2": "Ice"
+  },
+  "92": {
+    "name": "Gastly",
+    "type1": "Ghost",
+    "type2": "Poison"
+  },
+  "93": {
+    "name": "Haunter",
+    "type1": "Ghost",
+    "type2": "Poison"
+  },
+  "94": {
+    "name": "Gengar",
+    "type1": "Ghost",
+    "type2": "Poison"
+  },
+  "95": {
+    "name": "Onix",
+    "type1": "Rock",
+    "type2": "Ground"
+  },
+  "96": {
+    "name": "Drowzee",
+    "type1": "Psychic"
+  },
+  "97": {
+    "name": "Hypno",
+    "type1": "Psychic"
+  },
+  "98": {
+    "name": "Krabby",
+    "type1": "Water"
+  },
+  "99": {
+    "name": "Kingler",
+    "type1": "Water"
+  },
+  "100": {
+    "name": "Voltorb",
+    "type1": "Electric"
+  },
+  "101": {
+    "name": "Electrode",
+    "type1": "Electric"
+  },
+  "102": {
+    "name": "Exeggcute",
+    "type1": "Grass",
+    "type2": "Psychic"
+  },
+  "103": {
+    "name": "Exeggutor",
+    "type1": "Grass",
+    "type2": "Psychic"
+  },
+  "104": {
+    "name": "Cubone",
+    "type1": "Ground"
+  },
+  "105": {
+    "name": "Marowak",
+    "type1": "Ground"
+  },
+  "106": {
+    "name": "Hitmonlee",
+    "type1": "Fighting"
+  },
+  "107": {
+    "name": "Hitmonchan",
+    "type1": "Fighting"
+  },
+  "108": {
+    "name": "Lickitung",
+    "type1": "Normal"
+  },
+  "109": {
+    "name": "Koffing",
+    "type1": "Poison"
+  },
+  "110": {
+    "name": "Weezing",
+    "type1": "Poison"
+  },
+  "111": {
+    "name": "Rhyhorn",
+    "type1": "Ground",
+    "type2": "Rock"
+  },
+  "112": {
+    "name": "Rhydon",
+    "type1": "Ground",
+    "type2": "Rock"
+  },
+  "113": {
+    "name": "Chansey",
+    "type1": "Normal"
+  },
+  "114": {
+    "name": "Tangela",
+    "type1": "Grass"
+  },
+  "115": {
+    "name": "Kangaskhan",
+    "type1": "Normal"
+  },
+  "116": {
+    "name": "Horsea",
+    "type1": "Water"
+  },
+  "117": {
+    "name": "Seadra",
+    "type1": "Water"
+  },
+  "118": {
+    "name": "Goldeen",
+    "type1": "Water"
+  },
+  "119": {
+    "name": "Seaking",
+    "type1": "Water"
+  },
+  "120": {
+    "name": "Staryu",
+    "type1": "Water"
+  },
+  "121": {
+    "name": "Starmie",
+    "type1": "Water",
+    "type2": "Psychic"
+  },
+  "122": {
+    "name": "Mr. Mime",
+    "type1": "Psychic",
+    "type2": "Fairy"
+  },
+  "123": {
+    "name": "Scyther",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "124": {
+    "name": "Jynx",
+    "type1": "Ice",
+    "type2": "Psychic"
+  },
+  "125": {
+    "name": "Electabuzz",
+    "type1": "Electric"
+  },
+  "126": {
+    "name": "Magmar",
+    "type1": "Fire"
+  },
+  "127": {
+    "name": "Pinsir",
+    "type1": "Bug"
+  },
+  "128": {
+    "name": "Tauros",
+    "type1": "Normal"
+  },
+  "129": {
+    "name": "Magikarp",
+    "type1": "Water"
+  },
+  "130": {
+    "name": "Gyarados",
+    "type1": "Water",
+    "type2": "Flying"
+  },
+  "131": {
+    "name": "Lapras",
+    "type1": "Water",
+    "type2": "Ice"
+  },
+  "132": {
+    "name": "Ditto",
+    "type1": "Normal"
+  },
+  "133": {
+    "name": "Eevee",
+    "type1": "Normal"
+  },
+  "134": {
+    "name": "Vaporeon",
+    "type1": "Water"
+  },
+  "135": {
+    "name": "Jolteon",
+    "type1": "Electric"
+  },
+  "136": {
+    "name": "Flareon",
+    "type1": "Fire"
+  },
+  "137": {
+    "name": "Porygon",
+    "type1": "Normal"
+  },
+  "138": {
+    "name": "Omanyte",
+    "type1": "Rock",
+    "type2": "Water"
+  },
+  "139": {
+    "name": "Omastar",
+    "type1": "Rock",
+    "type2": "Water"
+  },
+  "140": {
+    "name": "Kabuto",
+    "type1": "Rock",
+    "type2": "Water"
+  },
+  "141": {
+    "name": "Kabutops",
+    "type1": "Rock",
+    "type2": "Water"
+  },
+  "142": {
+    "name": "Aerodactyl",
+    "type1": "Rock",
+    "type2": "Flying"
+  },
+  "143": {
+    "name": "Snorlax",
+    "type1": "Normal"
+  },
+  "144": {
+    "name": "Articuno",
+    "type1": "Ice",
+    "type2": "Flying"
+  },
+  "145": {
+    "name": "Zapdos",
+    "type1": "Electric",
+    "type2": "Flying"
+  },
+  "146": {
+    "name": "Moltres",
+    "type1": "Fire",
+    "type2": "Flying"
+  },
+  "147": {
+    "name": "Dratini",
+    "type1": "Dragon"
+  },
+  "148": {
+    "name": "Dragonair",
+    "type1": "Dragon"
+  },
+  "149": {
+    "name": "Dragonite",
+    "type1": "Dragon",
+    "type2": "Flying"
+  },
+  "150": {
+    "name": "Mewtwo",
+    "type1": "Psychic"
+  },
+  "151": {
+    "name": "Mew",
+    "type1": "Psychic"
+  },
+  "152": {
+    "name": "Chikorita",
+    "type1": "Grass"
+  },
+  "153": {
+    "name": "Bayleef",
+    "type1": "Grass"
+  },
+  "154": {
+    "name": "Meganium",
+    "type1": "Grass"
+  },
+  "155": {
+    "name": "Cyndaquil",
+    "type1": "Fire"
+  },
+  "156": {
+    "name": "Quilava",
+    "type1": "Fire"
+  },
+  "157": {
+    "name": "Typhlosion",
+    "type1": "Fire"
+  },
+  "158": {
+    "name": "Totodile",
+    "type1": "Water"
+  },
+  "159": {
+    "name": "Croconaw",
+    "type1": "Water"
+  },
+  "160": {
+    "name": "Feraligatr",
+    "type1": "Water"
+  },
+  "161": {
+    "name": "Sentret",
+    "type1": "Normal"
+  },
+  "162": {
+    "name": "Furret",
+    "type1": "Normal"
+  },
+  "163": {
+    "name": "Hoothoot",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "164": {
+    "name": "Noctowl",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "165": {
+    "name": "Ledyba",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "166": {
+    "name": "Ledian",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "167": {
+    "name": "Spinarak",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "168": {
+    "name": "Ariados",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "169": {
+    "name": "Crobat",
+    "type1": "Poison",
+    "type2": "Flying"
+  },
+  "170": {
+    "name": "Chinchou",
+    "type1": "Water",
+    "type2": "Electric"
+  },
+  "171": {
+    "name": "Lanturn",
+    "type1": "Water",
+    "type2": "Electric"
+  },
+  "172": {
+    "name": "Pichu",
+    "type1": "Electric"
+  },
+  "173": {
+    "name": "Cleffa",
+    "type1": "Fairy"
+  },
+  "174": {
+    "name": "Igglybuff",
+    "type1": "Normal",
+    "type2": "Fairy"
+  },
+  "175": {
+    "name": "Togepi",
+    "type1": "Fairy"
+  },
+  "176": {
+    "name": "Togetic",
+    "type1": "Fairy",
+    "type2": "Flying"
+  },
+  "177": {
+    "name": "Natu",
+    "type1": "Psychic",
+    "type2": "Flying"
+  },
+  "178": {
+    "name": "Xatu",
+    "type1": "Psychic",
+    "type2": "Flying"
+  },
+  "179": {
+    "name": "Mareep",
+    "type1": "Electric"
+  },
+  "180": {
+    "name": "Flaaffy",
+    "type1": "Electric"
+  },
+  "181": {
+    "name": "Ampharos",
+    "type1": "Electric"
+  },
+  "182": {
+    "name": "Bellossom",
+    "type1": "Grass"
+  },
+  "183": {
+    "name": "Marill",
+    "type1": "Water",
+    "type2": "Fairy"
+  },
+  "184": {
+    "name": "Azumarill",
+    "type1": "Water",
+    "type2": "Fairy"
+  },
+  "185": {
+    "name": "Sudowoodo",
+    "type1": "Rock"
+  },
+  "186": {
+    "name": "Politoed",
+    "type1": "Water"
+  },
+  "187": {
+    "name": "Hoppip",
+    "type1": "Grass",
+    "type2": "Flying"
+  },
+  "188": {
+    "name": "Skiploom",
+    "type1": "Grass",
+    "type2": "Flying"
+  },
+  "189": {
+    "name": "Jumpluff",
+    "type1": "Grass",
+    "type2": "Flying"
+  },
+  "190": {
+    "name": "Aipom",
+    "type1": "Normal"
+  },
+  "191": {
+    "name": "Sunkern",
+    "type1": "Grass"
+  },
+  "192": {
+    "name": "Sunflora",
+    "type1": "Grass"
+  },
+  "193": {
+    "name": "Yanma",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "194": {
+    "name": "Wooper",
+    "type1": "Water",
+    "type2": "Ground"
+  },
+  "195": {
+    "name": "Quagsire",
+    "type1": "Water",
+    "type2": "Ground"
+  },
+  "196": {
+    "name": "Espeon",
+    "type1": "Psychic"
+  },
+  "197": {
+    "name": "Umbreon",
+    "type1": "Dark"
+  },
+  "198": {
+    "name": "Murkrow",
+    "type1": "Dark",
+    "type2": "Flying"
+  },
+  "199": {
+    "name": "Slowking",
+    "type1": "Water",
+    "type2": "Psychic"
+  },
+  "200": {
+    "name": "Misdreavus",
+    "type1": "Ghost"
+  },
+  "201": {
+    "name": "Unown",
+    "type1": "Psychic"
+  },
+  "202": {
+    "name": "Wobbuffet",
+    "type1": "Psychic"
+  },
+  "203": {
+    "name": "Girafarig",
+    "type1": "Normal",
+    "type2": "Psychic"
+  },
+  "204": {
+    "name": "Pineco",
+    "type1": "Bug"
+  },
+  "205": {
+    "name": "Forretress",
+    "type1": "Bug",
+    "type2": "Steel"
+  },
+  "206": {
+    "name": "Dunsparce",
+    "type1": "Normal"
+  },
+  "207": {
+    "name": "Gligar",
+    "type1": "Ground",
+    "type2": "Flying"
+  },
+  "208": {
+    "name": "Steelix",
+    "type1": "Steel",
+    "type2": "Ground"
+  },
+  "209": {
+    "name": "Snubbull",
+    "type1": "Fairy"
+  },
+  "210": {
+    "name": "Granbull",
+    "type1": "Fairy"
+  },
+  "211": {
+    "name": "Qwilfish",
+    "type1": "Water",
+    "type2": "Poison"
+  },
+  "212": {
+    "name": "Scizor",
+    "type1": "Bug",
+    "type2": "Steel"
+  },
+  "213": {
+    "name": "Shuckle",
+    "type1": "Bug",
+    "type2": "Rock"
+  },
+  "214": {
+    "name": "Heracross",
+    "type1": "Bug",
+    "type2": "Fighting"
+  },
+  "215": {
+    "name": "Sneasel",
+    "type1": "Dark",
+    "type2": "Ice"
+  },
+  "216": {
+    "name": "Teddiursa",
+    "type1": "Normal"
+  },
+  "217": {
+    "name": "Ursaring",
+    "type1": "Normal"
+  },
+  "218": {
+    "name": "Slugma",
+    "type1": "Fire"
+  },
+  "219": {
+    "name": "Magcargo",
+    "type1": "Fire",
+    "type2": "Rock"
+  },
+  "220": {
+    "name": "Swinub",
+    "type1": "Ice",
+    "type2": "Ground"
+  },
+  "221": {
+    "name": "Piloswine",
+    "type1": "Ice",
+    "type2": "Ground"
+  },
+  "222": {
+    "name": "Corsola",
+    "type1": "Water",
+    "type2": "Rock"
+  },
+  "223": {
+    "name": "Remoraid",
+    "type1": "Water"
+  },
+  "224": {
+    "name": "Octillery",
+    "type1": "Water"
+  },
+  "225": {
+    "name": "Delibird",
+    "type1": "Ice",
+    "type2": "Flying"
+  },
+  "226": {
+    "name": "Mantine",
+    "type1": "Water",
+    "type2": "Flying"
+  },
+  "227": {
+    "name": "Skarmory",
+    "type1": "Steel",
+    "type2": "Flying"
+  },
+  "228": {
+    "name": "Houndour",
+    "type1": "Dark",
+    "type2": "Fire"
+  },
+  "229": {
+    "name": "Houndoom",
+    "type1": "Dark",
+    "type2": "Fire"
+  },
+  "230": {
+    "name": "Kingdra",
+    "type1": "Water",
+    "type2": "Dragon"
+  },
+  "231": {
+    "name": "Phanpy",
+    "type1": "Ground"
+  },
+  "232": {
+    "name": "Donphan",
+    "type1": "Ground"
+  },
+  "233": {
+    "name": "Porygon2",
+    "type1": "Normal"
+  },
+  "234": {
+    "name": "Stantler",
+    "type1": "Normal"
+  },
+  "235": {
+    "name": "Smeargle",
+    "type1": "Normal"
+  },
+  "236": {
+    "name": "Tyrogue",
+    "type1": "Fighting"
+  },
+  "237": {
+    "name": "Hitmontop",
+    "type1": "Fighting"
+  },
+  "238": {
+    "name": "Smoochum",
+    "type1": "Ice",
+    "type2": "Psychic"
+  },
+  "239": {
+    "name": "Elekid",
+    "type1": "Electric"
+  },
+  "240": {
+    "name": "Magby",
+    "type1": "Fire"
+  },
+  "241": {
+    "name": "Miltank",
+    "type1": "Normal"
+  },
+  "242": {
+    "name": "Blissey",
+    "type1": "Normal"
+  },
+  "243": {
+    "name": "Raikou",
+    "type1": "Electric"
+  },
+  "244": {
+    "name": "Entei",
+    "type1": "Fire"
+  },
+  "245": {
+    "name": "Suicune",
+    "type1": "Water"
+  },
+  "246": {
+    "name": "Larvitar",
+    "type1": "Rock",
+    "type2": "Ground"
+  },
+  "247": {
+    "name": "Pupitar",
+    "type1": "Rock",
+    "type2": "Ground"
+  },
+  "248": {
+    "name": "Tyranitar",
+    "type1": "Rock",
+    "type2": "Dark"
+  },
+  "249": {
+    "name": "Lugia",
+    "type1": "Psychic",
+    "type2": "Flying"
+  },
+  "250": {
+    "name": "Ho-Oh",
+    "type1": "Fire",
+    "type2": "Flying"
+  },
+  "251": {
+    "name": "Celebi",
+    "type1": "Psychic",
+    "type2": "Grass"
+  },
+  "252": {
+    "name": "Azurill",
+    "type1": "Normal",
+    "type2": "Fairy"
+  },
+  "253": {
+    "name": "Wynaut",
+    "type1": "Psychic"
+  },
+  "254": {
+    "name": "Ambipom",
+    "type1": "Normal"
+  },
+  "255": {
+    "name": "Mismagius",
+    "type1": "Ghost"
+  },
+  "256": {
+    "name": "Honchkrow",
+    "type1": "Dark",
+    "type2": "Flying"
+  },
+  "257": {
+    "name": "Bonsly",
+    "type1": "Rock"
+  },
+  "258": {
+    "name": "Mime Jr.",
+    "type1": "Psychic",
+    "type2": "Fairy"
+  },
+  "259": {
+    "name": "Happiny",
+    "type1": "Normal"
+  },
+  "260": {
+    "name": "Munchlax",
+    "type1": "Normal"
+  },
+  "261": {
+    "name": "Mantyke",
+    "type1": "Water",
+    "type2": "Flying"
+  },
+  "262": {
+    "name": "Weavile",
+    "type1": "Dark",
+    "type2": "Ice"
+  },
+  "263": {
+    "name": "Magnezone",
+    "type1": "Steel",
+    "type2": "Electric"
+  },
+  "264": {
+    "name": "Lickilicky",
+    "type1": "Normal"
+  },
+  "265": {
+    "name": "Rhyperior",
+    "type1": "Ground",
+    "type2": "Rock"
+  },
+  "266": {
+    "name": "Tangrowth",
+    "type1": "Grass"
+  },
+  "267": {
+    "name": "Electivire",
+    "type1": "Electric"
+  },
+  "268": {
+    "name": "Magmortar",
+    "type1": "Fire"
+  },
+  "269": {
+    "name": "Togekiss",
+    "type1": "Fairy",
+    "type2": "Flying"
+  },
+  "270": {
+    "name": "Yanmega",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "271": {
+    "name": "Leafeon",
+    "type1": "Grass"
+  },
+  "272": {
+    "name": "Glaceon",
+    "type1": "Ice"
+  },
+  "273": {
+    "name": "Gliscor",
+    "type1": "Ground",
+    "type2": "Flying"
+  },
+  "274": {
+    "name": "Mamoswine",
+    "type1": "Ice",
+    "type2": "Ground"
+  },
+  "275": {
+    "name": "Porygon-Z",
+    "type1": "Normal"
+  },
+  "276": {
+    "name": "Treecko",
+    "type1": "Grass"
+  },
+  "277": {
+    "name": "Grovyle",
+    "type1": "Grass"
+  },
+  "278": {
+    "name": "Sceptile",
+    "type1": "Grass"
+  },
+  "279": {
+    "name": "Torchic",
+    "type1": "Fire"
+  },
+  "280": {
+    "name": "Combusken",
+    "type1": "Fire",
+    "type2": "Fighting"
+  },
+  "281": {
+    "name": "Blaziken",
+    "type1": "Fire",
+    "type2": "Fighting"
+  },
+  "282": {
+    "name": "Mudkip",
+    "type1": "Water"
+  },
+  "283": {
+    "name": "Marshtomp",
+    "type1": "Water",
+    "type2": "Ground"
+  },
+  "284": {
+    "name": "Swampert",
+    "type1": "Water",
+    "type2": "Ground"
+  },
+  "285": {
+    "name": "Ralts",
+    "type1": "Psychic",
+    "type2": "Fairy"
+  },
+  "286": {
+    "name": "Kirlia",
+    "type1": "Psychic",
+    "type2": "Fairy"
+  },
+  "287": {
+    "name": "Gardevoir",
+    "type1": "Psychic",
+    "type2": "Fairy"
+  },
+  "288": {
+    "name": "Gallade",
+    "type1": "Psychic",
+    "type2": "Fighting"
+  },
+  "289": {
+    "name": "Shedinja",
+    "type1": "Bug",
+    "type2": "Ghost"
+  },
+  "290": {
+    "name": "Kecleon",
+    "type1": "Normal"
+  },
+  "291": {
+    "name": "Beldum",
+    "type1": "Steel",
+    "type2": "Psychic"
+  },
+  "292": {
+    "name": "Metang",
+    "type1": "Steel",
+    "type2": "Psychic"
+  },
+  "293": {
+    "name": "Metagross",
+    "type1": "Steel",
+    "type2": "Psychic"
+  },
+  "294": {
+    "name": "Bidoof",
+    "type1": "Normal"
+  },
+  "295": {
+    "name": "Spiritomb",
+    "type1": "Dark",
+    "type2": "Ghost"
+  },
+  "296": {
+    "name": "Lucario",
+    "type1": "Fighting",
+    "type2": "Steel"
+  },
+  "297": {
+    "name": "Gible",
+    "type1": "Dragon",
+    "type2": "Ground"
+  },
+  "298": {
+    "name": "Gabite",
+    "type1": "Dragon",
+    "type2": "Ground"
+  },
+  "299": {
+    "name": "Garchomp",
+    "type1": "Dragon",
+    "type2": "Ground"
+  },
+  "300": {
+    "name": "Mawile",
+    "type1": "Steel",
+    "type2": "Fairy"
+  },
+  "301": {
+    "name": "Lileep",
+    "type1": "Rock",
+    "type2": "Grass"
+  },
+  "302": {
+    "name": "Cradily",
+    "type1": "Rock",
+    "type2": "Grass"
+  },
+  "303": {
+    "name": "Anorith",
+    "type1": "Rock",
+    "type2": "Bug"
+  },
+  "304": {
+    "name": "Armaldo",
+    "type1": "Rock",
+    "type2": "Bug"
+  },
+  "305": {
+    "name": "Cranidos",
+    "type1": "Rock"
+  },
+  "306": {
+    "name": "Rampardos",
+    "type1": "Rock"
+  },
+  "307": {
+    "name": "Shieldon",
+    "type1": "Rock",
+    "type2": "Steel"
+  },
+  "308": {
+    "name": "Bastiodon",
+    "type1": "Rock",
+    "type2": "Steel"
+  },
+  "309": {
+    "name": "Slaking",
+    "type1": "Normal"
+  },
+  "310": {
+    "name": "Absol",
+    "type1": "Dark"
+  },
+  "311": {
+    "name": "Duskull",
+    "type1": "Ghost"
+  },
+  "312": {
+    "name": "Dusclops",
+    "type1": "Ghost"
+  },
+  "313": {
+    "name": "Dusknoir",
+    "type1": "Ghost"
+  },
+  "314": {
+    "name": "Wailord",
+    "type1": "Water"
+  },
+  "315": {
+    "name": "Arceus",
+    "type1": "Normal"
+  },
+  "316": {
+    "name": "Turtwig",
+    "type1": "Grass"
+  },
+  "317": {
+    "name": "Grotle",
+    "type1": "Grass"
+  },
+  "318": {
+    "name": "Torterra",
+    "type1": "Grass",
+    "type2": "Ground"
+  },
+  "319": {
+    "name": "Chimchar",
+    "type1": "Fire"
+  },
+  "320": {
+    "name": "Monferno",
+    "type1": "Fire",
+    "type2": "Fighting"
+  },
+  "321": {
+    "name": "Infernape",
+    "type1": "Fire",
+    "type2": "Fighting"
+  },
+  "322": {
+    "name": "Piplup",
+    "type1": "Water"
+  },
+  "323": {
+    "name": "Prinplup",
+    "type1": "Water"
+  },
+  "324": {
+    "name": "Empoleon",
+    "type1": "Water",
+    "type2": "Steel"
+  },
+  "325": {
+    "name": "Nosepass",
+    "type1": "Rock"
+  },
+  "326": {
+    "name": "Probopass",
+    "type1": "Rock",
+    "type2": "Steel"
+  },
+  "327": {
+    "name": "Honedge",
+    "type1": "Steel",
+    "type2": "Ghost"
+  },
+  "328": {
+    "name": "Doublade",
+    "type1": "Steel",
+    "type2": "Ghost"
+  },
+  "329": {
+    "name": "Aegislash",
+    "type1": "Steel",
+    "type2": "Ghost"
+  },
+  "330": {
+    "name": "Pawniard",
+    "type1": "Dark",
+    "type2": "Steel"
+  },
+  "331": {
+    "name": "Bisharp",
+    "type1": "Dark",
+    "type2": "Steel"
+  },
+  "332": {
+    "name": "Luxray",
+    "type1": "Electric"
+  },
+  "333": {
+    "name": "Aggron",
+    "type1": "Steel",
+    "type2": "Rock"
+  },
+  "334": {
+    "name": "Flygon",
+    "type1": "Ground",
+    "type2": "Dragon"
+  },
+  "335": {
+    "name": "Milotic",
+    "type1": "Water"
+  },
+  "336": {
+    "name": "Salamence",
+    "type1": "Dragon",
+    "type2": "Flying"
+  },
+  "337": {
+    "name": "Klinklang",
+    "type1": "Steel"
+  },
+  "338": {
+    "name": "Zoroark",
+    "type1": "Dark"
+  },
+  "339": {
+    "name": "Sylveon",
+    "type1": "Fairy"
+  },
+  "340": {
+    "name": "Kyogre",
+    "type1": "Water"
+  },
+  "341": {
+    "name": "Groudon",
+    "type1": "Ground"
+  },
+  "342": {
+    "name": "Rayquaza",
+    "type1": "Dragon",
+    "type2": "Flying"
+  },
+  "343": {
+    "name": "Dialga",
+    "type1": "Steel",
+    "type2": "Dragon"
+  },
+  "344": {
+    "name": "Palkia",
+    "type1": "Water",
+    "type2": "Dragon"
+  },
+  "345": {
+    "name": "Giratina",
+    "type1": "Ghost",
+    "type2": "Dragon"
+  },
+  "346": {
+    "name": "Regigigas",
+    "type1": "Normal"
+  },
+  "347": {
+    "name": "Darkrai",
+    "type1": "Dark"
+  },
+  "348": {
+    "name": "Genesect",
+    "type1": "Bug",
+    "type2": "Steel"
+  },
+  "349": {
+    "name": "Reshiram",
+    "type1": "Dragon",
+    "type2": "Fire"
+  },
+  "350": {
+    "name": "Zekrom",
+    "type1": "Dragon",
+    "type2": "Electric"
+  },
+  "351": {
+    "name": "Kyurem",
+    "type1": "Dragon",
+    "type2": "Ice"
+  },
+  "352": {
+    "name": "Roserade",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "353": {
+    "name": "Drifblim",
+    "type1": "Ghost",
+    "type2": "Flying"
+  },
+  "354": {
+    "name": "Lopunny",
+    "type1": "Normal"
+  },
+  "355": {
+    "name": "Breloom",
+    "type1": "Grass",
+    "type2": "Fighting"
+  },
+  "356": {
+    "name": "Ninjask",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "357": {
+    "name": "Banette",
+    "type1": "Ghost"
+  },
+  "358": {
+    "name": "Rotom",
+    "type1": "Electric",
+    "type2": "Ghost"
+  },
+  "359": {
+    "name": "Reuniclus",
+    "type1": "Psychic"
+  },
+  "360": {
+    "name": "Whimsicott",
+    "type1": "Grass",
+    "type2": "Fairy"
+  },
+  "361": {
+    "name": "Krookodile",
+    "type1": "Ground",
+    "type2": "Dark"
+  },
+  "362": {
+    "name": "Cofagrigus",
+    "type1": "Ghost"
+  },
+  "363": {
+    "name": "Galvantula",
+    "type1": "Bug",
+    "type2": "Electric"
+  },
+  "364": {
+    "name": "Ferrothorn",
+    "type1": "Steel",
+    "type2": "Grass"
+  },
+  "365": {
+    "name": "Litwick",
+    "type1": "Ghost",
+    "type2": "Fire"
+  },
+  "366": {
+    "name": "Lampent",
+    "type1": "Ghost",
+    "type2": "Fire"
+  },
+  "367": {
+    "name": "Chandelure",
+    "type1": "Ghost",
+    "type2": "Fire"
+  },
+  "368": {
+    "name": "Haxorus",
+    "type1": "Dragon"
+  },
+  "369": {
+    "name": "Golurk",
+    "type1": "Ground",
+    "type2": "Ghost"
+  },
+  "370": {
+    "name": "Pyukumuku",
+    "type1": "Water"
+  },
+  "371": {
+    "name": "Klefki",
+    "type1": "Steel",
+    "type2": "Fairy"
+  },
+  "372": {
+    "name": "Talonflame",
+    "type1": "Fire",
+    "type2": "Flying"
+  },
+  "373": {
+    "name": "Mimikyu",
+    "type1": "Ghost",
+    "type2": "Fairy"
+  },
+  "374": {
+    "name": "Volcarona",
+    "type1": "Bug",
+    "type2": "Fire"
+  },
+  "375": {
+    "name": "Deino",
+    "type1": "Dark",
+    "type2": "Dragon"
+  },
+  "376": {
+    "name": "Zweilous",
+    "type1": "Dark",
+    "type2": "Dragon"
+  },
+  "377": {
+    "name": "Hydreigon",
+    "type1": "Dark",
+    "type2": "Dragon"
+  },
+  "378": {
+    "name": "Latias",
+    "type1": "Dragon",
+    "type2": "Psychic"
+  },
+  "379": {
+    "name": "Latios",
+    "type1": "Dragon",
+    "type2": "Psychic"
+  },
+  "380": {
+    "name": "Deoxys",
+    "type1": "Psychic"
+  },
+  "381": {
+    "name": "Jirachi",
+    "type1": "Steel",
+    "type2": "Psychic"
+  },
+  "382": {
+    "name": "Nincada",
+    "type1": "Bug",
+    "type2": "Ground"
+  },
+  "383": {
+    "name": "Bibarel",
+    "type1": "Normal",
+    "type2": "Water"
+  },
+  "384": {
+    "name": "Riolu",
+    "type1": "Fighting"
+  },
+  "385": {
+    "name": "Slakoth",
+    "type1": "Normal"
+  },
+  "386": {
+    "name": "Vigoroth",
+    "type1": "Normal"
+  },
+  "387": {
+    "name": "Wailmer",
+    "type1": "Water"
+  },
+  "388": {
+    "name": "Shinx",
+    "type1": "Electric"
+  },
+  "389": {
+    "name": "Luxio",
+    "type1": "Electric"
+  },
+  "390": {
+    "name": "Aron",
+    "type1": "Steel",
+    "type2": "Rock"
+  },
+  "391": {
+    "name": "Lairon",
+    "type1": "Steel",
+    "type2": "Rock"
+  },
+  "392": {
+    "name": "Trapinch",
+    "type1": "Ground"
+  },
+  "393": {
+    "name": "Vibrava",
+    "type1": "Ground",
+    "type2": "Dragon"
+  },
+  "394": {
+    "name": "Feebas",
+    "type1": "Water"
+  },
+  "395": {
+    "name": "Bagon",
+    "type1": "Dragon"
+  },
+  "396": {
+    "name": "Shelgon",
+    "type1": "Dragon"
+  },
+  "397": {
+    "name": "Klink",
+    "type1": "Steel"
+  },
+  "398": {
+    "name": "Klang",
+    "type1": "Steel"
+  },
+  "399": {
+    "name": "Zorua",
+    "type1": "Dark"
+  },
+  "400": {
+    "name": "Budew",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "401": {
+    "name": "Roselia",
+    "type1": "Grass",
+    "type2": "Poison"
+  },
+  "402": {
+    "name": "Drifloon",
+    "type1": "Ghost",
+    "type2": "Flying"
+  },
+  "403": {
+    "name": "Buneary",
+    "type1": "Normal"
+  },
+  "404": {
+    "name": "Shroomish",
+    "type1": "Grass"
+  },
+  "405": {
+    "name": "Shuppet",
+    "type1": "Ghost"
+  },
+  "406": {
+    "name": "Solosis",
+    "type1": "Psychic"
+  },
+  "407": {
+    "name": "Duosion",
+    "type1": "Psychic"
+  },
+  "408": {
+    "name": "Cottonee",
+    "type1": "Grass",
+    "type2": "Fairy"
+  },
+  "409": {
+    "name": "Sandile",
+    "type1": "Ground",
+    "type2": "Dark"
+  },
+  "410": {
+    "name": "Krokorok",
+    "type1": "Ground",
+    "type2": "Dark"
+  },
+  "411": {
+    "name": "Yamask",
+    "type1": "Ghost"
+  },
+  "412": {
+    "name": "Joltik",
+    "type1": "Bug",
+    "type2": "Electric"
+  },
+  "413": {
+    "name": "Ferroseed",
+    "type1": "Steel",
+    "type2": "Grass"
+  },
+  "414": {
+    "name": "Axew",
+    "type1": "Dragon"
+  },
+  "415": {
+    "name": "Fraxure",
+    "type1": "Dragon"
+  },
+  "416": {
+    "name": "Golett",
+    "type1": "Ground",
+    "type2": "Ghost"
+  },
+  "417": {
+    "name": "Fletchling",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "418": {
+    "name": "Fletchinder",
+    "type1": "Fire",
+    "type2": "Flying"
+  },
+  "419": {
+    "name": "Larvesta",
+    "type1": "Bug",
+    "type2": "Fire"
+  },
+  "420": {
+    "name": "Stunfisk",
+    "type1": "Ground",
+    "type2": "Electric"
+  },
+  "421": {
+    "name": "Sableye",
+    "type1": "Dark",
+    "type2": "Ghost"
+  },
+  "422": {
+    "name": "Venipede",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "423": {
+    "name": "Whirlipede",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "424": {
+    "name": "Scolipede",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "425": {
+    "name": "Tyrunt",
+    "type1": "Rock",
+    "type2": "Dragon"
+  },
+  "426": {
+    "name": "Tyrantrum",
+    "type1": "Rock",
+    "type2": "Dragon"
+  },
+  "427": {
+    "name": "Snorunt",
+    "type1": "Ice"
+  },
+  "428": {
+    "name": "Glalie",
+    "type1": "Ice"
+  },
+  "429": {
+    "name": "Froslass",
+    "type1": "Ice",
+    "type2": "Ghost"
+  },
+  "430": {
+    "name": "Oricorio",
+    "type1": "Fire",
+    "type2": "Flying"
+  },
+  "431": {
+    "name": "Oricorio",
+    "type1": "Electric",
+    "type2": "Flying"
+  },
+  "432": {
+    "name": "Oricorio",
+    "type1": "Psychic",
+    "type2": "Flying"
+  },
+  "433": {
+    "name": "Oricorio",
+    "type1": "Ghost",
+    "type2": "Flying"
+  },
+  "434": {
+    "name": "Trubbish",
+    "type1": "Poison"
+  },
+  "435": {
+    "name": "Garbodor",
+    "type1": "Poison"
+  },
+  "436": {
+    "name": "Carvanha",
+    "type1": "Water",
+    "type2": "Dark"
+  },
+  "437": {
+    "name": "Sharpedo",
+    "type1": "Water",
+    "type2": "Dark"
+  },
+  "438": {
+    "name": "Phantump",
+    "type1": "Grass",
+    "type2": "Ghost"
+  },
+  "439": {
+    "name": "Trevenant",
+    "type1": "Grass",
+    "type2": "Ghost"
+  },
+  "440": {
+    "name": "Noibat",
+    "type1": "Flying",
+    "type2": "Dragon"
+  },
+  "441": {
+    "name": "Noivern",
+    "type1": "Flying",
+    "type2": "Dragon"
+  },
+  "442": {
+    "name": "Swablu",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "443": {
+    "name": "Altaria",
+    "type1": "Dragon",
+    "type2": "Flying"
+  },
+  "444": {
+    "name": "Goomy",
+    "type1": "Dragon"
+  },
+  "445": {
+    "name": "Sliggoo",
+    "type1": "Dragon"
+  },
+  "446": {
+    "name": "Goodra",
+    "type1": "Dragon"
+  },
+  "447": {
+    "name": "Regirock",
+    "type1": "Rock"
+  },
+  "448": {
+    "name": "Regice",
+    "type1": "Ice"
+  },
+  "449": {
+    "name": "Registeel",
+    "type1": "Steel"
+  },
+  "450": {
+    "name": "Necrozma",
+    "type1": "Psychic"
+  },
+  "451": {
+    "name": "Stufful",
+    "type1": "Normal",
+    "type2": "Fighting"
+  },
+  "452": {
+    "name": "Bewear",
+    "type1": "Normal",
+    "type2": "Fighting"
+  },
+  "453": {
+    "name": "Dhelmise",
+    "type1": "Ghost",
+    "type2": "Grass"
+  },
+  "454": {
+    "name": "Mareanie",
+    "type1": "Poison",
+    "type2": "Water"
+  },
+  "455": {
+    "name": "Toxapex",
+    "type1": "Poison",
+    "type2": "Water"
+  },
+  "456": {
+    "name": "Hawlucha",
+    "type1": "Fighting",
+    "type2": "Flying"
+  },
+  "457": {
+    "name": "Cacnea",
+    "type1": "Grass"
+  },
+  "458": {
+    "name": "Cacturne",
+    "type1": "Grass",
+    "type2": "Dark"
+  },
+  "459": {
+    "name": "Sandygast",
+    "type1": "Ground",
+    "type2": "Ghost"
+  },
+  "460": {
+    "name": "Palossand",
+    "type1": "Ground",
+    "type2": "Ghost"
+  },
+  "461": {
+    "name": "Amaura",
+    "type1": "Rock",
+    "type2": "Ice"
+  },
+  "462": {
+    "name": "Aurorus",
+    "type1": "Rock",
+    "type2": "Ice"
+  },
+  "463": {
+    "name": "Rockruff",
+    "type1": "Rock"
+  },
+  "464": {
+    "name": "Lycanroc",
+    "type1": "Rock"
+  },
+  "465": {
+    "name": "Lycanroc",
+    "type1": "Rock"
+  },
+  "466": {
+    "name": "Meloetta",
+    "type1": "Normal",
+    "type2": "Psychic"
+  },
+  "467": {
+    "name": "Meloetta",
+    "type1": "Normal",
+    "type2": "Fighting"
+  },
+  "468": {
+    "name": "Cresselia",
+    "type1": "Psychic"
+  },
+  "469": {
+    "name": "Bruxish",
+    "type1": "Water",
+    "type2": "Psychic"
+  },
+  "470": {
+    "name": "Necrozma",
+    "type1": "Psychic",
+    "type2": "Dragon"
+  },
+  "471": {
+    "name": "Jangmo-o",
+    "type1": "Dragon"
+  },
+  "472": {
+    "name": "Hakamo-o",
+    "type1": "Dragon",
+    "type2": "Fighting"
+  },
+  "473": {
+    "name": "Kommo-o",
+    "type1": "Dragon",
+    "type2": "Fighting"
+  },
+  "474": {
+    "name": "Wimpod",
+    "type1": "Bug",
+    "type2": "Water"
+  },
+  "475": {
+    "name": "Golisopod",
+    "type1": "Bug",
+    "type2": "Water"
+  },
+  "476": {
+    "name": "Fomantis",
+    "type1": "Grass"
+  },
+  "477": {
+    "name": "Lurantis",
+    "type1": "Grass"
+  },
+  "478": {
+    "name": "Carbink",
+    "type1": "Rock",
+    "type2": "Fairy"
+  },
+  "479": {
+    "name": "Chespin",
+    "type1": "Grass"
+  },
+  "480": {
+    "name": "Quilladin",
+    "type1": "Grass"
+  },
+  "481": {
+    "name": "Chesnaught",
+    "type1": "Grass",
+    "type2": "Fighting"
+  },
+  "482": {
+    "name": "Fennekin",
+    "type1": "Fire"
+  },
+  "483": {
+    "name": "Braixen",
+    "type1": "Fire"
+  },
+  "484": {
+    "name": "Delphox",
+    "type1": "Fire",
+    "type2": "Psychic"
+  },
+  "485": {
+    "name": "Froakie",
+    "type1": "Water"
+  },
+  "486": {
+    "name": "Frogadier",
+    "type1": "Water"
+  },
+  "487": {
+    "name": "Greninja",
+    "type1": "Water",
+    "type2": "Dark"
+  },
+  "488": {
+    "name": "Torkoal",
+    "type1": "Fire"
+  },
+  "489": {
+    "name": "Pumpkaboo",
+    "type1": "Ghost",
+    "type2": "Grass"
+  },
+  "490": {
+    "name": "Gourgeist",
+    "type1": "Ghost",
+    "type2": "Grass"
+  },
+  "491": {
+    "name": "Swirlix",
+    "type1": "Fairy"
+  },
+  "492": {
+    "name": "Slurpuff",
+    "type1": "Fairy"
+  },
+  "493": {
+    "name": "Scraggy",
+    "type1": "Dark",
+    "type2": "Fighting"
+  },
+  "494": {
+    "name": "Scrafty",
+    "type1": "Dark",
+    "type2": "Fighting"
+  },
+  "495": {
+    "name": "Lotad",
+    "type1": "Water",
+    "type2": "Grass"
+  },
+  "496": {
+    "name": "Lombre",
+    "type1": "Water",
+    "type2": "Grass"
+  },
+  "497": {
+    "name": "Ludicolo",
+    "type1": "Water",
+    "type2": "Grass"
+  },
+  "498": {
+    "name": "Minior",
+    "type1": "Rock",
+    "type2": "Flying"
+  },
+  "499": {
+    "name": "Minior",
+    "type1": "Rock",
+    "type2": "Flying"
+  },
+  "500": {
+    "name": "Diancie",
+    "type1": "Rock",
+    "type2": "Fairy"
+  },
+  "501": {
+    "name": "Luvdisc",
+    "type1": "Water"
+  },
+  "502": {
+    "name": "Poochyena",
+    "type1": "Dark"
+  },
+  "503": {
+    "name": "Mightyena",
+    "type1": "Dark"
+  },
+  "504": {
+    "name": "Zigzagoon",
+    "type1": "Normal"
+  },
+  "505": {
+    "name": "Linoone",
+    "type1": "Normal"
+  },
+  "506": {
+    "name": "Wurmple",
+    "type1": "Bug"
+  },
+  "507": {
+    "name": "Silcoon",
+    "type1": "Bug"
+  },
+  "508": {
+    "name": "Beautifly",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "509": {
+    "name": "Cascoon",
+    "type1": "Bug"
+  },
+  "510": {
+    "name": "Dustox",
+    "type1": "Bug",
+    "type2": "Poison"
+  },
+  "511": {
+    "name": "Seedot",
+    "type1": "Grass"
+  },
+  "512": {
+    "name": "Nuzleaf",
+    "type1": "Grass",
+    "type2": "Dark"
+  },
+  "513": {
+    "name": "Shiftry",
+    "type1": "Grass",
+    "type2": "Dark"
+  },
+  "514": {
+    "name": "Taillow",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "515": {
+    "name": "Swellow",
+    "type1": "Normal",
+    "type2": "Flying"
+  },
+  "516": {
+    "name": "Wingull",
+    "type1": "Water",
+    "type2": "Flying"
+  },
+  "517": {
+    "name": "Pelipper",
+    "type1": "Water",
+    "type2": "Flying"
+  },
+  "518": {
+    "name": "Surskit",
+    "type1": "Bug",
+    "type2": "Water"
+  },
+  "519": {
+    "name": "Masquerain",
+    "type1": "Bug",
+    "type2": "Flying"
+  },
+  "520": {
+    "name": "Whismur",
+    "type1": "Normal"
+  },
+  "521": {
+    "name": "Loudred",
+    "type1": "Normal"
+  },
+  "522": {
+    "name": "Exploud",
+    "type1": "Normal"
+  },
+  "523": {
+    "name": "Makuhita",
+    "type1": "Fighting"
+  },
+  "524": {
+    "name": "Hariyama",
+    "type1": "Fighting"
+  },
+  "525": {
+    "name": "Skitty",
+    "type1": "Normal"
+  },
+  "526": {
+    "name": "Delcatty",
+    "type1": "Normal"
+  },
+  "527": {
+    "name": "Meditite",
+    "type1": "Fighting",
+    "type2": "Psychic"
+  },
+  "528": {
+    "name": "Medicham",
+    "type1": "Fighting",
+    "type2": "Psychic"
+  },
+  "529": {
+    "name": "Electrike",
+    "type1": "Electric"
+  },
+  "530": {
+    "name": "Manectric",
+    "type1": "Electric"
+  },
+  "531": {
+    "name": "Plusle",
+    "type1": "Electric"
+  },
+  "532": {
+    "name": "Minun",
+    "type1": "Electric"
+  },
+  "533": {
+    "name": "Volbeat",
+    "type1": "Bug"
+  },
+  "534": {
+    "name": "Illumise",
+    "type1": "Bug"
+  },
+  "535": {
+    "name": "Gulpin",
+    "type1": "Poison"
+  },
+  "536": {
+    "name": "Swalot",
+    "type1": "Poison"
+  },
+  "537": {
+    "name": "Numel",
+    "type1": "Fire",
+    "type2": "Ground"
+  },
+  "538": {
+    "name": "Camerupt",
+    "type1": "Fire",
+    "type2": "Ground"
+  },
+  "539": {
+    "name": "Spoink",
+    "type1": "Psychic"
+  },
+  "540": {
+    "name": "Grumpig",
+    "type1": "Psychic"
+  },
+  "541": {
+    "name": "Spinda",
+    "type1": "Normal"
+  },
+  "542": {
+    "name": "Zangoose",
+    "type1": "Normal"
+  },
+  "543": {
+    "name": "Seviper",
+    "type1": "Poison"
+  },
+  "544": {
+    "name": "Lunatone",
+    "type1": "Rock",
+    "type2": "Psychic"
+  },
+  "545": {
+    "name": "Solrock",
+    "type1": "Rock",
+    "type2": "Psychic"
+  },
+  "546": {
+    "name": "Barboach",
+    "type1": "Water",
+    "type2": "Ground"
+  },
+  "547": {
+    "name": "Whiscash",
+    "type1": "Water",
+    "type2": "Ground"
+  },
+  "548": {
+    "name": "Corphish",
+    "type1": "Water"
+  },
+  "549": {
+    "name": "Crawdaunt",
+    "type1": "Water",
+    "type2": "Dark"
+  },
+  "550": {
+    "name": "Baltoy",
+    "type1": "Ground",
+    "type2": "Psychic"
+  },
+  "551": {
+    "name": "Claydol",
+    "type1": "Ground",
+    "type2": "Psychic"
+  },
+  "552": {
+    "name": "Castform",
+    "type1": "Normal"
+  },
+  "553": {
+    "name": "Castform",
+    "type1": "Fire"
+  },
+  "554": {
+    "name": "Castform",
+    "type1": "Water"
+  },
+  "555": {
+    "name": "Castform",
+    "type1": "Ice"
+  },
+  "556": {
+    "name": "Tropius",
+    "type1": "Grass",
+    "type2": "Flying"
+  },
+  "557": {
+    "name": "Chingling",
+    "type1": "Psychic"
+  },
+  "558": {
+    "name": "Chimecho",
+    "type1": "Psychic"
+  },
+  "559": {
+    "name": "Spheal",
+    "type1": "Ice",
+    "type2": "Water"
+  },
+  "560": {
+    "name": "Sealeo",
+    "type1": "Ice",
+    "type2": "Water"
+  },
+  "561": {
+    "name": "Walrein",
+    "type1": "Ice",
+    "type2": "Water"
+  },
+  "562": {
+    "name": "Clamperl",
+    "type1": "Water"
+  },
+  "563": {
+    "name": "Huntail",
+    "type1": "Water"
+  },
+  "564": {
+    "name": "Gorebyss",
+    "type1": "Water"
+  },
+  "565": {
+    "name": "Relicanth",
+    "type1": "Water",
+    "type2": "Rock"
+  },
+  "999999": {
+    "name": "Zapmolcuno",
+    "type1": "Icefireelectric",
+    "type2": "Flying"
+  },
+  "1000000": {
+    "name": "Zapmolcuno",
+    "type1": "Icefireelectric",
+    "type2": "Flying"
+  },
+  "1000001": {
+    "name": "Enraicune",
+    "type1": "Firewaterelectric"
+  },
+  "1000002": {
+    "name": "Kyodonquaza",
+    "type1": "Watergroundflying"
+  },
+  "1000003": {
+    "name": "Paldiatina",
+    "type1": "Dragon",
+    "type2": "Ghoststeelwater"
+  },
+  "1000004": {
+    "name": "Zekyushiram",
+    "type1": "Dragon",
+    "type2": "Icefireelectric"
+  },
+  "1000005": {
+    "name": "Celemewchi",
+    "type1": "Psychic",
+    "type2": "Grasssteel"
+  },
+  "1000006": {
+    "name": "Venustoizard",
+    "type1": "Firewatergrass"
+  },
+  "1000007": {
+    "name": "Megaligasion",
+    "type1": "Firewatergrass"
+  },
+  "1000008": {
+    "name": "Swamptiliken",
+    "type1": "Firewatergrass"
+  },
+  "1000009": {
+    "name": "Torterneon",
+    "type1": "Firewatergrass"
+  },
+  "1000010": {
+    "name": "Deosectwo",
+    "type1": "Bugsteelpsychic"
+  },
+  "1000011": {
+    "name": "Bulbmantle",
+    "type1": "Firewatergrass"
+  },
+  "1000012": {
+    "name": "Ivymelortle",
+    "type1": "Firewatergrass"
+  },
+  "1000013": {
+    "name": "Totoritaquil",
+    "type1": "Firewatergrass"
+  },
+  "1000014": {
+    "name": "Baylavanaw",
+    "type1": "Firewatergrass"
+  },
+  "1000015": {
+    "name": "Torkipcko",
+    "type1": "Firewatergrass"
+  },
+  "1000016": {
+    "name": "Gromarshken",
+    "type1": "Firewatergrass"
+  },
+  "1000017": {
+    "name": "Turcharlup",
+    "type1": "Firewatergrass"
+  },
+  "1000018": {
+    "name": "Prinfernotle",
+    "type1": "Firewatergrass"
+  },
+  "1000019": {
+    "name": "Zapmolcuno Z",
+    "type1": "Electric",
+    "type2": "Flying"
+  },
+  "1000020": {
+    "name": "Zapmolcuno M",
+    "type1": "Fire",
+    "type2": "Flying"
+  },
+  "1000021": {
+    "name": "Zapmolcuno A",
+    "type1": "Ice",
+    "type2": "Flying"
+  },
+  "1000022": {
+    "name": "Paldiatina D",
+    "type1": "Steel",
+    "type2": "Dragon"
+  },
+  "1000023": {
+    "name": "Paldiatina P",
+    "type1": "Water",
+    "type2": "Dragon"
+  },
+  "1000024": {
+    "name": "Paldiatina G",
+    "type1": "Ghost",
+    "type2": "Dragon"
+  },
+  "1000025": {
+    "name": "Cool Dino",
+    "type1": "Qmarks"
+  },
+  "1000026": {
+    "name": "Regiregi",
+    "type1": "Icerocksteel"
+  },
+  "1000027": {
+    "name": "Chennekie",
+    "type1": "Firewatergrass"
+  },
+  "1000028": {
+    "name": "Brailladier",
+    "type1": "Firewatergrass"
+  },
+  "1000029": {
+    "name": "Cheninphox",
+    "type1": "Firewatergrass"
+  }
+}

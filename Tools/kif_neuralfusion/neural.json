@@ -1,0 +1,20 @@
+{
+  "_comment": "KIF NeuralFusion refiner config. enabled=false makes the sidecar serve the coherent compositor sprite instead of the neural output -- set enabled=true ONLY after a PROPER (multi-epoch) retrain, the current weights were undertrained (<1 epoch) and mangled sprites. img2img_strength low (~0.3) = keep compositor structure, only lightly refine; raise toward 0.5 for more model influence once the LoRA is well-trained. style_prompt MUST match prepare_dataset._STYLE (the LoRA trigger).",
+  "base_model": "stable-diffusion-v1-5/stable-diffusion-v1-5",
+  "lora_dir": "models/lora",
+  "img2img_strength": 0.3,
+  "steps": 28,
+  "guidance": 6.0,
+  "lora_scale": 0.6,
+  "res": 512,
+  "canvas": 288,
+  "device": "auto",
+  "style_prompt": "infinite fusion pokemon battle sprite, 2d pixel art, clean 1-pixel black outline, flat cel shading, limited palette, crisp hard edges, no anti-aliasing, no dithering, single creature centered on a plain white background, front three-quarter view",
+  "negative_prompt": "blurry, jpeg artifacts, photo, realistic, 3d render, soft shading, gradient, watermark, text, signature, multiple creatures, extra limbs, deformed, smooth anti-aliasing",
+  "pixel_finish": true,
+  "finish_colors": 18,
+  "outline_luma": 50,
+  "finish_outline": true,
+  "grid_snap": 0,
+  "enabled": false
+}

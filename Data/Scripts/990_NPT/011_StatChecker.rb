@@ -349,6 +349,8 @@ class PokemonPartyScreen
       cmdMail = -1
       cmdItem = -1
       cmdHat = -1
+      cmdFuse = -1
+      cmdUnfuse = -1
 
       # Build the commands — Stat Checker inserted right after Summary
       commands[cmdSummary = commands.length] = _INTL("Summary")
@@ -372,6 +374,13 @@ class PokemonPartyScreen
         end
       end
       commands[cmdNickname = commands.length] = _INTL("Nickname") if !pkmn.egg?
+      if !pkmn.egg?
+        if pkmn.species_data.id_number > NB_POKEMON || !pkmn.fused.nil?
+          commands[cmdUnfuse = commands.length] = _INTL("Unfuse")
+        else
+          commands[cmdFuse = commands.length] = _INTL("Fuse")
+        end
+      end
       commands[commands.length] = _INTL("Cancel")
       command = @scene.pbShowCommands(_INTL("Do what with {1}?", pkmn.name), commands)
       havecommand = false
@@ -437,6 +446,10 @@ class PokemonPartyScreen
         pbPokemonHat(pkmn)
       elsif cmdNickname >= 0 && command == cmdNickname
         pbPokemonRename(pkmn,pkmnid)
+      elsif cmdFuse >= 0 && command == cmdFuse
+        pbPartyFuseWithSplicer(pkmn)
+      elsif cmdUnfuse >= 0 && command == cmdUnfuse
+        pbPartyFuseWithSplicer(pkmn)
       elsif cmdDebug >= 0 && command == cmdDebug
         pbPokemonDebug(pkmn, pkmnid)
       elsif cmdSwitch >= 0 && command == cmdSwitch

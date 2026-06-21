@@ -203,6 +203,27 @@ module Haptics
     Haptics::Patterns.respond_to?(:test) ? play(Haptics::Patterns.test, nil, 9) : nil
   end
 
+  # Boot self-diagnostic: fires once a frame after load, on EVERY launch, so a
+  # fresh rumble log always lands without needing a Test press. Proves the
+  # 691_Rumble folder actually loaded on this build + forces HID/Steam probes.
+  def self._boot_diag_once
+    return if @boot_diag_done
+    @boot_diag_done = true
+    begin
+      base = (Dir.pwd rescue "."); dir = File.join(base, "Logs")
+      (Dir.mkdir(dir) rescue nil) unless File.directory?(dir)
+      File.open(File.join(dir, "rumble_boot.log"), "a") do |f|
+        f.puts("[#{Time.now}] rumble boot: 691 loaded; backend_ok=#{@backend_ok.inspect} pad=#{@pad_index.inspect} " +
+               "HID=#{defined?(Haptics::HID) ? 'yes' : 'NO'} Steam=#{defined?(SteamHaptics) ? 'yes' : 'NO'} " +
+               "native=#{(native_available? rescue '?')} kind=#{(controller_kind rescue '?')}")
+      end
+    rescue Exception
+    end
+    # force fresh detection logs (no rumble write at boot - that stays on the Test button)
+    (Haptics::HID.test_probe!(false) rescue nil) if defined?(Haptics::HID)
+    (SteamHaptics.available? rescue nil) if defined?(SteamHaptics)
+  end
+
   def self.diagnostics
     init_backend unless @init_done
     return {
@@ -225,6 +246,7 @@ module Graphics
       def update(*args, &blk)
         _rumble_orig_update(*args, &blk)
         Haptics.tick rescue nil
+        Haptics._boot_diag_once rescue nil
       end
     end
   end

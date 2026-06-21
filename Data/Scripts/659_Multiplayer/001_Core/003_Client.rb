@@ -2967,6 +2967,7 @@ module MultiplayerClient
           # --- Discord: display name assigned by server ---
           if data.start_with?("DISCORD_NAME:")
             @discord_display_name = data.sub("DISCORD_NAME:", "").strip
+            (DiscordIdentity.remember(@discord_display_name) rescue nil) if defined?(DiscordIdentity)
             next
           end
 

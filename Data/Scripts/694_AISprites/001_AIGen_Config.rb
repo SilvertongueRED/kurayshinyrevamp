@@ -42,11 +42,52 @@ module AIGen
     val != 0 && val != false
   end
 
-  def self.log(msg)
+  # When true, AIGen.log ALSO appends to Logs/aigen.log (with timestamps) so the
+  # generate chain can be inspected after the fact. echoln-only output is invisible
+  # on a normal (non-debug) build, which is why failures previously looked silent.
+  DEBUG_LOG = true
+
+  def self.log_dir
+    d = (File.expand_path("Logs") rescue "Logs")
     begin
-      echoln("[AIGen] #{msg}")
-    rescue
+      unless File.directory?(d)
+        nd = d.gsub("\\", "/")
+        acc = nd.start_with?("/") ? "/" : ""
+        nd.split("/").each do |seg|
+          next if seg.nil? || seg.empty?
+          acc += seg + "/"
+          (Dir.mkdir(acc) rescue nil) unless Dir.exist?(acc)
+        end
+      end
+    rescue Exception
+    end
+    d
+  end
+
+  def self.log_path
+    File.join(log_dir, "aigen.log") rescue "Logs/aigen.log"
+  end
+
+  def self.log(msg)
+    line = "[AIGen] #{msg}"
+    begin
+      echoln(line)
+    rescue Exception
       # echoln may be unavailable very early in boot; ignore.
+    end
+    return unless DEBUG_LOG
+    begin
+      stamp = (Time.now.strftime("%Y-%m-%d %H:%M:%S") rescue "")
+      File.open(log_path, "a") { |f| f.puts("#{stamp} #{line}") }
+    rescue Errno::ENOENT
+      # Logs/ vanished mid-session: recreate and retry once.
+      begin
+        log_dir
+        File.open(log_path, "a") { |f| f.puts(line) }
+      rescue Exception
+      end
+    rescue Exception
+      # never let logging crash the game
     end
   end
 end

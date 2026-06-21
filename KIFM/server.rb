@@ -4528,6 +4528,8 @@ loop do
             client_data[c][:discord_name] = pending[:username]
             client_data[c][:name]         = pending[:username]
 
+            # Push the display name immediately so a fresh link tags posts at once
+            safe_send(c, "DISCORD_NAME:#{pending[:username]}") unless pending[:username].to_s.strip.empty?
             safe_send(c, "DISCORD_OK:#{discord_id}")
             MultiplayerDebug.info("DISCORD", "#{sid} linked Discord #{discord_id} (#{pending[:username]}) to UUID #{uuid[0..7]}...")
             next

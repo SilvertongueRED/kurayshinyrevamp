@@ -668,9 +668,10 @@ module MultiplayerUI
       bmp.font.size  = 11
       bmp.font.color = Color.new(150, 160, 185)
       _ok = (ControlRebind.confirm_label rescue "C")
+      _act = (ControlRebind.action_label rescue "A")
       _bk = (ControlRebind.cancel_label rescue "B")
       bmp.draw_text(CTX_PAD + 2, ctx_h - 15, CTX_W - CTX_PAD * 2 - 4, 13,
-        _INTL("OK:{1}  Back:{2}", _ok, _bk))
+        _INTL("OK:{1}/{2}  Back:{3}", _ok, _act, _bk))
     end
   end
 

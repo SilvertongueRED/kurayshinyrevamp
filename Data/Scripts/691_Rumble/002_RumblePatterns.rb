@@ -117,6 +117,40 @@ module Haptics
       motif(fx[:motif], fx[:lo], fx[:hi], 1.0)
     end
 
+    #---------------------------------------------------------------------------
+    # STATUS (non-damaging) MOVES
+    # Deliberately NOT an impact motif: a soft, shimmery "effect" feel so a
+    # status move is instantly distinguishable from a hit. Still type-flavoured
+    # (a Fire status move buzzes warmer/treblier, a Ground one heavier) by
+    # leaning on the type's lo/hi balance, but with a smooth swell envelope and
+    # no hard strikes.
+    #---------------------------------------------------------------------------
+
+    # YOU used a status move (buff, debuff, hazard, weather, etc.):
+    # a gentle rising "charge / cast" shimmer that settles on a soft tap.
+    def status_outgoing(type)
+      fx = fx_for(type)
+      ramp(0.0, fx[:lo] * 0.22, 0.0, fx[:hi] * 0.55, 130, 5) +
+        hit(0.0, fx[:hi] * 0.40, 45) + gap(35) +
+        hit(fx[:lo] * 0.20, fx[:hi] * 0.30, 70)
+    end
+
+    # A status move was used ON your Pokemon (Growl, Will-O-Wisp, Leech Seed,
+    # Thunder Wave, etc.): a soft wash that rolls over you and fades - no strike.
+    def status_incoming(type)
+      fx = fx_for(type)
+      ramp(0.0, fx[:lo] * 0.45, 0.0, fx[:hi] * 0.25, 150, 5) +
+        hit(fx[:lo] * 0.35, fx[:hi] * 0.20, 60) +
+        ramp(fx[:lo] * 0.35, 0.0, fx[:hi] * 0.20, 0.0, 130, 4)
+    end
+
+    # INDIRECT damage you took that isn't a direct move hit (recoil, poison,
+    # burn, hazards, weather chip). A short neutral "ouch" so it never goes
+    # silent, but distinct from a full move impact.
+    def indirect
+      hit(0.55, 0.25, 70) + gap(30) + hit(0.30, 0.12, 55)
+    end
+
     #===========================================================================
     # ENCOUNTER CUES  (each distinct)
     #===========================================================================
@@ -152,10 +186,49 @@ module Haptics
     #===========================================================================
     # OVERWORLD
     #===========================================================================
-    def step_walk;  hit(0.32, 0.0, 55); end                                  # soft tick
-    def step_run;   hit(0.5, 0.16, 45) + gap(22) + hit(0.32, 0.10, 35); end  # quick double
-    def step_bike;  hit(0.0, 0.22, 40); end                                  # faint purr
-    def step_surf;  hit(0.28, 0.0, 95); end                                  # gentle wave
+    def step_walk;  hit(0.16, 0.0, 55); end                                  # soft tick
+    def step_run;   hit(0.25, 0.08, 45) + gap(22) + hit(0.16, 0.05, 35); end  # quick double
+    def step_bike;  hit(0.0, 0.11, 40); end                                  # faint purr
+    def step_surf;  hit(0.14, 0.0, 95); end                                  # gentle wave
+
+    #===========================================================================
+    # POKEBALL OPEN  (your own ball bursting open to send out your Pokemon)
+    #---------------------------------------------------------------------------
+    # An "expanding" feel: a swell that grows and spreads across both motors as
+    # the ball opens, crests on a soft pop, then releases and leaves the
+    # controller. Deliberately gentle - it takes over, but is never intense.
+    #===========================================================================
+    def ball_open
+      ramp(0.04, 0.42, 0.10, 0.52, 260, 7) +   # swell builds & spreads outward
+        hit(0.50, 0.58, 70) +                   # soft crest - the ball pops open
+        ramp(0.44, 0.0, 0.52, 0.0, 240, 6)      # releases and fades away
+    end
+
+    #===========================================================================
+    # ENCOUNTER SWEEP  -  cycling left<->right "screen wipe" buzz at battle start
+    #---------------------------------------------------------------------------
+    # lo = left/heavy motor, hi = right/buzz motor: energy slides left->right->
+    # left a couple of times, like the wipe crossing the screen. Prepended to
+    # each encounter cue so the identity motif still follows.
+    #===========================================================================
+    def encounter_sweep
+      one = ramp(0.55, 0.0, 0.0, 0.55, 130, 5) + ramp(0.0, 0.55, 0.55, 0.0, 130, 5)
+      rep(one, 2) + gap(40)
+    end
+
+    #===========================================================================
+    # HEAL PULSE  -  soft "you were healed" pulse train (pairs w/ green lightbar)
+    #===========================================================================
+    def heal_pulse
+      rep(ramp(0.0, 0.22, 0.0, 0.30, 90, 3) + ramp(0.22, 0.0, 0.30, 0.0, 90, 3), 3)
+    end
+
+    #===========================================================================
+    # LOW-HP PULSE  -  weak, slow "red zone" heartbeat (pairs w/ red glow)
+    #===========================================================================
+    def low_hp_pulse
+      hit(0.18, 0.0, 70) + gap(70) + hit(0.11, 0.0, 55)
+    end
 
     #===========================================================================
     # SETTINGS TEST  -  showcases both motors + current intensity

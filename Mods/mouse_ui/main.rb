@@ -131,6 +131,62 @@ module MouseUI
     return 0
   end
 
+  # ---------------------------------------------------------------------------
+  # Options-menu mouse DIAGNOSTIC + edge-scroll support (added 2026-06-21).
+  # Writes the real per-frame mouse values seen while an options window is open to
+  # Logs/mouse_options_debug.log so we can see why wheel/edge scrolling is not
+  # firing (Input.scroll_v stuck at 0? mouse_in_window false? pointer outside the
+  # window? list not actually overflowing?). ENOENT-safe like the MP logger.
+  # Set  $mouse_opt_debug = false  to silence.
+  # ---------------------------------------------------------------------------
+  OPT_LOG_DIR = (File.expand_path("Logs") rescue "Logs")
+
+  def opt_debug_enabled?
+    return $mouse_opt_debug == true
+  rescue
+    return false
+  end
+
+  def opt_log(msg)
+    return unless opt_debug_enabled?
+    begin
+      Dir.mkdir(OPT_LOG_DIR) unless File.directory?(OPT_LOG_DIR)
+    rescue
+    end
+    path = (File.join(OPT_LOG_DIR, "mouse_options_debug.log") rescue "Logs/mouse_options_debug.log")
+    line = "[f#{current_frame}] #{msg}\n"
+    begin
+      File.open(path, "a:UTF-8") { |f| f.write(line) }
+    rescue Errno::ENOENT
+      begin
+        Dir.mkdir(OPT_LOG_DIR) unless File.directory?(OPT_LOG_DIR)
+        File.open(path, "a:UTF-8") { |f| f.write(line) }
+      rescue
+      end
+    rescue
+    end
+  rescue
+  end
+
+  # Non-mutating peek at the hover-reactivation origin (calling mouse_hover_active?
+  # would clear it and change behavior, so the diagnostic must not use it).
+  def reactivate_origin_peek
+    return @mouse_reactivate_origin.inspect
+  rescue
+    return "err"
+  end
+
+  # True when the player's Hover Mode setting is Direct (point-and-click), false for
+  # Legacy/Stepped. Used to switch list scrolling from the engine's center-on-every-
+  # move to scroll-only-at-edges so mouse hover doesn't slide the list out from under
+  # the cursor (see SpriteWindow_Selectable#priv_update_cursor_rect override).
+  def global_direct_mode?
+    return false unless $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_hover_select_mode)
+    return ($PokemonSystem.mouse_ui_hover_select_mode || 0).to_i != 1
+  rescue
+    return false
+  end
+
   def sprite_hit?(sprite, mx, my)
     return false if !sprite || sprite.disposed?
     return false if !sprite.visible
@@ -451,10 +507,42 @@ module Input
     if !($scene && defined?(Scene_Map) && $scene.is_a?(Scene_Map))
       @mouse_ui_pending_map_menu = false
     end
+    # Record the frame a REAL (non-mouse) confirm fired -- engine gamepad/keyboard USE/C
+    # read from the chain BELOW this mod (mouse_ui_original_trigger_qmark does NOT include
+    # the mouse->USE conversion). Lets trigger? collapse the controller's "Pad A press +
+    # synthetic left-click" into ONE confirm (the bare-exe Pad A double-fire).
+    begin
+      if (mouse_ui_original_trigger_qmark(Input::USE) rescue false) ||
+         (defined?(Input::C) && (mouse_ui_original_trigger_qmark(Input::C) rescue false))
+        @mouse_ui_last_real_confirm = MouseUI.current_frame
+      end
+    rescue
+    end
     MouseUI.clear_old_buttons
   end
 
+  # Frames after a real confirm during which a mouse-click confirm is treated as the
+  # SAME press, so a controller that ALSO emits a synthetic click cannot double-confirm.
+  MOUSE_CONFIRM_COLLAPSE_FRAMES = 20 unless defined?(MOUSE_CONFIRM_COLLAPSE_FRAMES)
+  def self.mouse_ui_recent_real_confirm?
+    f = @mouse_ui_last_real_confirm
+    return false unless f
+    d = MouseUI.current_frame - f
+    d >= 0 && d < MOUSE_CONFIRM_COLLAPSE_FRAMES
+  rescue
+    false
+  end
+
   def self.trigger?(button)
+    # Suppress the controller's SYNTHETIC left-click for a short window after a real
+    # (gamepad/keyboard) confirm. This stops it from BOTH re-confirming AND moving the
+    # selection to the mouse cursor ("cursor jumps a couple items after Pad A confirm").
+    if defined?(Input::MOUSELEFT) && button == Input::MOUSELEFT && mouse_ui_recent_real_confirm?
+      return false
+    end
+    if (button == Input::USE || button == Input::C) && mouse_ui_recent_real_confirm?
+      return mouse_ui_original_trigger_qmark(button)
+    end
     if (button == Input::USE || button == Input::C) && defined?(Input::MOUSELEFT)
       if mouse_ui_original_trigger_qmark(Input::MOUSELEFT)
         return false if MouseUI.multiplayer_overlay_mouse_passthrough_blocked?
@@ -501,6 +589,9 @@ module Input
   end
 
   def self.press?(button)
+    if defined?(Input::MOUSELEFT) && button == Input::MOUSELEFT && mouse_ui_recent_real_confirm?
+      return false
+    end
     if (button == Input::ACTION || (defined?(Input::A) && button == Input::A)) && mouse_ui_edge_running?
       return true
     end
@@ -540,9 +631,11 @@ class PokemonSystem
     @mouse_ui_center_run_radius_px = 50 if @mouse_ui_center_run_radius_px.nil?
     @mouse_ui_center_deadzone_px = 12 if @mouse_ui_center_deadzone_px.nil?
     @mouse_ui_center_run_expand_px = 28 if @mouse_ui_center_run_expand_px.nil?
-    @mouse_ui_hover_throttle_level = 2 if @mouse_ui_hover_throttle_level.nil?
     @mouse_ui_load_scroll_cooldown = 4 if @mouse_ui_load_scroll_cooldown.nil?
     @mouse_ui_hover_select_mode = 0 if @mouse_ui_hover_select_mode.nil?
+    # New users default to scroll speed 2. Old saves that only stored a throttle
+    # level (before scroll_speed existed) still migrate to their tuned value --
+    # throttle is defaulted AFTER this so a brand-new user falls through to 2.
     if @mouse_ui_scroll_speed.nil?
       if !@mouse_ui_hover_throttle_level.nil?
         @mouse_ui_scroll_speed = 9 - (@mouse_ui_hover_throttle_level.to_i * 2)
@@ -552,7 +645,8 @@ class PokemonSystem
         @mouse_ui_scroll_speed = 2
       end
     end
-    @mouse_ui_cursor_se_volume = 100 if @mouse_ui_cursor_se_volume.nil?
+    @mouse_ui_hover_throttle_level = 2 if @mouse_ui_hover_throttle_level.nil?
+    @mouse_ui_cursor_se_volume = 75 if @mouse_ui_cursor_se_volume.nil?
   end
 end
 
@@ -1750,7 +1844,7 @@ class PokemonLoad_Scene
     nil
   end
 
-  def pbMouseUILoadSetIndex(new_index)
+  def pbMouseUILoadSetIndex(new_index, allow_scroll = true)
     return if !@sprites || !@sprites["cmdwindow"]
     list = @sprites["cmdwindow"].commands
     return if !list || list.length == 0
@@ -1766,6 +1860,10 @@ class PokemonLoad_Scene
       @sprites["panel#{new_index}"].selected = true
       @sprites["panel#{new_index}"].pbRefresh
     end
+    # Hover (point-and-click) passes allow_scroll=false so selecting the row under
+    # the cursor only moves the highlight, never drags the list. Wheel and the
+    # initial continue-selection keep allow_scroll=true so the view follows.
+    return unless allow_scroll
     while @sprites["panel#{new_index}"] && @sprites["panel#{new_index}"].y > Graphics.height - 40 * 2
       for i in 0...list.length
         @sprites["panel#{i}"].y -= 24 * 2 if @sprites["panel#{i}"]
@@ -1786,6 +1884,33 @@ class PokemonLoad_Scene
       end
       @sprites["player"].y += 24 * 2 if @sprites["player"]
     end
+  rescue
+  end
+
+  # Direct point-and-click mode (default). Stepped/legacy is mode 1.
+  def pbMouseUILoadDirectModeActive?
+    mode = 0
+    if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_hover_select_mode)
+      mode = ($PokemonSystem.mouse_ui_hover_select_mode || 0).to_i
+    end
+    return mode != 1
+  rescue
+    return true
+  end
+
+  # Like pbMouseUILoadSetIndex but wraps at the list ends instead of clamping, so
+  # wheel-scrolling past the top jumps to the bottom and vice versa.
+  def pbMouseUILoadSetIndexWrap(new_index)
+    return if !@sprites || !@sprites["cmdwindow"]
+    list = @sprites["cmdwindow"].commands
+    return if !list || list.length == 0
+    count = list.length
+    if new_index < 0
+      new_index = count - 1
+    elsif new_index >= count
+      new_index = 0
+    end
+    pbMouseUILoadSetIndex(new_index)
   rescue
   end
 
@@ -1826,15 +1951,28 @@ class PokemonLoad_Scene
       if wheel_direction != 0
         pos = MouseUI.pointer_position
         if pos
-          pbMouseUILoadSetIndex(@sprites["cmdwindow"].index + wheel_direction)
+          # Wheel loops the menu: past the top wraps to the bottom and vice versa,
+          # matching how the controller wraps at list ends.
+          pbMouseUILoadSetIndexWrap(@sprites["cmdwindow"].index + wheel_direction)
           @mouse_ui_load_scroll_cooldown = pbMouseUILoadScrollCooldown
+          # Suppress point-and-click hover until the pointer physically moves again,
+          # otherwise the hover branch below instantly snaps the selection back to
+          # the panel under the cursor and the wheel looks dead while hovering a row.
+          MouseUI.require_mouse_reactivation
         end
       end
-      hover_idx = pbMouseUILoadHoverIndex
-      if !hover_idx.nil?
-        pbMouseUILoadSetIndex(hover_idx)
-        @mouse_ui_load_scroll_cooldown = 0
+      if pbMouseUILoadDirectModeActive?
+        # DIRECT mode: pure point-and-click. Selection jumps to the panel under the
+        # cursor; the wheel (handled above) scrolls. No edge scrolling.
+        hover_idx = pbMouseUILoadHoverIndex
+        if !hover_idx.nil?
+          pbMouseUILoadSetIndex(hover_idx, false)
+          @mouse_ui_load_scroll_cooldown = 0
+        end
       else
+        # LEGACY mode: pure edge scrolling. Cursor near the top/bottom screen edge
+        # scrolls the list one row at a time on a cooldown. No instant point-and-click
+        # selection in this mode (that is the Direct method).
         pos = MouseUI.pointer_position
         if pos && MouseUI.mouse_hover_active?
           my = pos[1]
@@ -1986,10 +2124,13 @@ class Window_PokemonOption
                          @mouse_ui_opt_last_pos[0] != mx ||
                          @mouse_ui_opt_last_pos[1] != my)
     @mouse_ui_opt_last_pos = [mx, my]
-    if opt_pointer_moved && MouseUI.mouse_hover_active?
-      hover = pbMouseUIIndexAtMouse(mx, my)
-      self.index = hover if !hover.nil? && hover != self.index
-    end
+
+    # Hover-select + wheel are handled by the generic pbMouseUIProcess (honoring the
+    # Direct/Legacy Hover Mode setting), so we deliberately do NOT re-do hover here --
+    # doing it in both places fought the generic handler and made the selection jump.
+    # In LEGACY mode only, add edge-of-window scrolling so off-screen rows stay
+    # reachable by mouse; Direct mode scrolls via the wheel and never edge-scrolls.
+    pbMouseUIOptionEdgeScroll(mx, my, opt_pointer_moved) unless pbMouseUIDirectModeActive?
 
     lx, ly = pbMouseUIOptionLocalXY(mx, my)
     # Wheel scrolling is handled in pbMouseUIApplyWheelScroll (below): over a
@@ -2036,6 +2177,85 @@ class Window_PokemonOption
         end
       end
     end
+  end
+
+  OPT_EDGE_SCROLL_PX = 36
+
+  # Diagnostic: dump the live mouse/window state for the options menu. Throttled to
+  # once per 30 frames unless the wheel is turning (then every frame). NEVER calls
+  # mouse_hover_active? (that mutates) -- it peeks the reactivation origin instead.
+  def pbMouseUIOptDiag(where, wheel_dir)
+    return unless MouseUI.opt_debug_enabled?
+    fc = MouseUI.current_frame
+    @mouse_ui_opt_diag_last ||= -999
+    return if wheel_dir == 0 && (fc - @mouse_ui_opt_diag_last).abs < 30
+    @mouse_ui_opt_diag_last = fc
+    miw = (Input.respond_to?(:mouse_in_window) ? Input.mouse_in_window : "n/a") rescue "err"
+    sv  = (Input.scroll_v rescue "err")
+    pos = MouseUI.pointer_position
+    inside = pos ? ((pbMouseUIPointInsideWindow?(pos[0], pos[1]) rescue "err")) : "nopos"
+    idx = pos ? ((pbMouseUIIndexAtMouse(pos[0], pos[1]) rescue "err")) : "nopos"
+    pim = (self.page_item_max rescue "err")
+    ti  = (self.top_item rescue "err")
+    MouseUI.opt_log("#{where} cls=#{self.class} act=#{self.active} vis=#{self.visible} miw=#{miw} scroll_v=#{sv} wheel=#{wheel_dir} pos=#{pos.inspect} inside=#{inside} idxAtMouse=#{idx} sel=#{self.index} items=#{@item_max} page=#{pim} top=#{ti} react=#{MouseUI.reactivate_origin_peek}")
+  rescue
+  end
+
+  # Edge-hover scroll for the options list. Acts only when the list overflows the
+  # window and the pointer is inside it near the top/bottom inner edge. Advances the
+  # selection one row toward that edge on a speed-scaled cooldown; the engine
+  # recenters the view on the selection, so the list scrolls. Suppresses hover
+  # snap-back while the cursor rests at the edge so the two never fight.
+  def pbMouseUIOptionEdgeScroll(mx, my, pointer_moved)
+    return if @item_max.nil? || @item_max <= 0
+    pim = (self.page_item_max rescue nil)
+    return if pim.nil? || pim <= 0
+    return if @item_max <= pim
+    return unless pbMouseUIPointInsideWindow?(mx, my)
+    sx, sy = pbMouseUIScreenPosition
+    inset = (self.startY rescue 16).to_i
+    top_edge = sy + inset
+    bottom_edge = sy + self.height - inset
+    dir = 0
+    dir = -1 if my <= top_edge + OPT_EDGE_SCROLL_PX
+    dir =  1 if my >= bottom_edge - OPT_EDGE_SCROLL_PX
+    if dir == 0
+      @mouse_ui_opt_edge_cd = 0
+      return
+    end
+    @mouse_ui_opt_edge_cd ||= 0
+    if @mouse_ui_opt_edge_cd > 0
+      @mouse_ui_opt_edge_cd -= 1
+      return
+    end
+    old = self.index
+    ni = old + dir
+    ni = 0 if ni < 0
+    ni = @item_max - 1 if ni >= @item_max
+    if ni != old
+      self.index = ni
+      @selected_position = (self[ni] rescue @selected_position)
+      @mustUpdateDescription = true
+      pbPlayCursorSE
+      MouseUI.require_mouse_reactivation
+      MouseUI.opt_log("EDGE dir=#{dir} idx #{old}=>#{ni} my=#{my} top=#{top_edge} bot=#{bottom_edge} page=#{pim} items=#{@item_max}")
+    end
+    @mouse_ui_opt_edge_cd = pbMouseUIOptEdgeCooldown
+  rescue
+  end
+
+  def pbMouseUIOptEdgeCooldown
+    speed = 5
+    if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_scroll_speed)
+      speed = ($PokemonSystem.mouse_ui_scroll_speed || 2).to_i
+    end
+    speed = 1 if speed < 1
+    speed = 10 if speed > 10
+    cd = 13 - speed
+    cd = 3 if cd < 3
+    return cd
+  rescue
+    return 8
   end
 end
 
@@ -2257,7 +2477,6 @@ class SpriteWindow_Selectable
     return unless self.visible
     return if @ignore_input
     return if @item_max.nil? || @item_max <= 0
-
     pos = MouseUI.pointer_position
     return if !pos
     mx = pos[0]
@@ -2310,6 +2529,41 @@ class SpriteWindow_Selectable
       return unless pbMouseUIPointInsideWindow?(mx, my)
       MouseUI.queue_cancel
     end
+  end
+
+  def pbMouseUIPauseSteppedActive?
+    mode = 0
+    if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_hover_select_mode)
+      mode = ($PokemonSystem.mouse_ui_hover_select_mode || 0).to_i
+    end
+    return mode == 1
+  rescue
+    return false
+  end
+
+  def pbMouseUIPauseMenuStep
+    # Hover + wheel for the pause/start command window are now handled by the SAME
+    # generic point-and-click handler every other list uses (pbMouseUIProcess),
+    # honoring the Direct/Legacy Hover Mode setting. This step only turns a mouse
+    # click into the :confirm/:cancel the pause loop expects (returned directly, so
+    # confirming a click never depends on input-queue timing).
+    return nil if @item_max.nil? || @item_max <= 0
+    return nil unless self.visible
+    pos = MouseUI.pointer_position
+    return nil unless pos
+    mx = pos[0]
+    my = pos[1]
+    if defined?(Input::MOUSELEFT) && Input.trigger?(Input::MOUSELEFT)
+      clicked_index = pbMouseUIIndexAtMouse(mx, my)
+      return nil if clicked_index.nil?
+      pbMouseUISetIndexNoScroll(clicked_index)
+      return :confirm
+    elsif defined?(Input::MOUSERIGHT) && Input.trigger?(Input::MOUSERIGHT)
+      return :cancel if pbMouseUIPointInsideWindow?(mx, my)
+    end
+    return nil
+  rescue
+    return nil
   end
 
   # Select the item under the cursor WITHOUT scrolling the list. The engine
@@ -2369,6 +2623,7 @@ class SpriteWindow_Selectable
   end
 
   def pbMouseUIDirectModeActive?
+    return true if @mouse_ui_force_direct
     mode = 0
     if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_hover_select_mode)
       mode = ($PokemonSystem.mouse_ui_hover_select_mode || 0).to_i
@@ -2401,8 +2656,11 @@ class SpriteWindow_Selectable
     old_index = self.index || 0
     old_index = 0 if old_index < 0
     new_index = old_index + (direction * rows * cols)
-    new_index = 0 if new_index < 0
-    new_index = @item_max - 1 if new_index >= @item_max
+    if new_index < 0
+      new_index = @item_max - 1
+    elsif new_index >= @item_max
+      new_index = 0
+    end
     return if new_index == old_index
     self.index = new_index
     @mouse_ui_hover_target = nil
@@ -2419,8 +2677,11 @@ class SpriteWindow_Selectable
     old_index = 0 if old_index < 0
     step = pbMouseUIWheelStep
     new_index = old_index + (direction * step)
-    new_index = 0 if new_index < 0
-    new_index = @item_max - 1 if new_index >= @item_max
+    if new_index < 0
+      new_index = @item_max - 1
+    elsif new_index >= @item_max
+      new_index = 0
+    end
     return if new_index == old_index
     self.index = new_index
     @mouse_ui_hover_target = nil
@@ -2449,8 +2710,11 @@ class SpriteWindow_Selectable
     if $PokemonSystem && $PokemonSystem.respond_to?(:mouse_ui_hover_select_mode)
       mode = ($PokemonSystem.mouse_ui_hover_select_mode || 0).to_i
     end
+    # Windows flagged force-direct (e.g. the overworld pause menu) always use
+    # point-and-click hover. The old $scene.is_a?(PokemonPauseMenu_Scene) guard was
+    # dead: during the pause menu $scene is still Scene_Map, so it never matched.
+    return false if @mouse_ui_force_direct
     return false if mode != 1
-    return false if defined?(PokemonPauseMenu_Scene) && $scene && $scene.is_a?(PokemonPauseMenu_Scene)
     return false if !self.respond_to?(:page_item_max)
     return false if self.page_item_max.nil?
     return false if self.page_item_max <= 0
@@ -2819,14 +3083,14 @@ class PokemonStorageScene
       if defined?(Input::MOUSERIGHT) && Input.trigger?(Input::MOUSERIGHT)
         @selection = selection
         return nil
-      elsif Input.trigger?(Input::JUMPUP)
+      elsif Input.trigger?(Input::JUMPUP) || Input.trigger?(Input::L)
         pbPlayCursorSE
         nextbox = (@storage.currentBox + @storage.maxBoxes - 1) % @storage.maxBoxes
         pbSwitchBoxToLeft(nextbox)
         @storage.currentBox = nextbox
         pbUpdateOverlay(selection)
         pbSetMosaic(selection)
-      elsif Input.trigger?(Input::JUMPDOWN)
+      elsif Input.trigger?(Input::JUMPDOWN) || Input.trigger?(Input::R)
         pbPlayCursorSE
         nextbox = (@storage.currentBox + 1) % @storage.maxBoxes
         pbSwitchBoxToRight(nextbox)
@@ -3407,7 +3671,7 @@ class PokemonSummary_Scene
           @ribbonOffset = 0
           dorefresh = true
         end
-      elsif Input.trigger?(Input::LEFT) && !@pokemon.egg?
+      elsif (Input.trigger?(Input::LEFT) || Input.trigger?(Input::L)) && !@pokemon.egg?
         oldpage = @page
         @page -= 1
         @page = 1 if @page < 1
@@ -3417,7 +3681,7 @@ class PokemonSummary_Scene
           @ribbonOffset = 0
           dorefresh = true
         end
-      elsif Input.trigger?(Input::RIGHT) && !@pokemon.egg?
+      elsif (Input.trigger?(Input::RIGHT) || Input.trigger?(Input::R)) && !@pokemon.egg?
         if @page == 4 && !$Trainer.has_pokedex
           pbSEPlay("GUI sel buzzer")
         else
@@ -3763,5 +4027,79 @@ class ItemStorage_Scene
         end
       end
     }
+  end
+end
+
+
+# The overworld pause/start command window now uses the generic point-and-click /
+# wheel handler (pbMouseUIProcess) like every other list, honoring the Direct/Legacy
+# Hover Mode setting. The old pause-managed special-case has been removed.
+
+module MouseUI
+  def self.dbglog(msg)
+    dir = File.expand_path("Logs")
+    Dir.mkdir(dir) unless File.directory?(dir)
+    File.open(File.join(dir, "pause_mouse.log"), "a") { |f| f.puts("#{(Time.now.strftime('%H:%M:%S') rescue '')} #{msg}") }
+  rescue
+  end
+  def self.dbg_new_session
+    @dbg_session = (@dbg_session || 0) + 1
+    @dbg_logged = {}
+    dbglog("=== SESSION #{@dbg_session} pause menu opened ===")
+    @dbg_session
+  rescue
+  end
+  def self.dbg_session_once(tag, msg)
+    @dbg_logged ||= {}
+    key = "#{@dbg_session}:#{tag}"
+    return if @dbg_logged[key]
+    @dbg_logged[key] = true
+    dbglog("[S#{@dbg_session}] #{msg}")
+  rescue
+  end
+end
+
+
+#===============================================================================
+# Direct-mode list scrolling: scroll ONLY when the selection leaves the visible
+# page, instead of the engine's recenter-on-every-move (priv_update_cursor_rect,
+# 005_SpriteWindow_text.rb). The recenter made mouse hover scroll the list out from
+# under the cursor -- "Direct doesn't work" in the overflowing pause/start menu and
+# the runaway/jitter in the options submenu. For lists that fit on screen this is
+# byte-identical to the engine (top stays 0); only OVERFLOWING lists differ, and
+# only in DIRECT mode. LEGACY mode keeps the engine centering so the stepped crawl
+# still behaves as before.
+#===============================================================================
+class SpriteWindow_Selectable
+  unless method_defined?(:mouse_ui_orig_priv_update_cursor_rect)
+    alias mouse_ui_orig_priv_update_cursor_rect priv_update_cursor_rect
+  end
+
+  def priv_update_cursor_rect(force = false)
+    unless (MouseUI.global_direct_mode? rescue false)
+      return mouse_ui_orig_priv_update_cursor_rect(force)
+    end
+    if @index < 0
+      self.cursor_rect.empty
+      self.refresh
+      return
+    end
+    cmax = (@column_max && @column_max > 0) ? @column_max : 1
+    row  = @index / cmax
+    prm  = self.page_row_max
+    prm  = 1 if prm.nil? || prm < 1
+    # Scroll only at the edges of the visible page.
+    if row < self.top_row
+      self.top_row = row
+    elsif row > self.top_row + (prm - 1)
+      self.top_row = row - (prm - 1)
+    end
+    cursor_width = (self.width - self.borderX) / cmax
+    x = (self.index % cmax) * (cursor_width + @column_spacing)
+    y = (self.index / cmax) * @row_height - @virtualOy
+    self.cursor_rect.set(x, y, cursor_width, @row_height)
+    self.refresh if force
+  rescue
+    (mouse_ui_orig_priv_update_cursor_rect(force) rescue nil)
   end
 end

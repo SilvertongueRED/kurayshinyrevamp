@@ -1440,7 +1440,7 @@ class PokemonSummary_Scene
           @ribbonOffset = 0
           dorefresh = true
         end
-      elsif Input.trigger?(Input::LEFT) && !@pokemon.egg?
+      elsif (Input.trigger?(Input::LEFT) || Input.trigger?(Input::L)) && !@pokemon.egg?
         oldpage = @page
         @page -= 1
         @page = 1 if @page < 1
@@ -1450,7 +1450,7 @@ class PokemonSummary_Scene
           @ribbonOffset = 0
           dorefresh = true
         end
-      elsif Input.trigger?(Input::RIGHT) && !@pokemon.egg?
+      elsif (Input.trigger?(Input::RIGHT) || Input.trigger?(Input::R)) && !@pokemon.egg?
         if @page == 4 && !$Trainer.has_pokedex
           pbSEPlay("GUI sel buzzer")
         else

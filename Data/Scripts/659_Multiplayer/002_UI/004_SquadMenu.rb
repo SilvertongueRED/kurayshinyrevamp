@@ -95,7 +95,7 @@ module MultiplayerUI
 
         if Input.trigger?(Input::BACK)
           pbSEPlay("GUI menu close"); break
-        elsif Input.trigger?(Input::USE)
+        elsif (Input.trigger?(Input::USE) || Input.trigger?(Input::ACTION))   # Pad A (USE) OR the MP Actions/Run button confirms
           sel = win.index
           member      = squad[:members][sel]
           chosen_sid  = member[:sid].to_s

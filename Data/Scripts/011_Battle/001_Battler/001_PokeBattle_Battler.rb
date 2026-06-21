@@ -229,6 +229,18 @@ class PokeBattle_Battler
 
   alias isShiny? shiny?
 
+  # GhostBattle Classic+ databox helper: illusion-aware counterfeit-shiny flag.
+  # KIF defines fakeshiny? only on Pokemon, so the mod's bare @battler.fakeshiny?
+  # call in the databox shiny-star block raised NoMethodError on every NON-shiny
+  # non-EBDX databox -> the infinite battle-start animation loop (and eventual
+  # black-overworld bail) whenever EBDX visuals were OFF (Ghost Classic+ or plain
+  # Vanilla UI). respond_to? guard keeps it safe if fakeshiny? is ever absent.
+  def fakeshiny?
+    pkmn = @effects[PBEffects::Illusion] || @pokemon
+    return false unless pkmn && pkmn.respond_to?(:fakeshiny?)
+    return pkmn.fakeshiny?
+  end
+
   def glitter?
     return @pokemon.glitter
   end

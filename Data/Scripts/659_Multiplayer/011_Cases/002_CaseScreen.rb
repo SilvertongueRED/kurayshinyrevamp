@@ -60,16 +60,29 @@ module KIFCases
         unless @animating
           _tick_idle_scroll
           mouse_action = _check_action_bar_mouse
-          if MPMenuConfirm.button_pressed?(Input::C, :cs_buyopen) || mouse_action == :buy_open   # [Z] Buy & Open
+          if MPMenuConfirm.button_pressed?(Input::C, :cs_buyopen) || mouse_action == :buy_open   # [Z] / Pad A: Buy & Open
             begin
               _try_buy_and_open
             rescue => e
               @animating = false
               _show_msg("Error: #{e.message}")
             end
-          elsif MPMenuConfirm.button_pressed?(Input::A, :cs_open) || mouse_action == :open    # [A] Open from inventory
+          elsif mouse_action == :open    # click the [Open] button: open one already owned
             begin
               _try_open_from_inventory
+            rescue => e
+              @animating = false
+              _show_msg("Error: #{e.message}")
+            end
+          elsif MPMenuConfirm.button_pressed?(Input::A, :cs_action)   # MP Actions/Run button = the universal Confirm
+            begin
+              # The Run/Action button ALWAYS confirms here: open a case you own
+              # for free, or buy & open one when your inventory is empty.
+              if (KIFCaseInventory.count(@case_type) rescue 0) > 0
+                _try_open_from_inventory
+              else
+                _try_buy_and_open
+              end
             rescue => e
               @animating = false
               _show_msg("Error: #{e.message}")
@@ -238,7 +251,7 @@ module KIFCases
       bmp.draw_text(0, 0, bmp.width, 24, "#{@cdef[:description]}  (#{pool_total} items)", 1)
       bmp.font.color = Color.new(200, 200, 160, 180)
       bmp.draw_text(0, 26, bmp.width, 24,
-        "Cost: #{_case_cost} Plat  |  Owned: #{inv_count}  |  [Z] Buy&Open  [A] Open  [N] Buy  [X] Back", 1)
+        "Cost: #{_case_cost} Plat  |  Owned: #{inv_count}  |  [Z] Buy&Open  [A/Run] Open  [N] Buy  [X] Back", 1)
       iy = @strip_y + STRIP_H + 20
       @sprites[:info] = _spr(bmp, 20, iy)
 
@@ -296,12 +309,13 @@ module KIFCases
 
       bmp.fill_rect(190, 5, 2, 20, Color.new(120, 120, 160, 100))
 
-      # [A] Open from inventory
-      col_open = inv > 0 ? Color.new(120, 220, 255, 230) : Color.new(80, 80, 100, 150)
+      # [A] = MP Actions/Run button (the universal Confirm): open a case
+      open_lbl = inv > 0 ? "[A] Open (#{inv} owned)" : "[A] Buy & Open"
+      col_open = inv > 0 ? Color.new(120, 220, 255, 230) : (can_buy ? Color.new(255, 215, 0, 230) : Color.new(220, 80, 80, 230))
       bmp.font.color = Color.new(0, 0, 0, 100)
-      bmp.draw_text(199, 7, 150, 20, "[A] Open (#{inv} owned)", 0)
+      bmp.draw_text(199, 7, 160, 20, open_lbl, 0)
       bmp.font.color = col_open
-      bmp.draw_text(198, 6, 150, 20, "[A] Open (#{inv} owned)", 0)
+      bmp.draw_text(198, 6, 160, 20, open_lbl, 0)
 
       bmp.fill_rect(350, 5, 2, 20, Color.new(120, 120, 160, 100))
 
@@ -417,6 +431,9 @@ module KIFCases
 
       result = _wait_for_result
       _handle_result(result)
+      _refresh_balance_display
+      _draw_action_bar
+      _refresh_info_text
     end
 
     # [A] Open from inventory
@@ -433,6 +450,9 @@ module KIFCases
 
       result = _wait_for_result
       _handle_result(result)
+      _refresh_balance_display
+      _draw_action_bar
+      _refresh_info_text
     end
 
     # [N] Buy to inventory (no animation)
@@ -543,7 +563,7 @@ module KIFCases
       bmp.draw_text(0, 0, bmp.width, 24, "#{@cdef[:description]}  (#{pool_total} items)", 1)
       bmp.font.color = Color.new(200, 200, 160, 180)
       bmp.draw_text(0, 26, bmp.width, 24,
-        "Cost: #{_case_cost} Plat  |  Owned: #{inv_count}  |  [Z] Buy&Open  [A] Open  [N] Buy  [X] Back", 1)
+        "Cost: #{_case_cost} Plat  |  Owned: #{inv_count}  |  [Z] Buy&Open  [A/Run] Open  [N] Buy  [X] Back", 1)
       @sprites[:info].bitmap = bmp
     end
 
@@ -754,7 +774,7 @@ module KIFCases
       panel_bmp.draw_text(0, 228, pw, 36, display_name, 1)
       panel_bmp.font.size = 13; panel_bmp.font.bold = false
       panel_bmp.font.color = Color.new(130, 130, 170, 200)
-      panel_bmp.draw_text(0, 266, pw, 20, "Press Z or Enter to continue", 1)
+      panel_bmp.draw_text(0, 266, pw, 20, "Press Z, Enter or the Run/Action button to continue", 1)
 
       panel_spr = Sprite.new(result_vp); panel_spr.bitmap = panel_bmp
       panel_spr.x = px; panel_spr.y = py
@@ -774,7 +794,7 @@ module KIFCases
       loop do
         Graphics.update
         Input.update
-        break if Input.trigger?(Input::C) || Input.trigger?(Input::BACK)
+        break if Input.trigger?(Input::C) || Input.trigger?(Input::ACTION) || Input.trigger?(Input::BACK)
         break if (Input.trigger?(Input::MOUSELEFT) rescue false)
         break if (Input.trigger?(Input::MOUSERIGHT) rescue false)
       end
@@ -916,7 +936,7 @@ module KIFCases
       lines.each_with_index { |l, i| bmp.draw_text(14, 12 + i * 26, bw - 28, 26, l, 0) }
       bmp.font.size  = 12
       bmp.font.color = Color.new(130, 130, 170, 190)
-      bmp.draw_text(0, bh - 20, bw, 18, "Press Z, Enter or X to close", 1)
+      bmp.draw_text(0, bh - 20, bw, 18, "Press Z, Enter, Run/Action or X to close", 1)
       spr = Sprite.new(msg_vp)
       spr.bitmap = bmp
       spr.x = (Graphics.width  - bw) / 2
@@ -924,7 +944,7 @@ module KIFCases
       loop do
         Graphics.update
         Input.update
-        break if Input.trigger?(Input::C) || Input.trigger?(Input::BACK)
+        break if Input.trigger?(Input::C) || Input.trigger?(Input::ACTION) || Input.trigger?(Input::BACK)
         break if (Input.trigger?(Input::MOUSELEFT) rescue false)
         break if (Input.trigger?(Input::MOUSERIGHT) rescue false)
       end

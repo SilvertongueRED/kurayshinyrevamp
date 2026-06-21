@@ -28,13 +28,15 @@
 #   (everything is guarded on `defined?(GhostForceClassicPlus)`), so non-Ghost
 #   players are unaffected and EBDX keeps working exactly as before.
 #
-# KNOWN LIMITATION (engine/mod design, not fixable from the fork side)
-#   The mod reads the raw @battlegui ivar directly (pbGhostUseType2UI?) and
-#   force-converts value 0, so while the mod is installed the literal "Off /
-#   default(0)" battle GUI cannot be represented -- "both visuals off" therefore
-#   renders as the clean Type-1 vanilla bars. A player who deliberately chose
-#   "Type 2" still sees the Classic+ type icons (the mod treats 2 and 3 alike).
-#   Removing those two caveats would require a one-line change to the mod.
+# FORK FIX (2026-06-20): the mod's battlegui getter force-coerced a stored 0/nil
+#   to 3 (Classic+) and mutated @battlegui, so once the mod was installed the
+#   Options "Swap BattleGUI" choice was permanently stuck on Classic+ (even with
+#   Ghost + EBDX both off). The PokemonSystem#battlegui getter/setter below now
+#   re-gate that on the live Ghost toggle: Ghost ON -> 3, Ghost OFF -> the real
+#   stored choice (Off/Type 1/Type 2), and "Classic+" is never recorded as a
+#   standalone choice so it can't strand the option across save loads.
+#   NOTE: a player who deliberately chose "Type 2" still sees Classic+ type icons
+#   while the mod is loaded (the mod treats 2 and 3 alike); that is mod-side.
 #==============================================================================
 
 if defined?(GhostForceClassicPlus) && defined?(GhostVisualsBridge)
@@ -51,20 +53,18 @@ if defined?(GhostForceClassicPlus) && defined?(GhostVisualsBridge)
     def self.apply_battlegui!
       ps = $PokemonSystem
       return unless ps
-      cur = (ps.instance_variable_get(:@battlegui) rescue nil)
-      # First-time capture of the player's genuine pre-Ghost battle-GUI choice.
-      if (ps.instance_variable_get(:@gvbridge_real_battlegui) rescue nil).nil?
-        real = cur
-        real = 1 if real.nil? || real == 0 || real == 3
+      # The player's genuine Swap-BattleGUI choice (0=Off,1=Type1,2=Type2). 3
+      # (Classic+) is the Ghost skin, never a standalone choice, so it is never
+      # recorded as "real" -- that is what kept "Off" from sticking before.
+      real = (ps.instance_variable_get(:@gvbridge_real_battlegui) rescue nil)
+      if real.nil?
+        cur = (ps.instance_variable_get(:@battlegui) rescue nil)
+        real = (cur.nil? || cur == 3) ? 0 : cur
         ps.instance_variable_set(:@gvbridge_real_battlegui, real)
       end
-      if ghost_active?
-        ps.instance_variable_set(:@battlegui, 3)
-      else
-        real = (ps.instance_variable_get(:@gvbridge_real_battlegui) rescue nil)
-        real = 1 if real.nil? || real == 0 || real == 3
-        ps.instance_variable_set(:@battlegui, real)
-      end
+      # Ghost ON -> 3 so pbGhostUseType2UI? (reads @battlegui directly) renders
+      # Classic+. Ghost OFF -> the player's real choice, preserved exactly.
+      ps.instance_variable_set(:@battlegui, ghost_active? ? 3 : real)
     rescue
       nil
     end
@@ -88,8 +88,28 @@ if defined?(GhostForceClassicPlus) && defined?(GhostVisualsBridge)
       alias gvbridge_orig_battlegui_set battlegui= unless method_defined?(:gvbridge_orig_battlegui_set)
     end
     def battlegui=(v)
+      if v == 3
+        # Classic+ is the Ghost skin, not a standalone Swap-BattleGUI choice.
+        # Never store it as the player's real pick (otherwise the mod's on_load /
+        # scene force would permanently strand "Swap BattleGUI" on Classic+).
+        # Only reflect it in the working ivar while Ghost visuals are actually on.
+        @battlegui = 3 if GhostVisualsBridge.ghost_active?
+        return
+      end
       @gvbridge_real_battlegui = v
       @battlegui = v
+    end
+
+    # FORK FIX (#3): re-gate the mod's battlegui getter (which force-coerced a
+    # stored 0/nil to 3 and mutated @battlegui) so the Options "Swap BattleGUI"
+    # choice is honoured again whenever Ghost visuals are off -- including plain
+    # vanilla and EBDX. Returns the player's real choice (0/1/2) with NO forcing.
+    def battlegui
+      return $ghost_force_gui if defined?($ghost_force_gui) && $ghost_force_gui
+      return 3 if GhostVisualsBridge.ghost_active?
+      real = (@gvbridge_real_battlegui rescue nil)
+      real = (@battlegui rescue nil) if real.nil?
+      (real.nil? || real == 3) ? 0 : real
     end
   end
 

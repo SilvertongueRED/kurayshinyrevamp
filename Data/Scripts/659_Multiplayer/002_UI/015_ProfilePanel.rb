@@ -160,8 +160,8 @@ if defined?(Scene_Map)
           if my_uuid && @target_uuid == my_uuid
             # Mouse hover + click
             _handle_btn_mouse(my_uuid)
-            # Keyboard
-            if !mouse_clicked && Input.trigger?(Input::C)
+            # Keyboard / controller: Confirm (USE) OR the MP Actions/Run button
+            if !mouse_clicked && (Input.trigger?(Input::C) || Input.trigger?(Input::ACTION))
               _handle_change_title
             end
           else

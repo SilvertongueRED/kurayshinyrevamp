@@ -1,0 +1,18 @@
+# KIF Sprite-Share webhook config
+# ----------------------------------------------------------------------------
+# Put the Discord webhook for the sprite-share channel here, then commit + push
+# to the fork. Every player's game reads THIS file (fetched live + shipped
+# locally), so nobody has to paste their own webhook -- they just use this one.
+#
+# RECOMMENDED: paste the webhook BASE64-ENCODED (the game auto-decodes it):
+#     bash:   printf %s 'https://discord.com/api/webhooks/XXXX/YYYY' | base64 -w0
+#     ruby:   require "base64"; puts Base64.strict_encode64('https://discord.com/api/webhooks/XXXX/YYYY')
+# A raw webhook URL committed to a PUBLIC repo can be auto-revoked by GitHub /
+# Discord secret-scanning; base64 dodges that. (A plain URL also works.)
+#
+# Lines starting with "#" and blank lines are ignored. Put the value on its own
+# line below. Leave it empty until you have the webhook -- until then the in-game
+# feature simply falls back to a manual paste prompt, so nothing breaks.
+#
+# PASTE WEBHOOK (base64 recommended) BELOW THIS LINE:
+

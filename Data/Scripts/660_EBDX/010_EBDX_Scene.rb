@@ -143,9 +143,14 @@ class PokeBattle_SceneEBDX < PokeBattle_Scene
     @viewport = Viewport.new(0, 0, Graphics.width, Graphics.height)
     @viewport.z = 99999
     @dexview = Viewport.new(0, 0, Graphics.width, Graphics.height)
-    @dexview.z = 99999
+    # FORK (ground-drop fix): @dexview/@msgview hold the data boxes + message box.
+    # Give them a strictly higher z than @viewport (battler sprites) instead of an
+    # equal 99999 that relied on viewport creation-order to win. This guarantees the
+    # HP/name boxes always draw OVER the battlers, so the foe can be dropped toward
+    # the ground without its sprite ever hiding any UI element.
+    @dexview.z = 100000
     @msgview = Viewport.new(0, 0, Graphics.width, Graphics.height)
-    @msgview.z = 99999
+    @msgview.z = 100001
     @traineryoffset = (Graphics.height - 320)
     @foeyoffset = (@traineryoffset*3/4).floor
     # Load battle background

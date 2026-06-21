@@ -46,7 +46,7 @@ if defined?(Scene_Map)
       C_ARROW    = [160, 160, 175]
 
       BUTTONS = [
-        { key: :chat,    label: "T/F10" },
+        { key: :chat,    label: "F10"   },
         { key: :gts,     label: "F6"    },
         { key: :players, label: "F3"    },
         { key: :squad,   label: "F4"    },   # conditional (only when in squad)

@@ -743,7 +743,7 @@ class PokemonPokedexInfo_Scene
           (@page == 1) ? Pokemon.play_cry(@species, @form) : pbPlayCursorSE
           dorefresh = true
         end
-      elsif Input.trigger?(Input::LEFT)
+      elsif Input.trigger?(Input::LEFT) || Input.trigger?(Input::L)
         oldpage = @page
         @page -= 2
         @page = 1 if @page < 1
@@ -752,7 +752,7 @@ class PokemonPokedexInfo_Scene
           pbPlayCursorSE
           dorefresh = true
         end
-      elsif Input.trigger?(Input::RIGHT)
+      elsif Input.trigger?(Input::RIGHT) || Input.trigger?(Input::R)
         oldpage = @page
         @page += 2
         @page = 1 if @page < 1

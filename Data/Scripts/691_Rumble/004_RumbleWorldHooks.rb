@@ -48,9 +48,9 @@ module Haptics
       if (battle.trainerBattle? rescue false)
         opp = (battle.instance_variable_get(:@opponent) rescue nil)
         if gym_leader?(opp)
-          Haptics.play(Haptics::Patterns.gym_leader, :encounters, 3)
+          Haptics.play(Haptics::Patterns.encounter_sweep + Haptics::Patterns.gym_leader, :encounters, 3)
         else
-          Haptics.play(Haptics::Patterns.trainer, :encounters, 3)
+          Haptics.play(Haptics::Patterns.encounter_sweep + Haptics::Patterns.trainer, :encounters, 3)
         end
         return
       end
@@ -60,11 +60,11 @@ module Haptics
         foes = [] unless foes.is_a?(Array)
         foes = foes.compact
         if alpha?(foes)
-          Haptics.play(Haptics::Patterns.alpha, :encounters, 3)
+          Haptics.play(Haptics::Patterns.encounter_sweep + Haptics::Patterns.alpha, :encounters, 3)
         elsif foes.length >= 3 || (foes.length == 2 && same_species?(foes))
-          Haptics.play(Haptics::Patterns.swarm, :encounters, 3)
+          Haptics.play(Haptics::Patterns.encounter_sweep + Haptics::Patterns.swarm, :encounters, 3)
         else
-          Haptics.play(Haptics::Patterns.wild, :encounters, 3)
+          Haptics.play(Haptics::Patterns.encounter_sweep + Haptics::Patterns.wild, :encounters, 3)
         end
       end
     end

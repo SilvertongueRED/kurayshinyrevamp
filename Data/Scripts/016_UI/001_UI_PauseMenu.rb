@@ -59,10 +59,11 @@ class PokemonPauseMenu_Scene
       Graphics.update
       Input.update
       pbUpdateSceneMap
-      if Input.trigger?(Input::BACK)
+      mouse_choice = (cmdwindow.respond_to?(:pbMouseUIPauseMenuStep) ? cmdwindow.pbMouseUIPauseMenuStep : nil)
+      if mouse_choice == :cancel || Input.trigger?(Input::BACK)
         ret = -1
         break
-      elsif Input.trigger?(Input::USE)
+      elsif mouse_choice == :confirm || Input.trigger?(Input::USE)
         ret = cmdwindow.index
         $PokemonTemp.menuLastChoice = ret
         break

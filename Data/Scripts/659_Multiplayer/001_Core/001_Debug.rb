@@ -4,14 +4,14 @@
 # Purpose: Global debug logger for Multiplayer mod
 # ===========================================
 
-MULTI_LOG_DIR  = "Logs"
+MULTI_LOG_DIR  = File.expand_path("Logs")
 
 begin
   Dir.mkdir(MULTI_LOG_DIR) unless File.directory?(MULTI_LOG_DIR)
   MULTI_LOG_FILE = File.join(MULTI_LOG_DIR, "multiplayer_debug.log")
 rescue => e
   # Fallback to project root if Logs/ can't be created
-  print "Could not create log dir: #{e.message}\n"
+  $stderr.puts "Could not create log dir: #{e.message}" rescue nil
   MULTI_LOG_FILE = "multiplayer_debug.log"
 end
 
@@ -39,9 +39,17 @@ module MultiplayerDebug
           rotate_if_needed if (@@writes % ROTATE_CHECK_INTERVAL) == 0
           # Force UTF-8 encoding with replacement for invalid sequences
           safe_item = item.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
-          File.open(MULTI_LOG_FILE, "a:UTF-8") { |f| f.write(safe_item) }
+          ensure_log_dir!
+          begin
+            File.open(MULTI_LOG_FILE, "a:UTF-8") { |f| f.write(safe_item) }
+          rescue Errno::ENOENT
+            # Log dir vanished mid-session: recreate once and retry, else drop the line
+            ensure_log_dir!
+            File.open(MULTI_LOG_FILE, "a:UTF-8") { |f| f.write(safe_item) }
+          end
         rescue => e
-          print "Debug logging failed: #{e.class}\n"
+          # Never pop a blocking message box for a log failure; report quietly
+          $stderr.puts "Debug logging failed: #{e.class}" rescue nil
         end
       else
         sleep(0.01)  # yield without burning CPU
@@ -60,7 +68,7 @@ module MultiplayerDebug
         sleep(0.01)
       end
     rescue => e
-      print "Logger shutdown failed: #{e.class}: #{e.message}\n"
+      $stderr.puts "Logger shutdown failed: #{e.class}: #{e.message}" rescue nil
     end
   end
 
@@ -76,7 +84,7 @@ module MultiplayerDebug
       msg = "#{prefix ? prefix + ' - ' : ''}#{e.class}: #{e.message}\n#{bt}"
       error(code, msg)
     rescue => err
-      print "Exception logging failed: #{err.class}: #{err.message}\n"
+      $stderr.puts "Exception logging failed: #{err.class}: #{err.message}" rescue nil
     end
   end
 
@@ -88,12 +96,18 @@ module MultiplayerDebug
       entry = "[#{time}] [#{code}] [#{thr}] #{message}\n"
       enqueue(entry)
     rescue => e
-      print "Inline log failed: #{e.class}: #{e.message}\n"
+      $stderr.puts "Inline log failed: #{e.class}: #{e.message}" rescue nil
     end
   end
 
   def self.enqueue(line)
     LOG_MUTEX.synchronize { @@queue << line }
+  end
+
+  def self.ensure_log_dir!
+    Dir.mkdir(MULTI_LOG_DIR) unless File.directory?(MULTI_LOG_DIR)
+  rescue
+    nil
   end
 
   def self.rotate_if_needed
@@ -108,7 +122,7 @@ module MultiplayerDebug
       begin
         File.open(MULTI_LOG_FILE, "w") { |f| f.write("") }
       rescue => e2
-        print "Log rotate/truncate failed: #{e.class}/#{e2.class}\n"
+        $stderr.puts "Log rotate/truncate failed: #{e.class}/#{e2.class}" rescue nil
       end
     end
   end

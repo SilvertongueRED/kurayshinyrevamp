@@ -370,7 +370,7 @@ if defined?(KurayOptionsScene)
       def pbGetOptions(inloadscreen = false)
         options = _csi_orig_pbGetOptions(inloadscreen)
         begin
-          options << ButtonOption.new(_INTL("Import Custom Sprites"),
+          btn = ButtonOption.new(_INTL("Import Custom Sprites"),
             proc {
               pbFadeOutIn {
                 CustomSpriteImporter.run
@@ -378,6 +378,8 @@ if defined?(KurayOptionsScene)
             },
             _INTL("Add your own Pokemon / fusion sprites from the CustomSpriteImport folder."),
             _INTL("Open"))
+          idx = options.index { |o| o.respond_to?(:name) && o.name == _INTL("Self-Battle & Import") }
+          idx ? options.insert(idx + 1, btn) : options << btn
         rescue
         end
         return options

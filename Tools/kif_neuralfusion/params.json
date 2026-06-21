@@ -1,0 +1,34 @@
+{
+  "_comment": "KIF NeuralFusion compositor parameters, FIT to the April-2026 PIF custom-sprite corpus (calibrate.py over a random sample). Edit to taste; the sidecar reloads this on each request.",
+  "canvas": 288,
+  "alpha_threshold": 24,
+  "palette": {
+    "_fit": "corpus median distinct colors = 15 (p10=11, p90=20)",
+    "posterize_colors": 18,
+    "posterize_jitter": 4
+  },
+  "outline": {
+    "_fit": "corpus median edge luma = 48",
+    "target_luma": 50,
+    "enabled": true,
+    "thickness": 1
+  },
+  "recolor": {
+    "_fit": "silhouette IoU body=0.47 > head=0.39 -> body keeps shape, takes head palette",
+    "strength": 0.78,
+    "strength_jitter": 0.1,
+    "head_palette_k": 10,
+    "hue_rotate_deg_jitter": 12
+  },
+  "head": {
+    "_fit": "head occupies upper region; neck-pinch detection with top-fraction fallback",
+    "max_top_fraction": 0.55,
+    "fallback_fraction": 0.45,
+    "neck_width_ratio": 0.82,
+    "width_ratio_on_body": 1.0,
+    "width_ratio_jitter": 0.12,
+    "shoulder_fraction": 0.31,
+    "shoulder_jitter": 0.04,
+    "vertical_overlap": 0.06
+  }
+}

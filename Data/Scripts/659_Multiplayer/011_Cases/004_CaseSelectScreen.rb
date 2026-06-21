@@ -431,7 +431,7 @@ module KIFCases
 
         bmp.font.size  = 12
         bmp.font.color = Color.new(200, 200, 220, 200)
-        bmp.draw_text(0, 24, Graphics.width - 16, 18, "[Z / Enter] Select    [X / Esc] Back", 2)
+        bmp.draw_text(0, 24, Graphics.width - 16, 18, "[Z / Enter / Run] Select    [X / Esc] Back", 2)
       end
 
       @sprites[:footer].bitmap = bmp

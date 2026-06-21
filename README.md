@@ -163,3 +163,12 @@ __Google Docs of the game (OBSOLETE, but some informations are still useful):__ 
 - Added Auto-Battle Shortcut *(Enabled by default. If disabled, the shortcut keybind to toggle Auto-Battle ON/OFF during battles will be disabled)* **| by REIZOD**
 - Added Auto-Battle Shiny Stop *(Disabled by default. If enabled, the Auto-Battle will automatically turn itself OFF if a wild Shiny pokemon is encountered)* **| by REIZOD**
 - K-Eggs (Kuray Eggs)*, available in the Kuray Shop. Those items can be used from the Bag to spawn a random Pokémon (a Fire K-Egg will give you a random Fire Pokémon, etc). K-Eggs uses the Catch Rate of Pokémon as their rarity (the lower the catch rate, the rarer the Pokémon in K-Eggs). K-Eggs are 10 times more likely to be shiny than wild encounters. You can customize the K-Eggs system in the Options.* **| by REIZOD**
+
+## Controller Rumble & DualSense
+
+KIF has built-in controller vibration (Options -> KIF Settings -> **Controller Vibration**). Xbox / XInput pads work as-is. For a PlayStation **DualSense / DualShock 4** there are two paths:
+
+- **Steam Input OFF** (controller plugged in directly, USB or Bluetooth): it's detected as a DualSense and rumbles automatically - no extra files.
+- **Steam Input ON** (KIF added as a non-Steam game): Steam hands the game a virtual Xbox pad, so to get native **rumble + trigger motors + lightbar** you drop **your own** `steam_api64.dll` (from any Steam game you own) next to `Game.exe`. We do **not** bundle that DLL - the Steamworks license doesn't cover redistributing it with a non-Steam fan game, and shipping an unknown binary trips antivirus.
+
+Full guide: [`Controller_Rumble_Setup.md`](./Controller_Rumble_Setup.md)

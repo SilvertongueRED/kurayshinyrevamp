@@ -6,17 +6,31 @@
 #===============================================================================
 
 class PokemonSystem
-  attr_accessor :mp_ebdx_enabled  # 0 = off (vanilla), 1 = on (EBDX visuals)
+  attr_reader :mp_ebdx_enabled  # 0 = off (vanilla), 1 = on (EBDX visuals)
   # 0 = off, 1 = on. Only takes effect when the GhostBattle Classic+ mod is
   # installed; mutually exclusive with EBDX (see GhostVisualsBridge / the
   # Mods/zzz_ghost_ebdx_bridge.rb compat shim that gates the mod at runtime).
-  attr_accessor :mp_ghost_visuals_enabled
+  attr_reader :mp_ghost_visuals_enabled
+
+  # FORK (#2): EBDX and Ghost Classic+ visuals are mutually exclusive. Enforce it
+  # at the setter so turning either ON forces the other OFF no matter which menu
+  # or code path sets it (Multiplayer Options, settings sync, etc.). Setting a
+  # value to 0 never touches the other. This makes the auto-toggle bulletproof.
+  def mp_ebdx_enabled=(v)
+    @mp_ebdx_enabled = v
+    @mp_ghost_visuals_enabled = 0 if v == 1
+  end
+
+  def mp_ghost_visuals_enabled=(v)
+    @mp_ghost_visuals_enabled = v
+    @mp_ebdx_enabled = 0 if v == 1
+  end
 
   alias ebdx_toggle_original_initialize initialize unless method_defined?(:ebdx_toggle_original_initialize)
   def initialize
     ebdx_toggle_original_initialize
-    @mp_ebdx_enabled = 1  # On by default for EBDX visuals
-    @mp_ghost_visuals_enabled = 0 if @mp_ghost_visuals_enabled.nil?  # default: EBDX visuals ON, Ghost Classic OFF
+    @mp_ebdx_enabled = 0  # FORK: OFF by default -> grounded vanilla battle UI (enable EBDX via MP/Options)
+    @mp_ghost_visuals_enabled = 0 if @mp_ghost_visuals_enabled.nil?  # default: vanilla battle UI; EBDX/Ghost are opt-in
   end
 end
 

@@ -1,8 +1,10 @@
 module PokeBattle_SceneConstants
   USE_ABILITY_SPLASH = true
   # Text colors
-  MESSAGE_BASE_COLOR   = Color.new(80, 80, 88)
+  MESSAGE_BASE_COLOR   = Color.new(60, 60, 68)
   MESSAGE_SHADOW_COLOR = Color.new(160, 160, 168)
+  # FORK: bright text used when Dark Mode is on (darkmode defaults ON)
+  DARKMODE_MESSAGE_BASE_COLOR = Color.new(200, 200, 200)
 
   # The number of party balls to show in each side's lineup.
   NUM_BALLS = Settings::MAX_PARTY_SIZE
@@ -10,6 +12,9 @@ module PokeBattle_SceneConstants
   # Centre bottom of the player's side base graphic
   PLAYER_BASE_X = 128
   PLAYER_BASE_Y = Settings::SCREEN_HEIGHT - 80
+  # FORK: lift player-side battlers up so they clear the taller bottom
+  # battle UI (vanilla + Ghost Classic). EBDX positions itself and ignores this.
+  PLAYER_SPRITE_LIFT = 16
 
   # Centre middle of the foe's side base graphic
   FOE_BASE_X    = Settings::SCREEN_WIDTH - 128
